@@ -1,0 +1,37 @@
+name: Daily Suno Prompt Generation
+
+on:
+  schedule:
+    - cron: '0 1 * * *'   # 매일 오전 10시 KST (UTC 01:00)
+  workflow_dispatch:       # 수동 실행 가능
+
+jobs:
+  generate-prompts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate today's Suno prompts
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python prompt_generator.py
+
+      - name: Commit and push prompts
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add prompts/
+          git diff --cached --quiet && echo "No changes" || \
+            git commit -m "chore: daily Suno prompts $(date +%Y-%m-%d)" && \
+            git push
