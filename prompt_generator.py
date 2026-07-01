@@ -76,12 +76,13 @@ def generate_prompts(today):
 - instrumental only (가사 없음)
 - 오늘의 날짜/계절/요일 감성을 반영
 
-5가지 카테고리:
+6가지 카테고리:
 1. 아침/카페 무드
 2. 수면/명상
 3. 감성/힐링 (오늘 계절 반영)
 4. 집중/공부 로파이
 5. 오늘의 특별 (날짜와 계절에서 영감받은 독창적인 무드)
+6. 직장 스트레스 해소 (직장에서 지치고 힘들 때 마음을 차분히 정리해주는 음악)
 
 다음 형식으로 출력해주세요:
 
@@ -98,6 +99,9 @@ def generate_prompts(today):
 [프롬프트]
 
 ### 5. 오늘의 특별 ✨
+[프롬프트]
+
+### 6. 직장 스트레스 해소 🫧
 [프롬프트]"""
 
     return call_claude(system_prompt)
@@ -154,7 +158,10 @@ emotional healing piano, touching and nostalgic, soft strings accompaniment, bit
 lofi piano study music, calm and focused, gentle arpeggios, peaceful background, soft emotional melody, quiet concentration, instrumental only
 
 ### 5. 오늘의 특별 ✨
-contemplative piano solo, introspective and deep, Ólafur Arnalds meets Yiruma, sparse notes with reverb, emotional journey, instrumental only"""
+contemplative piano solo, introspective and deep, Ólafur Arnalds meets Yiruma, sparse notes with reverb, emotional journey, instrumental only
+
+### 6. 직장 스트레스 해소 🫧
+gentle stress-relief piano, soft and calming, slow breathing rhythm, peaceful and reassuring, work exhaustion healing, warm and comforting melody, Einaudi style, instrumental only"""
 
     filename = save_prompts(content, today)
 
