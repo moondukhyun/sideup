@@ -73,7 +73,7 @@ def generate_prompts(today):
 - 영어로 작성 (Suno AI는 영어 프롬프트가 더 좋음)
 - 50-80 단어 분량
 - 구체적인 악기, 감정, 분위기, 레퍼런스 아티스트 포함
-- instrumental only (가사 없음)
+- 반드시 instrumental only (가사 없음, 보컬 없음) — 프롬프트 맨 끝에 항상 "instrumental only, no vocals, no lyrics, no singing" 을 포함할 것
 - 오늘의 날짜/계절/요일 감성을 반영
 
 6가지 카테고리:
