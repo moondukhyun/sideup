@@ -3630,7 +3630,9 @@ def _run_claude_once(prompt, timeout=300, allow_read=False):
     r = subprocess.run(cmd, input=prompt, capture_output=True, timeout=timeout,
                        creationflags=CREATE_NO_WINDOW, encoding="utf-8", errors="replace")
     if r.returncode != 0:
-        raise RuntimeError("claude 실행 실패: " + (r.stderr or "")[-400:])
+        # v11.19: 로그인 만료·사용량 한도 같은 안내는 stdout 으로 나오는 경우가 많아 함께 보여준다
+        detail = ((r.stderr or "").strip() + " " + (r.stdout or "").strip()).strip()[-400:]
+        raise RuntimeError(f"claude 실행 실패 (코드 {r.returncode}): " + (detail or "메시지 없음 — 명령 프롬프트에서 claude 를 직접 실행해 확인하세요"))
     return (r.stdout or "").strip()
 
 
