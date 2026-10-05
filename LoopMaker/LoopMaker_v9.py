@@ -3016,7 +3016,11 @@ NARR_SPEED = {
     "조금 빠르게": 8,
 }
 # 배경음(빗소리) 더킹: (sidechaincompress threshold, ratio)
+# v11.19: ("const", 빗소리 배율) = 목소리가 나와도 빗소리 크기를 줄이지 않고 처음부터 끝까지 일정하게 (잠들 때 소리 변화로 깨지 않도록)
 NARR_DUCK = {
+    "🌧 일정하게 · 보통 (잠잘 때 추천 ★)": ("const", 0.45),
+    "🌧 일정하게 · 빗소리 작게": ("const", 0.32),
+    "🌧 일정하게 · 빗소리 크게": ("const", 0.65),
     "약하게 (빗소리 거의 그대로)": (0.03, 4.0),
     "보통 (권장)": (0.02, 6.0),
     "강하게 (목소리 또렷하게)": (0.008, 14.0),
@@ -4265,7 +4269,13 @@ class StoryNarrator:
         #   (sidechaincompress는 짧은 입력이 끝나면 같이 멈춰서, 이야기가 끝나는 순간
         #    영상 소리 전체가 끊기던 문제)
         voice += ",apad"
-        if self.has_audio(video):
+        if self.has_audio(video) and thr == "const":
+            # 빗소리 크기 고정: 말할 때도, 말하지 않을 때도 같은 크기 (더킹 없음)
+            fc = (f"{voice}[vv];"
+                  f"[1:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,volume={ratio}[bg];"
+                  f"[bg][vv]amix=inputs=2:duration=first:dropout_transition=0,volume=2,"
+                  f"alimiter=limit=0.95[aout]")
+        elif self.has_audio(video):
             fc = (f"{voice}[vv];[vv]asplit=2[sc][vm];"
                   f"[1:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[bg];"
                   f"[bg][sc]sidechaincompress=threshold={thr}:ratio={ratio}:attack=150:release=1500[bgd];"
@@ -5016,7 +5026,7 @@ class App(SceneTabMixin, tk.Tk):
         self.narr_ext_audio_var = tk.StringVar()     # v11.10: Vrew 등 외부 음성 파일
         self.narr_voice_var = tk.StringVar(value=NARR_VOICES[1][0])   # v11.9: 기본 성우 = 현수 (1c 설정)
         self.narr_speed_var = tk.StringVar(value="기본 (잠자리 속도)")
-        self.narr_duck_var = tk.StringVar(value="보통 (권장)")
+        self.narr_duck_var = tk.StringVar(value=list(NARR_DUCK)[0])
         self.narr_len_var = tk.StringVar(value=NARR_LEN[0][0])
         self.narr_start_var = tk.DoubleVar(value=6.0)
         self.narr_title_sec_var = tk.DoubleVar(value=5.0)   # v11.5: 영상 첫 부분 이야기 제목 표시 시간
@@ -5390,7 +5400,7 @@ class App(SceneTabMixin, tk.Tk):
         ttk.Label(ofrm, text="읽기 속도").grid(row=0, column=0, sticky="w")
         ttk.Combobox(ofrm, textvariable=self.narr_speed_var, width=16, state="readonly",
                      values=list(NARR_SPEED.keys())).grid(row=0, column=1, sticky="w", padx=4)
-        ttk.Label(ofrm, text="말할 때 빗소리 줄이기").grid(row=0, column=2, sticky="w", padx=(12, 0))
+        ttk.Label(ofrm, text="빗소리 크기 방식").grid(row=0, column=2, sticky="w", padx=(12, 0))
         ttk.Combobox(ofrm, textvariable=self.narr_duck_var, width=22, state="readonly",
                      values=list(NARR_DUCK.keys())).grid(row=0, column=3, sticky="w", padx=4)
         ttk.Label(ofrm, text="이야기 길이").grid(row=1, column=0, sticky="w", pady=(4, 0))
