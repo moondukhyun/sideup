@@ -4572,7 +4572,7 @@ class SceneTabMixin:
         cfg = dict(scene=self.sm_scene_var.get(), count=self._sm_count(), rain=self.sm_rain_var.get(),
                    model=self.sm_model_var.get(), audio=self.sm_audio_var.get(),
                    duration=self.sm_dur_var.get(), motion=self.sm_motion_var.get(),
-                   details=self.sm_details_var.get(), wan=self.sm_wan_var.get())
+                   details=self.sm_details_var.get(), wan=self.sm_wan_var.get(), wet=self.sm_wet_var.get())
         try:
             with open(SM_TAB_CFG, "w", encoding="utf-8") as f:
                 json.dump(cfg, f, ensure_ascii=False, indent=1)
@@ -4592,6 +4592,7 @@ class SceneTabMixin:
         self.sm_motion_var = tk.BooleanVar(value=cfg.get("motion", True))
         self.sm_details_var = tk.BooleanVar(value=cfg.get("details", True))
         self.sm_wan_var = tk.BooleanVar(value=cfg.get("wan", False))
+        self.sm_wet_var = tk.BooleanVar(value=cfg.get("wet", True))      # v11.19: 젖은 바위·물줄기·수면 빗방울
         self.sm_comfy_var = tk.StringVar(value="ComfyUI 확인 중…")
         self.sm_proc = None
         self.sm_stop_flag = threading.Event()
@@ -4674,6 +4675,7 @@ class SceneTabMixin:
         v3 = ttk.Frame(v); v3.pack(fill="x", padx=8, pady=2)
         ttk.Checkbutton(v3, text="잎 흔들림·물 일렁임", variable=self.sm_motion_var).pack(side="left")
         ttk.Checkbutton(v3, text="물 튀김·물결·물방울", variable=self.sm_details_var).pack(side="left", padx=10)
+        ttk.Checkbutton(v3, text="젖은 바위·물줄기·수면 빗방울", variable=self.sm_wet_var).pack(side="left")
         v3b = ttk.Frame(v); v3b.pack(fill="x", padx=8, pady=2)
         ttk.Checkbutton(v3b, text="💧 물·안개 AI 움직임 (Wan 2.2 · 시험 기능 · 약 10분 더 걸림)",
                         variable=self.sm_wan_var).pack(side="left")
@@ -4837,6 +4839,8 @@ class SceneTabMixin:
             args.append("--no-motion")
         if not self.sm_details_var.get():
             args.append("--no-details")
+        if not self.sm_wet_var.get():
+            args.append("--no-wet")
         wan = self.sm_wan_var.get()
         if wan:
             args.append("--wan")
