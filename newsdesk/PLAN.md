@@ -154,3 +154,11 @@ ANTHROPIC_API_KEY=sk-... node newsdesk/run.mjs 3    # 초안 3건 → newsdesk/o
 4. **지급 준비**: Studio > 수익 창출에서 개인 정보 확인과 주소 PIN 입력을 완료합니다. PIN이 안 오면 새로 요청합니다.
 5. **이미 켜진 멤버십·Supers·기프트**는 라이브 중 한두 번 부드럽게 안내합니다.
 6. Shorts는 "관련 동영상"으로 이야기 시리즈에 연결합니다.
+
+---
+
+# 11. 바탕화면 아이콘 (Windows)
+1. Node.js LTS 설치 (https://nodejs.org)
+2. 이 저장소를 PC에 내려받기
+3. `newsdesk/install-desktop-icon.ps1` 우클릭 > "PowerShell에서 실행" → 바탕화면에 "Somnia Forest NewsDesk" 아이콘 생성
+4. 아이콘 더블클릭 → API 키 입력(최초 1회, `newsdesk/.apikey`에 PC 안에서만 저장) → 초안 개수 입력 → `newsdesk/out/` 폴더가 열림
