@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+# LoopMaker 가 실행 중에 만드는 개인 설정·진행 상태 (저장소에 올리지 않음)
+LoopMaker/*_목록.txt
+LoopMaker/*_진행상태.json
+LoopMaker/scenemaker_tab.json
+output/
+update/pkg/
