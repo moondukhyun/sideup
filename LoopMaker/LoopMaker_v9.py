@@ -4,6 +4,12 @@ LoopMaker v10 — 무한루프 영상 + 유튜브 패키지 + 숏폼 생성기
 Somnia Forest 전용 도구
 (파일명은 하위 호환을 위해 LoopMaker_v9.py 그대로 유지 — 바탕화면 바로가기/배치파일 안 깨짐)
 
+v11.20 신규 (2026-10-11): 🌧 AI 배경 사실감 업그레이드 (SceneMaker 수정본 필요)
+ - 창문 유리: 눈에 보이는 큰·중간 물방울(풍경이 거꾸로 맺힘) + 미끄러지며 물길을 남기고 지나간 자리의 방울을 쓸어 담는 방울 + 김서림
+ - 빗줄기: 바람(돌풍)에 따른 기울기 변화, 굵기 변화, 끝이 흐려지는 번짐, 가로등 등 밝은 빛 주변 빗줄기·번짐(블룸)
+ - 젖은 바닥(어두워짐 + 웅덩이 하늘 반사), 젖은 바위·물줄기, 수면 빗방울, 잎 흔들림 버그 수정
+ - 물 없는 장면에서는 Wan(AI 물 움직임)을 자동으로 건너뜀 (시간 절약)
+
 v11.19 신규 (2026-10-05): 🌙 이야기 서재 + 잠자리 창작 스타일 (구독자 피드백 반영)
  - 셜록 홈즈 외에 잠자기 좋은 이야기를 골라 듣기: 연재형 4종(전래동화·세계 명작 동화·포근한 고전 소설·한국 고전/근대 문학,
    서재마다 목록/진행상태 파일이 따로 있어 영상마다 이어서) + 창작형 5종(새 옛이야기·숲과 호수 산책·밤 여행·작은 가게·수면 명상)
@@ -4799,7 +4805,7 @@ class SceneTabMixin:
         ttk.Checkbutton(v3, text="물 튀김·물결·물방울", variable=self.sm_details_var).pack(side="left", padx=10)
         ttk.Checkbutton(v3, text="젖은 바위·물줄기·수면 빗방울", variable=self.sm_wet_var).pack(side="left")
         v3b = ttk.Frame(v); v3b.pack(fill="x", padx=8, pady=2)
-        ttk.Checkbutton(v3b, text="💧 물·안개 AI 움직임 (Wan 2.2 · 시험 기능 · 약 10분 더 걸림)",
+        ttk.Checkbutton(v3b, text="💧 물·안개 AI 움직임 (Wan 2.2 · 약 10분 · 물 없는 장면은 자동 건너뜀)",
                         variable=self.sm_wan_var).pack(side="left")
         v4 =ttk.Frame(v); v4.pack(fill="x", padx=8, pady=(2, 6))
         self.sm_vid_btn = ttk.Button(v4, text="🎬 영상 만들기", command=self.sm_make_video)
@@ -5074,7 +5080,7 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.19 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.20 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
@@ -6317,7 +6323,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.19 시작\n")
+        self.log("🚀 LoopMaker v11.20 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 

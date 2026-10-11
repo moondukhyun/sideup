@@ -166,3 +166,16 @@ class WetRocks:
             drops = buf.astype(np.float32) * (1 / 255.0) * (0.62 * min(1.4, self.wet))
             out += ((0.96 - out) * drops[..., None])
         return out
+
+
+def wet_ground(bg, ground, puddle, wet=0.5, res=1.0):
+    """젖은 바닥: 어두워지고(약 20%), 웅덩이는 하늘빛을 비춘다. ground/puddle: details.build_maps 의 지도 (0..1)."""
+    g = np.clip(ground, 0, 1)[..., None].astype(np.float32)
+    p = np.clip(puddle, 0, 1)[..., None].astype(np.float32)
+    H = bg.shape[0]
+    top = bg[: max(4, H // 8)].reshape(-1, 3)
+    lum = top @ LUMA
+    sky = top[lum >= np.percentile(lum, 70)].mean(0)                # 위쪽에서 가장 밝은 부분 = 하늘색
+    dark = bg * (1.0 - 0.20 * wet)
+    refl = dark + (sky - dark) * (0.30 * wet)                        # 웅덩이는 하늘을 비춰 오히려 밝아짐
+    return (bg * (1 - g) + (dark * (1 - p) + refl * p) * g).astype(np.float32)

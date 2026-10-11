@@ -137,7 +137,7 @@ SCENES = {
                 "warm amber interior light, cool grey outside",
                 "night, soft pendant lamp, city lights far away",
             ],
-            {"intensity": 0.7, "brightness": 0.3, "fog": 0.0, "splashes": False, "darken": 0.03},
+            {"intensity": 0.7, "brightness": 0.3, "fog": 0.0, "splashes": False, "darken": 0.03, "window": True},
             negative=HANOK_NEGATIVE,
             lora=HANOK_LORA,
             comfy={"checkpoint": HANOK_BASE, "family": "zimage"},   # 한옥 건축 = Z-Image (SDXL 선택 시 LoRA 기준 모델)
@@ -344,7 +344,7 @@ SCENES = {
                 "evening, warm lamp inside, dark blue outside",
                 "summer, fresh green leaves outside",
             ],
-            {"intensity": 0.8, "brightness": 0.35, "fog": 0.0, "splashes": False, "darken": 0.05},
+            {"intensity": 0.8, "brightness": 0.35, "fog": 0.0, "splashes": False, "darken": 0.05, "window": True},
             negative=FOREST_NEGATIVE + ", log cabin, fireplace, candles, luxury",
         ),
         Scene(
@@ -426,6 +426,12 @@ for _name in NATURAL_SCENES:
     _s.comfy = {**NATURAL_COMFY, **_s.comfy}
     _s.post = {**NATURAL_POST, **_s.post}
     _s.negative = ", ".join(x for x in (_s.negative, NATURAL_NEGATIVE) if x)
+
+
+# v11.20: 물·안개가 거의 없는 씬은 Wan(AI 물 움직임)을 기본으로 건너뜀 (실행해도 '움직임 없음'이라 시간만 2~15분 낭비)
+for _name in ("forest_path", "autumn_forest_path", "autumn_temple", "rain_leaves", "cafe_window", "cabin_window",
+              "hanok_cafe", "city_night", "night_park", "temple_path", "tent", "country_house"):
+    SCENES[_name].rain["wan_ok"] = False
 
 
 def get_scene(name):

@@ -46,6 +46,7 @@ def _rain_settings(cfg, scene_name, args, job_rain=None):
     if getattr(args, "no_wet", False):          # v11.19: 젖은 바위·물줄기·수면 빗방울 끄기
         cli["wet"] = 0.0
         cli["water_rain"] = 0.0
+        cli["wet_ground"] = 0.0
     return RainSettings.from_dict(cfg["rain"], scene_rain, job_rain or {}, cli)
 
 
@@ -225,6 +226,9 @@ def _attach_wan(cfg, renderer, job, bg, meta, args):
     """4단계: Wan 2.2 로 물·안개 부분만 AI 움직임 (잎은 기존 절차적 흔들림 유지)."""
     from . import wanmotion
     from .motion import vegetation_mask
+    if not renderer.s.wan_ok and not getattr(args, "wan_force", False):
+        print("  Wan 건너뜀: 이 장면은 물·안개가 거의 없어 AI 물 움직임이 아무것도 못 찾습니다 (2~15분 절약, 강제하려면 --wan-force)")
+        return
     client = ComfyClient(cfg["comfy"]["url"], timeout=3600)
     try:
         client.ping()
@@ -295,9 +299,14 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         if not real:
             return
         from .glass import GlassRain, window_mask
-        renderer.glass = GlassRain(renderer.bg, window_mask(dfull, renderer.bg), renderer.N, renderer.fps,
-                                   amount=rs.intensity, seed=rs.seed)
-        print(f"  창 유리: 작은 물방울 4그룹 · 흘러내리는 방울 {len(renderer.glass.sliders)}개")
+        wmask = window_mask(dfull, renderer.bg)
+        renderer.glass = GlassRain(renderer.bg, wmask, renderer.N, renderer.fps, amount=rs.intensity, seed=rs.seed)
+        g = renderer.glass
+        tint = (np.clip(renderer.bg, 0, 1) * 255).astype(np.float32)
+        tint[..., 2] = tint[..., 2] * (1 - wmask * 0.5) + 255 * wmask * 0.5
+        Image.fromarray(np.clip(tint, 0, 255).astype(np.uint8)).resize((1280, 720)).save(Path(job) / "glass_mask.jpg")
+        print(f"  창 유리: 유리 영역 {float((wmask > 0.5).mean()):.0%} · 정지 방울 {g.stats['med']}개(중간·큰) + {g.stats['micro']}개(안개) · "
+              f"흘러내리는 방울 {len(g.sliders)}개 — 적용 영역 확인: glass_mask.jpg (파란색)")
         return
     if not real and (want_motion or want_wet):
         print("  깊이 지도 없음 → 추정 깊이로 잎 흔들림·젖은 바위만 적용 (물 튀김·물웅덩이는 생략)")
@@ -309,6 +318,10 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         d = renderer.details
         print(f"  디테일: 물 튀김 {len(d.splashes)} · 물결 {len(d.ripples)} · 물방울 {len(d.drips)} (루프당)")
     renderer._depth_full = dfull
+    if want_details and real and not no_wet and rs.wet_ground > 0:
+        from .wetrock import wet_ground
+        renderer.bg = wet_ground(renderer.bg, maps["ground"], maps["puddle"], rs.wet_ground, renderer.res)
+        print(f"  젖은 바닥: 바닥 {float((maps['ground'] > 0.5).mean()):.0%} · 웅덩이 {float((maps['puddle'] > 0.5).mean()):.0%} (어두워지고 하늘이 비침)")
     if want_wet and rs.wet > 0:
         rock = _attach_wet(renderer, job, dfull, rs)   # 배경 자체를 젖은 돌로 바꾸므로 잎 흔들림보다 먼저
         if rock is not None and maps is not None:
@@ -648,6 +661,7 @@ def _add_rain_args(p):
 
 def _add_video_args(p):
     p.add_argument("--wan", action="store_true", help="물·안개 부분에 Wan 2.2 AI 움직임 (ComfyUI, 5~15분 추가)")
+    p.add_argument("--wan-force", action="store_true", help="물이 없는 장면에서도 Wan 을 강제로 실행")
     p.add_argument("--wan-prompt", default="", help="Wan 움직임 묘사 추가 (영어)")
     p.add_argument("--wan-seed", type=int, help="Wan 시드 (기본: 배경 시드)")
     p.add_argument("--wan-period", type=float, help="Wan 움직임 한 바퀴 길이(초, 기본: 원래 속도 5초), 루프를 나누도록 조정됨")

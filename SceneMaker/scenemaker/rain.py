@@ -33,6 +33,10 @@ class RainSettings:
     leaf_kicks: float = 1.0   # 빗방울 맞고 튕기는 잎 세기 (0=끔)
     wet: float = 0.0          # v11.19: 젖은 바위 + 흘러내리는 물줄기 세기 (0 = 끔, 계곡 씬 1.0)
     water_rain: float = 0.0   # v11.19: 수면(계곡·호수)에 떨어지는 빗방울 물결 (0 = 끔)
+    gust: float = 1.0         # v11.20: 바람(돌풍)에 따라 빗줄기 기울기가 천천히 흔들리는 세기 (0 = 끔)
+    bloom: float = 1.0        # v11.20: 밝은 빛(하늘·가로등) 주변 번짐 (0 = 끔)
+    wet_ground: float = 0.5   # v11.20: 젖은 바닥(어두워짐 + 웅덩이에 하늘 반사) 세기 (0 = 끔)
+    wan_ok: bool = True       # v11.20: False 면 물·안개가 거의 없는 씬이라 Wan(AI 물 움직임)을 건너뜀
     dof: float = 0.0          # 깊이 기반 피사계심도 (0 = 끔). 가을 씬은 1.0 (2026-10-02 Cowork: 잘린 종이 느낌 해소)
     seed: int = 7
 
@@ -75,6 +79,7 @@ LAYERS = [
 # 방울마다 기울기를 조금씩 다르게(완벽한 평행선 방지), 선은 부드러운 안티에일리어싱으로 그린다.
 # (length 는 이 방식에선 쓰지 않음 — 속도 x SHUTTER 로 정해짐)
 SHUTTER = 0.5
+GUST_AMP = 0.028          # 돌풍으로 기울기(tan)가 흔들리는 최대 폭 (약 ±1.6°)
 LAYERS_DEPTH = [
     _Layer(scale=0.5, count=2600, speed=26, length=0, width=1, alpha=0.25, blur=0.3, near=0.18),
     _Layer(scale=0.75, count=1300, speed=42, length=0, width=1, alpha=0.33, blur=0.3, near=0.45),
@@ -103,6 +108,9 @@ class RainRenderer:
         self.fog_color = np.array(settings.fog_color, dtype=np.float32) / 255.0
         self.tan = math.tan(math.radians(settings.angle))
 
+        self.bloom = None
+        if self.depth_style and settings.grade > 0 and settings.bloom > 0:
+            self.bloom = self._make_bloom(bg, settings.bloom)
         self.layers = [self._init_layer(_Layer(**{f.name: getattr(l, f.name) for f in fields(l)}), rng)
                        for l in (LAYERS_DEPTH if self.depth_style else LAYERS)]
         self.vis = self._make_visibility(bg)
@@ -167,7 +175,7 @@ class RainRenderer:
             tans = np.full(n, self.tan)
         span = lh + length.max() + 2                                   # 낙하 구간 S
         cycles = np.maximum(1, np.round(target_v * self.N / span))     # 정수 바퀴 → seamless
-        margin = float(np.abs(tans).max()) * span + 4
+        margin = (float(np.abs(tans).max()) + GUST_AMP) * span + 4
         layer.drops = {
             "x0": rng.uniform(0, lw + margin, n),
             "y0": rng.uniform(0, span, n),
@@ -177,11 +185,21 @@ class RainRenderer:
             # classic: 3토막 테이퍼로 평균 밝기가 줄어든 만큼 보정 (x1.7) / depth: 고른 밝기의 번진 줄
             "a": np.minimum(255, layer.alpha * (1.0 if self.depth_style else 1.7)
                             * rng.uniform(0.25 if self.depth_style else 0.5, 1.0, n) * 255).astype(np.int32),
+            "wd": (1 + (rng.random(n) < (0.30 if (self.depth_style and layer.scale >= 1.0 and layer.blur < 2) else 0.0))
+                   ).astype(np.int32),                              # 가까운 비는 일부가 더 굵게
             "span": span,
             "margin": margin,
             "size": (lw, lh),
         }
         return layer
+
+    def _make_bloom(self, bg, gain):
+        """밝은 부분(하늘·가로등) 주변으로 번지는 빛(halation): 카메라 렌즈 특유의 부드러운 번짐. 정지 이미지에서 한 번만 계산."""
+        import cv2
+        lum = bg @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+        hi = np.clip((lum - 0.74) / 0.26, 0, 1)[..., None] * bg
+        glow = cv2.GaussianBlur(hi, (0, 0), 14.0 * self.res) * 0.5 + cv2.GaussianBlur(hi, (0, 0), 40.0 * self.res) * 0.5
+        return (glow * 0.20 * gain).astype(np.float32)
 
     def _make_visibility(self, bg):
         """빗줄기는 어두운 배경 앞에서 잘 보이고 밝은 하늘 앞에서는 거의 안 보인다 (빛 굴절)."""
@@ -191,7 +209,13 @@ class RainRenderer:
         lum = np.asarray(small.filter(ImageFilter.GaussianBlur(2)).resize((self.W, self.H), Image.BILINEAR),
                          dtype=np.float32) / 255.0
         if self.depth_style:   # 밝은 하늘 앞에서는 거의 안 보이게 (예전: 최소 0.4)
-            return np.clip(0.2 + 1.3 * (1.0 - lum) ** 1.3, 0.15, 1.3)[..., None]
+            vis = 0.2 + 1.3 * (1.0 - lum) ** 1.3
+            # v11.20: 가로등·창문 불빛처럼 아주 밝은 점광원 주변의 비는 빛을 받아 더 밝게 번쩍인다 (역광 빗줄기)
+            import cv2
+            src = np.clip((lum - 0.82) / 0.18, 0, 1).astype(np.float32)
+            if src.max() > 0.05:
+                vis = vis + 1.6 * np.clip(cv2.GaussianBlur(src, (0, 0), 28.0 * self.res) * 3.0, 0, 1)
+            return np.clip(vis, 0.15, 2.2)[..., None]
         return np.clip(0.6 + 0.9 * (1.0 - lum) ** 1.3, 0.4, 1.4)[..., None]
 
     def _make_fog(self, rng):
@@ -220,6 +244,14 @@ class RainRenderer:
                 flash[idx] = max(flash[idx], e)
         return flash
 
+    def _gust(self, f, li):
+        """바람 세기에 따라 빗줄기 기울기가 천천히 흔들림 (층마다 위상이 달라 시차가 생김, 루프 N 에서 정확히 반복)."""
+        if self.s.gust <= 0:
+            return 0.0
+        t = 2 * math.pi * f / self.N
+        ph = 1.3 * li
+        return GUST_AMP * self.s.gust * (0.6 * math.sin(2 * t + ph) + 0.4 * math.sin(5 * t + 1.7 * ph))
+
     # ---------- 프레임 ----------
     def _rain_mask(self, f):
         mask = np.zeros((self.H, self.W), dtype=np.float32)
@@ -227,17 +259,22 @@ class RainRenderer:
             d = layer.drops
             lw, lh = d["size"]
             y = (d["y0"] + d["v"] * f) % d["span"]
-            x = (d["x0"] + y * d["tan"]) % (lw + d["margin"]) - d["margin"] / 2
+            tan_t = d["tan"] + self._gust(f, li)
+            x = (d["x0"] + y * tan_t) % (lw + d["margin"]) - d["margin"] / 2
             dy = d["len"]
-            dx = dy * d["tan"]
+            dx = dy * tan_t
             w = max(1, round(layer.width * (self.res if layer.scale >= 1 else 1)))
             if self.depth_style:
                 # 번진 빗줄기: 고른 밝기 + 부드러운 가장자리 (1/16 픽셀 정밀도 안티에일리어싱)
                 import cv2
                 arr = np.zeros((lh, lw), np.uint8)
-                for xi, yi, dxi, dyi, ai in zip(x, y, dx, dy, d["a"]):
+                for xi, yi, dxi, dyi, ai, wi in zip(x, y, dx, dy, d["a"], d["wd"]):
+                    ww = w * int(wi)
+                    # 실제 빗줄기처럼 가운데가 가장 진하고 양 끝이 흐려지는 번짐: 전체 길이(옅게) + 가운데 60%(진하게)
                     cv2.line(arr, (int((xi - dxi) * 16), int((yi - dyi) * 16)), (int(xi * 16), int(yi * 16)),
-                             int(ai), w, cv2.LINE_AA, 4)
+                             int(ai * 0.55), ww, cv2.LINE_AA, 4)
+                    cv2.line(arr, (int((xi - dxi * 0.8) * 16), int((yi - dyi * 0.8) * 16)),
+                             (int((xi - dxi * 0.2) * 16), int((yi - dyi * 0.2) * 16)), int(ai), ww, cv2.LINE_AA, 4)
                 img = Image.fromarray(arr)
                 draw = ImageDraw.Draw(img)
             else:
@@ -280,6 +317,8 @@ class RainRenderer:
     def frame(self, f):
         f %= self.N
         out = self.motion.frame(f).copy() if self.motion is not None else self.bg.copy()
+        if self.bloom is not None:
+            out += self.bloom                                # 밝은 빛 번짐 (halation)
         if self.water is not None:
             out = self.water.apply(out, f)                  # 수면 굴절 → 그 위에 안개·빗줄기
         if self.wet is not None:
