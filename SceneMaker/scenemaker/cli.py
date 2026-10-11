@@ -321,7 +321,11 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         renderer.motion = BackgroundMotion(renderer.bg, maps["depth"], maps["puddle"], renderer.N, seed=rs.seed,
                                            fps=renderer.fps, foliage=rs.foliage, exclude=maps["ground"],
                                            kicks=rs.leaf_kicks)
-        print(f"  배경 움직임: {'잎 흔들림·물 일렁임' if renderer.motion.active else '해당 영역 없음 (초록 잎을 거의 못 찾음)'}")
+        cov = getattr(renderer.motion, "veg_coverage", 0.0)
+        print(f"  배경 움직임: {'잎 흔들림·물 일렁임' if renderer.motion.active else '해당 영역 없음 (초록 잎을 거의 못 찾음)'}"
+              f" — 잎으로 인식한 영역 {cov:.1%}")
+        if cov < 0.01:
+            print("  ! 잎 영역이 거의 없어요 (사진에 잎이 적거나 색이 옅음) — 잎 흔들림이 보이지 않을 수 있어요")
     if want_wet and rs.water_rain > 0:
         _attach_water(renderer, rs, dfull)
 

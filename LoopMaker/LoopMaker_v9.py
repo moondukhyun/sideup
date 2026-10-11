@@ -8,6 +8,11 @@ v11.19 신규 (2026-10-05): 🌙 이야기 서재 + 잠자리 창작 스타일 (
  - 셜록 홈즈 외에 잠자기 좋은 이야기를 골라 듣기: 연재형 4종(전래동화·세계 명작 동화·포근한 고전 소설·한국 고전/근대 문학,
    서재마다 목록/진행상태 파일이 따로 있어 영상마다 이어서) + 창작형 5종(새 옛이야기·숲과 호수 산책·밤 여행·작은 가게·수면 명상)
  - 기본 선택을 잠자리용(전래동화)으로 변경, 셜록 홈즈는 '명작 추리 연재(긴장감 있음)'로 남겨 둠 — 기존 진행상태 파일 그대로 호환
+ - 연재형 스타일: '다음에 들려줄 작품' 드롭다운으로 목록 파일을 열지 않고 바로 선택
+ - 빗소리 크기 방식: 목소리와 상관없이 일정하게 (잠잘 때 소리 변화로 깨지 않게, 기본값)
+ - 유튜브 문구(제목 카드·제목·설명·태그)를 이야기 종류에 맞춤 — 전래동화·수면 명상에 'Mystery' 가 붙던 문제 수정
+ - Claude 로그인 만료·사용량 한도는 재시도 없이 바로 안내 (예전엔 몇 분 기다린 뒤 샘플 이야기로 영상을 만들었음)
+ - AI 배경: 젖은 바위·물줄기·수면 빗방울 옵션 (SceneMaker 수정본 필요)
 
 v11.18 신규 (2026-09-30): 🌧 AI 배경 탭 — E:/SceneMaker 연결
  - AI 배경 이미지 생성(ComfyUI, 꺼져 있으면 자동으로 켬) → 목록·미리보기로 고르기
@@ -313,6 +318,55 @@ def caption_free_start(total_sec, cap_sec=30.0, need_sec=SHORTS_SEC):
 STORY_SUMMARY_MAX = 50
 STORY_TAGS = ["sleep story", "bedtime story", "mystery sleep story", "rain sleep story",
               "잠자리 이야기", "수면 동화", "미스터리 이야기", "잠 오는 이야기"]
+
+# v11.19: 이야기 종류별 문구. 전래동화·수면 명상 영상에 'Mystery' 가 붙지 않도록 제목 카드·제목·설명·태그를 종류에 맞춘다.
+_TAGS_BASE = ["sleep story", "bedtime story", "rain sleep story", "잠자리 이야기", "잠 오는 이야기"]
+STORY_KINDS = {
+    "mystery": dict(label_kr="오늘 밤의 이야기", label_en="Tonight's Bedtime Mystery", seo="Mystery Sleep Story",
+                    core="Tonight's bedtime mystery story", multi="{n} bedtime mystery stories",
+                    tags=STORY_TAGS),
+    "folk": dict(label_kr="오늘 밤의 옛이야기", label_en="Tonight's Folk Tale", seo="Folk Tale Sleep Story",
+                 core="Tonight's gentle folk tale", multi="{n} gentle folk tales",
+                 tags=_TAGS_BASE + ["korean folk tale", "bedtime fairy tale", "전래동화", "옛날이야기", "잠자리 동화"]),
+    "world": dict(label_kr="오늘 밤의 동화", label_en="Tonight's Fairy Tale", seo="Fairy Tale Sleep Story",
+                  core="Tonight's classic fairy tale", multi="{n} classic fairy tales",
+                  tags=_TAGS_BASE + ["fairy tale for sleep", "classic fairy tales", "세계 명작 동화", "동화 읽어주기", "잠자리 동화"]),
+    "cozyclassic": dict(label_kr="오늘 밤의 고전 낭독", label_en="Tonight's Cozy Classic", seo="Cozy Classic Story",
+                        core="Tonight's cozy classic story", multi="{n} cozy classic stories",
+                        tags=_TAGS_BASE + ["bedtime reading", "classic novel audiobook", "cozy audiobook", "고전 소설 낭독", "오디오북"]),
+    "korean": dict(label_kr="오늘 밤의 문학 낭독", label_en="Tonight's Korean Classic", seo="Korean Classic Reading",
+                   core="Tonight's Korean literary reading", multi="{n} Korean literary readings",
+                   tags=_TAGS_BASE + ["korean literature", "korean classic reading", "한국 문학 낭독", "고전 문학", "오디오북"]),
+    "nature": dict(label_kr="오늘 밤의 산책", label_en="Tonight's Night Walk", seo="Nature Sleep Story",
+                   core="Tonight's quiet walk through the forest", multi="{n} quiet nature walks",
+                   tags=_TAGS_BASE + ["nature sleep story", "forest walk for sleep", "숲 산책", "자연 이야기"]),
+    "journey": dict(label_kr="오늘 밤의 여행", label_en="Tonight's Night Journey", seo="Night Journey Story",
+                    core="Tonight's quiet night journey", multi="{n} quiet night journeys",
+                    tags=_TAGS_BASE + ["night train sleep story", "travel sleep story", "밤 기차 여행", "여행 이야기"]),
+    "shop": dict(label_kr="오늘 밤의 이야기", label_en="Tonight's Cozy Story", seo="Cozy Rainy Day Story",
+                 core="Tonight's cozy rainy day story", multi="{n} cozy rainy day stories",
+                 tags=_TAGS_BASE + ["cozy story", "rainy day story", "따뜻한 이야기", "일상 이야기"]),
+    "meditation": dict(label_kr="오늘 밤의 수면 명상", label_en="Tonight's Sleep Meditation", seo="Sleep Meditation",
+                       core="Tonight's guided sleep meditation", multi="{n} guided sleep meditations",
+                       intro_kr="🧘 오늘 밤 빗소리와 함께 하는 수면 명상",
+                       tags=["sleep meditation", "guided sleep meditation", "guided relaxation", "rain sleep",
+                             "수면 명상", "잠 오는 명상", "불면증", "이완 명상"]),
+}
+_STYLE_TO_KIND = {"lib:folk": "folk", "calm:oldtale": "folk", "lib:world": "world", "lib:cozyclassic": "cozyclassic",
+                  "lib:korean": "korean", "calm:forest": "nature", "calm:journey": "journey",
+                  "calm:shop": "shop", "calm:meditation": "meditation"}
+
+
+def story_kind_key(style):
+    """이야기 스타일 값 → 종류 키 (미스터리·셜록·반전은 mystery)."""
+    return _STYLE_TO_KIND.get(style, "mystery")
+
+
+def story_kind(key):
+    """종류 키 → 문구 묶음. 예전 story_info.json(종류 정보 없음)은 미스터리로 취급."""
+    k = dict(STORY_KINDS.get(key or "mystery", STORY_KINDS["mystery"]))
+    k.setdefault("intro_kr", "📖 오늘 밤 빗소리와 함께 들려드릴 이야기")
+    return k
 
 
 def fit_summary(text, limit=STORY_SUMMARY_MAX):
@@ -808,18 +862,16 @@ class YTPackage:
         if story and (story.get("title") or story.get("summary")):
             st = (story.get("title") or "").strip()
             sm = fit_summary(story.get("summary") or "")
-            story_block = ("📖 오늘 밤 빗소리와 함께 들려드릴 이야기\n"
+            kd = story_kind(story.get("kind"))
+            story_block = (kd["intro_kr"] + "\n"
                            + (f"「{st}」\n" if st else "") + (f"{sm}\n" if sm else "")
-                           + "Tonight's bedtime mystery story, softly narrated over the rain.\n\n")
+                           + kd["core"] + ", softly narrated over the rain.\n\n")
             eps = story.get("episodes") or []
             if len(eps) >= 2:
                 for k, ep in enumerate(eps, 1):
                     story_tl += f"{_sec_hms(ep['start_sec'])} — 🌙 {k}편 「{ep['title']}」\n"
-                story_block = story_block.replace(
-                    "Tonight's bedtime mystery story", f"{len(eps)} bedtime mystery stories")
-                story_block = story_block.replace(
-                    "📖 오늘 밤 빗소리와 함께 들려드릴 이야기\n",
-                    f"📖 오늘 밤 빗소리와 함께 들려드릴 이야기 (총 {len(eps)}편)\n")
+                story_block = story_block.replace(kd["core"], kd["multi"].format(n=len(eps)))
+                story_block = story_block.replace(kd["intro_kr"] + "\n", f"{kd['intro_kr']} (총 {len(eps)}편)\n")
             elif story.get("start_sec") is not None:
                 story_tl += f"{_sec_hms(story['start_sec'])} — 🌙 이야기 시작 · Story begins\n"
             if story.get("end_sec"):
@@ -888,15 +940,16 @@ Subscribe for new rain & nature sounds every week!
         # 유튜브 제목 100자 제한을 넘으면 앞쪽 수식어를 짧은 버전으로 바꿔 맞춘다.
         story_title = ((story or {}).get("title") or "").strip()
         n_eps = len((story or {}).get("episodes") or [])
+        kd = story_kind((story or {}).get("kind"))
         if story_title:
             sub = f" — 🌙 「{story_title}」" + (f" 외 {n_eps - 1}편" if n_eps >= 2 else "")
             titles = [
                 (f"{en} {{DUR}} 🌧️ Deep Sleep, Study, Insomnia Relief | {kr}{sub}",
                  f"{en} {{DUR}} 🌧️ Sleep Story | {kr}{sub}"),
                 (f"{en} Sounds {{DUR}} — Fall Asleep Fast, Relax, Focus | ASMR {kr}{sub}",
-                 f"{en} {{DUR}} — Mystery Sleep Story & Rain | {kr}{sub}"),
+                 f"{en} {{DUR}} — {kd['seo']} & Rain | {kr}{sub}"),
             ]
-            extra_tags_all = user_tags + [en.lower(), kr] + STORY_TAGS + [f"{en.lower()} sounds"]
+            extra_tags_all = user_tags + [en.lower(), kr] + kd["tags"] + [f"{en.lower()} sounds"]
 
         r = self._run([FFPROBE, "-v", "error", "-show_entries", "format=duration",
                        "-of", "default=nw=1:nk=1", video])
@@ -3604,13 +3657,71 @@ def classic_status_text():
     return s + f" · 완료 {len(st['done'])}편 / 전체 {n}편 · 다음 작품: " + (", ".join(f"「{w[1]}」" for w in q[:2]) or "없음")
 
 
+class ClaudeFatalError(RuntimeError):
+    """재시도해도 소용없는 Claude 오류(로그인 만료·사용량 한도). 샘플 이야기로 넘어가지 않고 바로 멈춘다."""
+
+
+_CLAUDE_AUTH_HINTS = ("oauth", "failed to authenticate", "please run /login", "invalid api key",
+                      "not logged in", "authentication_error", "authentication failed")
+_CLAUDE_LIMIT_HINTS = ("usage limit", "limit reached", "credit balance", "rate_limit_error", "quota")
+
+
+def claude_fatal_message(detail):
+    """claude 실행 실패 출력에서 로그인 만료/사용량 한도를 알아보고 한글 안내문을 돌려준다 (해당 없으면 None)."""
+    t = (detail or "").lower()
+    if any(h in t for h in _CLAUDE_AUTH_HINTS):
+        return ("Claude Code 로그인이 만료됐어요. 명령 프롬프트(cmd)에서 'claude' 를 실행해 '/login' 으로 다시 "
+                "로그인한 뒤 LoopMaker 를 다시 실행해주세요. (앱에서 로그인돼 있어도 이 PC 의 Claude Code 는 따로 로그인해야 해요)")
+    if any(h in t for h in _CLAUDE_LIMIT_HINTS):
+        return "Claude 사용량 한도에 걸렸어요. 안내된 시간(보통 몇 시간) 뒤에 다시 시도해주세요."
+    return None
+
+
+def lib_work_rows():
+    """현재 서재의 작품 → [(화면에 보일 문구, 목록 파일의 원문 줄)]  ▶ 진행 중 / ✅ 이미 들려줌 표시"""
+    st = load_classic_state()
+    cur = (st.get("current") or {}).get("line")
+    rows = []
+    for author, title, _memo, line in _classic_items():
+        mark = "▶ 진행 중 · " if line == cur else ("✅ 들려줌 · " if line in st["done"] else "")
+        who = "" if author in ("", "작자 미상") else f" — {author}"
+        rows.append((f"{mark}{title}{who}", line))
+    return rows
+
+
+def classic_set_next(line, abandon_current=False):
+    """고른 작품을 '다음에 들려줄 작품'으로 만든다: 목록 맨 위로 옮기고, 이미 들려준 작품이면 완료 표시를 지운다.
+    진행 중인 다른 작품이 있으면 abandon_current=True 일 때만 그 진행 기록을 지우고 바꾼다. → 작품 제목"""
+    lib = _lib()
+    with open(lib["list"], encoding="utf-8-sig") as f:
+        raw = f.read().splitlines()
+    work = [i for i, ln in enumerate(raw) if ln.strip() and not ln.strip().startswith("#")]
+    hit = [i for i in work if raw[i].strip() == line]
+    if not hit:
+        raise RuntimeError("목록에서 이 작품을 찾지 못했어요 (목록 파일이 바뀐 것 같아요 — 목록을 다시 불러오세요)")
+    if hit[0] != work[0]:
+        raw.insert(work[0], raw.pop(hit[0]))
+        with open(lib["list"], "w", encoding="utf-8-sig") as f:
+            f.write("\n".join(raw) + "\n")
+    st = load_classic_state()
+    st["done"] = [d for d in st["done"] if d != line]
+    cur = st.get("current")
+    if cur and cur.get("line") != line:
+        if not abandon_current:
+            raise RuntimeError(f"진행 중인 「{cur.get('title')}」가 있어요")
+        st["current"] = None
+    save_classic_state(st)
+    return next((it[1] for it in _classic_items() if it[3] == line), line)
+
+
 def run_claude_text(prompt, timeout=300, allow_read=False, retries=3, log=None):
-    """v11.13: 일시적인 실패(시간 초과·네트워크·잠깐의 사용량 제한)에 대비해 최대 3번 재시도"""
+    """v11.13: 일시적인 실패(시간 초과·네트워크·잠깐의 사용량 제한)에 대비해 최대 3번 재시도.
+    v11.19: 로그인 만료·사용량 한도는 기다려도 풀리지 않으므로 재시도 없이 바로 멈춘다."""
     last = None
     for attempt in range(retries):
         try:
             return _run_claude_once(prompt, timeout=timeout, allow_read=allow_read)
-        except FileNotFoundError:
+        except (FileNotFoundError, ClaudeFatalError):
             raise
         except Exception as ex:
             last = ex
@@ -3636,6 +3747,9 @@ def _run_claude_once(prompt, timeout=300, allow_read=False):
     if r.returncode != 0:
         # v11.19: 로그인 만료·사용량 한도 같은 안내는 stdout 으로 나오는 경우가 많아 함께 보여준다
         detail = ((r.stderr or "").strip() + " " + (r.stdout or "").strip()).strip()[-400:]
+        fatal = claude_fatal_message(detail)
+        if fatal:
+            raise ClaudeFatalError(fatal + (f"  [{detail[-150:]}]" if detail else ""))
         raise RuntimeError(f"claude 실행 실패 (코드 {r.returncode}): " + (detail or "메시지 없음 — 명령 프롬프트에서 claude 를 직접 실행해 확인하세요"))
     return (r.stdout or "").strip()
 
@@ -4057,7 +4171,7 @@ class StoryNarrator:
                                           sum_max=STORY_SUMMARY_MAX,
                                           bible_items=calm["bible_items"] if calm else NARR_BIBLE_DEFAULT)
         out = run_claude_text(prompt, timeout=300, allow_read=bool(frame))
-        title = _narr_block(out, "TITLE").splitlines()[0].strip() if _narr_block(out, "TITLE") else "잠들기 전 미스터리"
+        title = _narr_block(out, "TITLE").splitlines()[0].strip() if _narr_block(out, "TITLE") else "잠들기 전 이야기"
         if fixed_title:
             title = fixed_title
         bible = _narr_block(out, "BIBLE")
@@ -4308,6 +4422,7 @@ class StoryNarrator:
         tmp = tempfile.mkdtemp(prefix="narr_")
         self.summary = ""
         self.classic_state_pending = None
+        kind_key = story_kind_key(style)              # v11.19: 제목 카드·유튜브 문구를 이야기 종류에 맞춤
         # v11.13: 진행 로그를 story 폴더에도 저장 (문제가 생겼을 때 원인 확인용)
         _orig_log = self.log
         _logf = os.path.join(story_dir, "작업기록.txt")
@@ -4353,7 +4468,9 @@ class StoryNarrator:
                 try:
                     with open(os.path.join(os.path.dirname(story_file), "story_info.json"),
                               encoding="utf-8") as fh:
-                        self.summary = json.load(fh).get("summary", "")
+                        _si = json.load(fh)
+                    self.summary = _si.get("summary", "")
+                    kind_key = _si.get("kind") or kind_key       # 저장된 대본은 만들 때의 종류를 따른다
                 except Exception:
                     first = re.split(r"(?<=[.!?…])\s+", " ".join(text.split()))[0] if text.strip() else ""
                     self.summary = fit_summary(first)
@@ -4370,8 +4487,11 @@ class StoryNarrator:
                     if bible:
                         with open(os.path.join(story_dir, "이야기_설정(바이블).txt"), "w", encoding="utf-8") as f:
                             f.write(bible)
+                except ClaudeFatalError:
+                    raise              # 로그인 만료·한도: 샘플 이야기로 영상을 끝까지 만들지 말고 바로 알린다
                 except (FileNotFoundError, subprocess.TimeoutExpired, RuntimeError) as ex:
-                    self.log(f"  ⚠️ Claude 이야기 창작 실패 → 내장 샘플 이야기로 목소리 테스트를 진행합니다\n     ({ex})")
+                    self.log(f"  ⚠️ Claude 이야기 창작 실패 → 내장 샘플 이야기로 목소리 테스트를 진행합니다\n     ({ex})\n"
+                             f"  ⚠️ 이 영상에는 샘플 이야기(빗속의 등대지기)가 들어가니, 유튜브에는 올리지 마세요")
                     title, text = NARR_FALLBACK_TITLE, NARR_FALLBACK_STORY
                     self.summary = NARR_FALLBACK_SUMMARY
             if on_title:
@@ -4439,9 +4559,11 @@ class StoryNarrator:
                     wh = pipe.get_video_size(video)
                     if not wh:
                         raise RuntimeError("영상 해상도를 읽을 수 없습니다")
+                    kd_ = story_kind(kind_key)
                     card = pipe._render_title_card(
                         wh[0], wh[1], title, tmp,
-                        label_kr=("오늘 밤의 이야기" if len(ep_starts) < 2 else f"오늘 밤의 이야기 · 총 {len(ep_starts)}편"))
+                        label_kr=(kd_["label_kr"] if len(ep_starts) < 2 else f"{kd_['label_kr']} · 총 {len(ep_starts)}편"),
+                        label_en=kd_["label_en"])
                     shutil.copyfile(card, os.path.join(story_dir, "제목카드.png"))
                     kt = pipe._next_keyframe_time(video, title_sec)
                     if kt is None or kt > vdur - 2.0:
@@ -4477,7 +4599,7 @@ class StoryNarrator:
                     "end_sec": round(min(vdur - 1, start_sec + narr_len), 1),
                     "voice": spec["label"], "video": os.path.basename(out_path),
                     "title_card_sec": float(title_sec) if card_ok else 0.0,
-                    "episodes": episodes}
+                    "episodes": episodes, "kind": kind_key}
             with open(os.path.join(story_dir, "story_info.json"), "w", encoding="utf-8") as f:
                 json.dump(info, f, ensure_ascii=False, indent=2)
             self.log(f"  📖 이야기 요약({len(info['summary'])}자): {info['summary']}")
@@ -5127,7 +5249,7 @@ class App(SceneTabMixin, tk.Tk):
         # v11.1: 🌙 루프 완성 후 이야기 내레이션 자동 추가
         nrow = ttk.LabelFrame(tab1, text="🌙 이야기 내레이션")
         nrow.pack(fill="x", padx=10, pady=(4, 0))
-        ttk.Checkbutton(nrow, text="루프 완성 후 미스터리 이야기 내레이션 자동 추가",
+        ttk.Checkbutton(nrow, text="루프 완성 후 이야기 내레이션 자동 추가",
                         variable=self.auto_narr_var).pack(anchor="w", padx=8, pady=(2, 0))
         nr2 = ttk.Frame(nrow); nr2.pack(fill="x", padx=24, pady=(2, 4))
         ttk.Label(nr2, text="성우:").pack(side="left")
@@ -5352,11 +5474,22 @@ class App(SceneTabMixin, tk.Tk):
         self.narr_title_btn4.pack(side="left", padx=4)
         ttk.Label(nfrm, textvariable=self.narr_title_status, foreground="#666666"
                   ).grid(row=7, column=0, columnspan=2, sticky="w")
-        sr = ttk.Frame(nfrm); sr.grid(row=8, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        srbox = ttk.Frame(nfrm); srbox.grid(row=8, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        sr = ttk.Frame(srbox); sr.pack(anchor="w")
+        wr = ttk.Frame(srbox); wr.pack(anchor="w", pady=(3, 0))
         ttk.Label(sr, text="🔀 이야기 스타일:").pack(side="left")
         ttk.Combobox(sr, textvariable=self.narr_style_var, width=56, state="readonly",
                      values=list(NARR_STYLES)).pack(side="left", padx=4)
         ttk.Button(sr, text="📚 연재 목록 열기", command=self.open_classic_list).pack(side="left", padx=4)
+        # v11.19: 연재형 스타일에서 다음에 들려줄 작품을 목록 파일을 열지 않고 바로 고른다
+        ttk.Label(wr, text="▶ 다음에 들려줄 작품:").pack(side="left")
+        self.narr_work_var = tk.StringVar()
+        self.narr_work_cb = ttk.Combobox(wr, textvariable=self.narr_work_var, width=44, state="readonly")
+        self.narr_work_cb.pack(side="left", padx=4)
+        ttk.Button(wr, text="이 작품부터", command=self.pick_next_work).pack(side="left", padx=4)
+        self._work_lines = []
+        self.narr_style_var.trace_add("write", lambda *_: self._refresh_works())
+        self._refresh_works()
 
         ttk.Label(nfrm, text="📄 이야기 파일 (선택 — 이미 만든 대본을 다른 성우로 다시 녹음할 때)"
                   ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(8, 0))
@@ -5505,7 +5638,8 @@ class App(SceneTabMixin, tk.Tk):
                     f.write(f"제목: {title}\n\n{clean}\n")
                 with open(path[:-4] + "_설정.txt", "w", encoding="utf-8") as f:
                     f.write(bible)
-                info = {"title": title, "summary": fit_summary(nar.summary), "episodes_titles": eps}
+                info = {"title": title, "summary": fit_summary(nar.summary), "episodes_titles": eps,
+                        "kind": story_kind_key(style)}
                 with open(os.path.join(d, "story_info.json"), "w", encoding="utf-8") as f:
                     json.dump(info, f, ensure_ascii=False, indent=2)
                 if getattr(nar, "classic_state_pending", None):
@@ -5523,6 +5657,62 @@ class App(SceneTabMixin, tk.Tk):
                 self.log_q.put("__NARR_DONE__")
 
         threading.Thread(target=work, daemon=True).start()
+
+    def _refresh_works(self):
+        """선택한 이야기 스타일의 작품 목록을 '다음에 들려줄 작품' 칸에 채운다 (연재형이 아니면 비활성)."""
+        style = NARR_STYLES.get(self.narr_style_var.get(), "classic")
+        cb = self.narr_work_cb
+        if not is_lib_style(style):
+            self._work_lines = []
+            cb.configure(values=[], state="disabled")
+            self.narr_work_var.set("(이 스타일은 매번 새로 지어내요)")
+            return
+        try:
+            set_active_lib(style)
+            rows = lib_work_rows()
+        except Exception as ex:
+            rows = []
+            self.log(f"⚠️ 작품 목록을 읽지 못했어요: {ex}")
+        self._work_lines = [ln for _, ln in rows]
+        labels = [t for t, _ in rows]
+        cb.configure(values=labels, state="readonly")
+        pick = next((i for i, t in enumerate(labels) if t.startswith("▶")), None)
+        if pick is None:
+            pick = next((i for i, t in enumerate(labels) if not t.startswith("✅")), 0)
+        if labels:
+            cb.current(pick)
+        else:
+            self.narr_work_var.set("")
+
+    def pick_next_work(self):
+        style = NARR_STYLES.get(self.narr_style_var.get(), "classic")
+        if not is_lib_style(style):
+            messagebox.showinfo("확인", "이 스타일은 매번 새로 지어내는 이야기라 고를 작품 목록이 없어요.\n"
+                                       "(원하는 소재는 '이야기 소재·키워드' 칸에 적으면 반영돼요)")
+            return
+        idx = self.narr_work_cb.current()
+        if idx < 0 or idx >= len(self._work_lines):
+            messagebox.showinfo("확인", "다음에 들려줄 작품을 먼저 골라주세요")
+            return
+        set_active_lib(style)
+        line = self._work_lines[idx]
+        st = load_classic_state()
+        cur = st.get("current")
+        abandon = False
+        if cur and cur.get("line") != line:
+            if not messagebox.askyesno(
+                    "진행 중인 작품",
+                    f"지금 「{cur.get('title')}」를 {cur.get('next_part', 2) - 1}/{cur.get('total_parts')}부분까지 들려줬어요.\n"
+                    "중단하고 고른 작품부터 시작할까요?\n(중단한 작품은 나중에 처음부터 다시 시작해요)"):
+                return
+            abandon = True
+        try:
+            title = classic_set_next(line, abandon_current=abandon)
+        except Exception as ex:
+            self.log(f"❌ 작품을 바꾸지 못했어요: {ex}")
+            return
+        self.log(f"▶ 다음 영상은 「{title}」부터 들려줘요  ·  {classic_status_text()}")
+        self._refresh_works()
 
     def open_classic_list(self):
         try:
@@ -6057,6 +6247,7 @@ class App(SceneTabMixin, tk.Tk):
                     continue
                 if msg == "__NARR_DONE__":
                     self._narr_buttons(False)
+                    self._refresh_works()          # 연재 진행(들려준 작품) 표시를 새로 고침
                     continue
                 if msg == "__CLEAN_DONE__":
                     self.clean_btn.configure(state="normal")
