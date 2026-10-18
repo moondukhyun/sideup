@@ -21,7 +21,14 @@ NATURAL_NEGATIVE = (
 NATURAL_COMFY = {"cfg": 3.5, "checkpoint": "RealVisXL_V5.0_fp16.safetensors"}
 NATURAL_POST = {"grain": 0.012, "saturation": 1.04}     # 흐림(soften) 없음, 채도 살짝 보강
 
+# v11.21: 빗줄기·떨어지는 빗방울이 이미지에 그려지면 영상에서 고정된 줄로 남는다 → 이미지에는 비를 그리지 않는다
+NO_RAIN_NEGATIVE = (
+    "rain streaks, falling rain, rain lines, diagonal rain lines, raindrops in the air, visible rain, "
+    "heavy rain, downpour, drizzle, streaks of water in the air, motion blur streaks"
+)
+
 NEGATIVE = (
+    NO_RAIN_NEGATIVE + ", "
     "people, person, human, animal, text, watermark, logo, signature, frame, border, "
     "cartoon, anime, illustration, painting, 3d render, oversaturated, harsh light, "
     "lowres, blurry, jpeg artifacts, deformed, bad composition, sunny, bright blue sky"
@@ -65,6 +72,33 @@ HANOK_NEGATIVE = (
 )
 
 
+import re
+
+# 프롬프트의 비 표현 → '젖은 흐린 날' 표현 (Z-Image 처럼 네거티브 프롬프트가 안 먹는 모델에서도 빗줄기가 안 그려지게)
+_DRY_RULES = [
+    (r"torrential rain", "very dark stormy overcast"),
+    (r"heavy summer thunderstorm", "dark stormy summer evening"),
+    (r"rain dripping from", "wet"),
+    (r"raindrop ripples on the water surface", "calm water surface"),
+    (r"raindrop ripples on the water", "calm water surface"),
+    (r"raindrops on the lids", "wet lids"),
+    (r"rain on the glass", "clear window glass"),
+    (r"water droplets on the window glass", "clear window glass"),
+    (r"rain-soaked", "soaked"),
+    (r"darkened by rain", "darkened by moisture"),
+    (r"\bin (?:the |a )?(?:[a-z]+ ){0,3}rain\b", "on a wet overcast day"),
+    (r"\brainy\b", "wet overcast"),
+    (r"\b(?:light |steady |heavy |gentle )?(?:rain|drizzle|downpour)\b", "wet air"),
+]
+
+
+def dry_prompt(text):
+    """프롬프트에서 비·빗줄기를 암시하는 표현을 젖은 표면·흐린 날 표현으로 바꾼다."""
+    for pat, rep_ in _DRY_RULES:
+        text = re.sub(pat, rep_, text, flags=re.I)
+    return text
+
+
 @dataclass
 class Scene:
     name: str
@@ -86,7 +120,7 @@ class Scene:
             parts.append(extra)
         parts.append(self.style or STYLE)
         negative = f"{NEGATIVE}, {self.negative}" if self.negative else NEGATIVE
-        return ", ".join(parts), negative
+        return dry_prompt(", ".join(parts)), negative
 
 
 SCENES = {
@@ -236,7 +270,8 @@ SCENES = {
                 "soft misty morning light",
                 "small wooden pavilion in the background",
             ],
-            {"intensity": 0.6, "angle": 2.0, "fog": 0.12, "brightness": 0.45},
+            {"intensity": 0.6, "angle": 2.0, "fog": 0.12, "brightness": 0.45, "stream": 1.0, "wet": 0.9,
+             "wan_hint": "water pours continuously from the bamboo spout into the stone basin, ripples spreading across the water"},
         ),
         Scene(
             "hydrangea_garden",

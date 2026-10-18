@@ -17,7 +17,8 @@ from . import lora as lora_mod
 from . import variety
 from . import details as details_mod
 from .rain import RainRenderer, RainSettings
-from .scenes import NATURAL_COMFY, NATURAL_NEGATIVE, NATURAL_POST, NATURAL_STYLE, NEGATIVE, SCENES, get_scene
+from .scenes import (NATURAL_COMFY, NATURAL_NEGATIVE, NATURAL_POST, NATURAL_STYLE, NEGATIVE, SCENES, dry_prompt,
+                     get_scene)
 from .video import (RESOLUTIONS, assemble, budget_kbps, ffmpeg_bin, loopable_audio, parse_durations,
                     render_master, segment_for_duration)
 
@@ -234,7 +235,8 @@ def _attach_wan(cfg, renderer, job, bg, meta, args):
         client.ping()
     except ComfyError as e:
         raise SystemExit(f"Wan 움직임에는 ComfyUI 가 필요합니다: {e}")
-    prompt = wanmotion.wan_prompt(extra=getattr(args, "wan_prompt", "") or "")
+    extra = ", ".join(x for x in (renderer.s.wan_hint, getattr(args, "wan_prompt", "") or "") if x)
+    prompt = wanmotion.wan_prompt(extra=extra)
     seed = args.wan_seed if getattr(args, "wan_seed", None) is not None else int(meta.get("seed", 7))
     frames = wanmotion.generate_clip(client, bg, job, prompt, seed)
     dp = Path(job) / "depth.png"
@@ -318,12 +320,15 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         d = renderer.details
         print(f"  디테일: 물 튀김 {len(d.splashes)} · 물결 {len(d.ripples)} · 물방울 {len(d.drips)} (루프당)")
     renderer._depth_full = dfull
+    stream_info = None
+    if want_motion and rs.stream > 0:
+        stream_info = _attach_stream(renderer, job, rs, dfull)        # 멈춘 물줄기 → 흐르게 (젖은 표면보다 먼저: 물줄기 영역은 제외해야 함)
     if want_details and real and not no_wet and rs.wet_ground > 0:
         from .wetrock import wet_ground
         renderer.bg = wet_ground(renderer.bg, maps["ground"], maps["puddle"], rs.wet_ground, renderer.res)
         print(f"  젖은 바닥: 바닥 {float((maps['ground'] > 0.5).mean()):.0%} · 웅덩이 {float((maps['puddle'] > 0.5).mean()):.0%} (어두워지고 하늘이 비침)")
     if want_wet and rs.wet > 0:
-        rock = _attach_wet(renderer, job, dfull, rs)   # 배경 자체를 젖은 돌로 바꾸므로 잎 흔들림보다 먼저
+        rock = _attach_wet(renderer, job, dfull, rs, stream_mask=stream_info["mask"] if stream_info else None)
         if rock is not None and maps is not None:
             maps["puddle"] = maps["puddle"] * (1.0 - np.clip(rock * 1.5, 0, 1))   # 바위가 물처럼 일렁이지 않게
     if want_motion:
@@ -343,24 +348,66 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         _attach_water(renderer, rs, dfull)
 
 
-def _attach_wet(renderer, job, dfull, rs):
-    """바위 영역을 찾아 젖은 돌로 바꾸고, 바위 면을 따라 흘러내리는 물줄기를 붙인다 (wet_mask.jpg 로 영역 확인)."""
+def _attach_wet(renderer, job, dfull, rs, stream_mask=None):
+    """젖은 표면(돌·기와지붕·벽·기둥)을 젖은 질감으로 바꾸고, 표면 위와 대나무·나무·기둥 줄기를 따라 빗물이 흘러내리게 한다.
+    확인용: wet_mask.jpg (빨간색 = 젖은 표면, 노란 선 = 줄기 물줄기 경로)"""
     from .motion import foliage_mask
-    from .wetrock import WetRocks, rock_mask, wet_look
+    from .wetrock import WetRocks, rock_mask, vertical_edge_paths, wet_look
     veg = foliage_mask(renderer.bg, dfull, rs.foliage)
     m = rock_mask(renderer.bg, dfull, veg)
     cov = float((m > 0.5).mean())
-    if cov < 0.02:
-        print("  젖은 바위: 바위로 볼 만한 영역이 거의 없어 사용하지 않음")
+    rng = np.random.default_rng(rs.seed + 57)
+    paths = vertical_edge_paths(renderer.bg, dfull, renderer.res, rng, exclude=stream_mask,
+                                max_paths=int(70 * min(1.5, rs.wet) + 20))
+    if cov < 0.02 and not paths:
+        print("  젖은 표면: 돌·지붕·기둥으로 볼 만한 영역도, 세로 줄기도 거의 없어 사용하지 않음")
         return None
-    renderer.bg = wet_look(renderer.bg, m, rs.wet, renderer.res)
-    renderer.wet = WetRocks(renderer.bg, m, renderer.N, renderer.fps, wet=rs.wet, seed=rs.seed)
+    if cov >= 0.02:
+        renderer.bg = wet_look(renderer.bg, m, rs.wet, renderer.res)
+    else:
+        m = np.zeros_like(m)
+    renderer.wet = WetRocks(renderer.bg, m, renderer.N, renderer.fps, wet=rs.wet, seed=rs.seed, paths=paths)
+    w = renderer.wet
     tint = (np.clip(renderer.bg, 0, 1) * 255).astype(np.float32)
     tint[..., 0] = tint[..., 0] * (1 - m * 0.5) + 255 * m * 0.5
-    Image.fromarray(np.clip(tint, 0, 255).astype(np.uint8)).resize((1280, 720)).save(Path(job) / "wet_mask.jpg")
-    print(f"  젖은 바위: 화면의 {cov:.0%} · 흘러내리는 물줄기 {len(renderer.wet.rivulets)}개"
-          f"  — 적용 영역 확인: wet_mask.jpg (빨간색)")
+    img = Image.fromarray(np.clip(tint, 0, 255).astype(np.uint8))
+    import cv2
+    arr = np.asarray(img).copy()
+    for p in paths:
+        cv2.polylines(arr, [p.reshape(-1, 1, 2)], False, (255, 230, 0), max(2, int(2 * renderer.res)))
+    Image.fromarray(arr).resize((1280, 720)).save(Path(job) / "wet_mask.jpg")
+    print(f"  젖은 표면(돌·지붕·기둥): 화면의 {cov:.0%} · 빗물 줄기 {w.n_surface}개 + 대나무·기둥 줄기 {w.n_edge}개"
+          f"  — 적용 영역 확인: wet_mask.jpg (빨간색=젖은 표면, 노란 선=줄기 물줄기)")
     return m
+
+
+def _attach_stream(renderer, job, rs, dfull):
+    """대롱·폭포처럼 멈춰 있는 물줄기를 찾아 흐르게 하고, 떨어지는 곳에 물결·튀는 물을 만든다 (stream_mask.jpg 로 확인)."""
+    from .streamflow import StreamFlow, find_streams
+    info = find_streams(renderer.bg)
+    if info is None:
+        print("  물줄기: 가늘고 밝은 세로 물줄기를 찾지 못했어요 (물이 멈춰 보이면 Wan 을 켜 보세요)")
+        return None
+    renderer.stream = StreamFlow(renderer.bg, info, renderer.N, renderer.fps, strength=rs.stream, seed=rs.seed)
+    arr = (np.clip(renderer.bg, 0, 1) * 255).astype(np.float32)
+    mm = info["mask"]
+    arr[..., 1] = arr[..., 1] * (1 - mm * 0.6) + 255 * mm * 0.6
+    arr[..., 2] = arr[..., 2] * (1 - mm * 0.6) + 255 * mm * 0.6
+    Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)).resize((1280, 720)).save(Path(job) / "stream_mask.jpg")
+    splash = ""
+    if renderer.water is None:
+        from .waterrain import WaterRain
+        bx, by = info["bottoms"][0]
+        yy, xx = np.mgrid[0:renderer.H, 0:renderer.W].astype(np.float32)
+        blob = np.exp(-(((xx - bx) / (46 * renderer.res)) ** 2 + ((yy - by) / (14 * renderer.res)) ** 2)).astype(np.float32)
+        secs = renderer.N / renderer.fps
+        inten = float(np.clip(300.0 / (500 * max(float(blob.mean()), 1e-6) * secs), 1.0, 80.0))
+        renderer.water = WaterRain(blob, dfull, renderer.W, renderer.H, renderer.N, renderer.fps,
+                                   intensity=inten * rs.stream, seed=rs.seed)
+        splash = f" + 떨어지는 곳에 물결·튀는 물 {renderer.water.count}개"
+    print(f"  물줄기: {len(info['boxes'])}개를 찾아 위에서 아래로 흘러내리게 함 (속도 {renderer.stream.speed_px_per_frame:.1f}px/프레임){splash}"
+          f"  — 적용 영역 확인: stream_mask.jpg (하늘색)")
+    return info
 
 
 def _attach_water(renderer, rs, dfull, extra=None):
@@ -527,7 +574,7 @@ def cmd_vary(cfg, args):
         scene = None
         c = {**cfg["comfy"], **NATURAL_COMFY, **cfg.get("comfy_cli", {})}
         c["upscale_to"] = (cfg["output"]["width"], cfg["output"]["height"])
-        base_prompt = ", ".join(x for x in (args.prompt, "rainy day, wet", NATURAL_STYLE) if x)
+        base_prompt = dry_prompt(", ".join(x for x in (args.prompt, "rainy day, wet", NATURAL_STYLE) if x))
         negative = f"{NEGATIVE}, {NATURAL_NEGATIVE}"
         post = NATURAL_POST
     client = ComfyClient(c["url"], c["timeout"])

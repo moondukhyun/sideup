@@ -31,7 +31,9 @@ class RainSettings:
     grain: float = 1.0        # 필름 그레인 강도 (0 = 끔)
     foliage: str = "green"   # 잎 흔들림 영역: green(초록) | autumn(노랑·주황·빨강 포함)
     leaf_kicks: float = 1.0   # 빗방울 맞고 튕기는 잎 세기 (0=끔)
-    wet: float = 0.0          # v11.19: 젖은 바위 + 흘러내리는 물줄기 세기 (0 = 끔, 계곡 씬 1.0)
+    wet: float = 0.7          # 젖은 표면(돌·지붕·기둥) + 흘러내리는 빗물 + 대나무·기둥 줄기 물줄기 세기 (0 = 끔)
+    stream: float = 0.0       # v11.21: 대롱·폭포의 멈춘 물줄기를 찾아 실제로 흘러내리게 (0 = 끔)
+    wan_hint: str = ""        # v11.21: 이 씬에서 Wan 에게 줄 물 움직임 설명(영어)
     water_rain: float = 0.0   # v11.19: 수면(계곡·호수)에 떨어지는 빗방울 물결 (0 = 끔)
     gust: float = 1.0         # v11.20: 바람(돌풍)에 따라 빗줄기 기울기가 천천히 흔들리는 세기 (0 = 끔)
     bloom: float = 1.0        # v11.20: 밝은 빛(하늘·가로등) 주변 번짐 (0 = 끔)
@@ -122,7 +124,8 @@ class RainRenderer:
         self.motion = None           # motion.BackgroundMotion (잎 흔들림·물 일렁임)
         self.glass = None            # glass.GlassRain (창가 씬: 유리 물방울, 빗줄기는 창밖에만)
         self.water = None            # waterrain.WaterRain (호수·계곡·물웅덩이 수면에 떨어지는 빗방울)
-        self.wet = None              # wetrock.WetRocks (젖은 바위 반짝임 + 흘러내리는 물줄기, v11.19)
+        self.wet = None              # wetrock.WetRocks (젖은 표면 반짝임 + 흘러내리는 빗물, v11.19)
+        self.stream = None           # streamflow.StreamFlow (대롱·폭포 물줄기 흐름, v11.21)
         self.detail_color = np.array([235, 240, 245], dtype=np.float32) / 255.0
         self.haze = None             # set_depth(): 먼 곳이 빗속 공기에 묻히는 원근감 (depth 방식)
         self.finish = None
@@ -321,8 +324,10 @@ class RainRenderer:
             out += self.bloom                                # 밝은 빛 번짐 (halation)
         if self.water is not None:
             out = self.water.apply(out, f)                  # 수면 굴절 → 그 위에 안개·빗줄기
+        if self.stream is not None:
+            out = self.stream.apply(out, f)                 # 대롱·폭포 물줄기가 위에서 아래로 흐름 (v11.21)
         if self.wet is not None:
-            out = self.wet.apply(out, f)                    # 젖은 바위 반짝임·물줄기 (v11.19)
+            out = self.wet.apply(out, f)                    # 젖은 표면 반짝임·흘러내리는 빗물 (v11.19)
         if self.haze is not None:
             out += (self.fog_color - out) * self.haze
         if self.fog is not None:

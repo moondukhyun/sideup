@@ -24,6 +24,8 @@ def rock_mask(bg, depth, veg=None):
     mean = cv2.GaussianBlur(lum, (0, 0), 2)
     var = cv2.GaussianBlur((lum - mean) ** 2, (0, 0), 2) * 40
     tex = np.clip((var - 0.03) / 0.07, 0, 1)                   # 바위·자갈은 결이 많고, 잔잔한 물은 매끈함 (물은 아래에서 한 번 더 제외)
+    dark_surface = np.clip((var - 0.012) / 0.03, 0, 1) * np.clip((0.42 - lum) / 0.10, 0, 1)   # 어둡고 결이 있는 면 = 기와지붕·젖은 나무
+    tex = np.maximum(tex, 0.85 * dark_surface)
     low_sat = np.clip(1 - (sat - 0.22) / 0.2, 0, 1)             # 회색·갈색 계열 (선명한 색은 제외)
     near = np.clip((d - 0.10) / 0.15, 0, 1)                     # 아주 먼 곳(하늘·먼 산) 제외
     rows = np.linspace(0, 1, sh, dtype=np.float32)[:, None]
@@ -57,9 +59,67 @@ def _smooth_noise(h, w, scale, rng):
     return _noise(h, w, scale, rng)
 
 
+def vertical_edge_paths(bg, depth, res, rng, exclude=None, max_paths=80):
+    """대나무 줄기·나무 기둥·정자 기둥처럼 '세로로 곧은 구조물'의 옆선을 찾아, 그 선을 따라 내려가는 물줄기 경로를 만든다.
+    (구조 텐서로 '세로로 일관된 경계'만 골라 → 잎·돌처럼 방향이 제각각인 질감은 제외. 초록이어도 상관없음)"""
+    import cv2
+    H, W = bg.shape[:2]
+    sw = 640
+    s = W / float(sw)
+    sh = max(8, int(round(H / s)))
+    small = cv2.resize(bg, (sw, sh), interpolation=cv2.INTER_AREA)
+    lum = cv2.GaussianBlur(small @ LUMA, (0, 0), 1.0)
+    gx = cv2.Sobel(lum, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(lum, cv2.CV_32F, 0, 1, ksize=3)
+    jxx, jyy, jxy = (cv2.GaussianBlur(a, (0, 0), 3) for a in (gx * gx, gy * gy, gx * gy))
+    coh = np.sqrt((jxx - jyy) ** 2 + 4 * jxy ** 2) / (jxx + jyy + 1e-6)          # 방향이 한쪽으로 일관된 정도
+    theta = 0.5 * np.arctan2(2 * jxy, jxx - jyy)                                  # 경계의 기울기 방향 (세로선이면 0)
+    mag = np.sqrt(gx * gx + gy * gy)
+    strength = np.clip(mag / (np.percentile(mag, 88) + 1e-6), 0, 1)
+    nms = (mag >= np.roll(mag, 1, 1)) & (mag >= np.roll(mag, -1, 1))              # 경계의 중심선만
+    ridge = ((np.abs(theta) < 0.30) & nms) * np.clip((coh - 0.35) / 0.3, 0, 1) * strength
+    d = cv2.resize(depth.astype(np.float32), (sw, sh), interpolation=cv2.INTER_AREA)
+    ridge = ridge * (d > 0.15)                                                    # 하늘·먼 산 제외
+    if exclude is not None:
+        ridge = ridge * (cv2.resize(exclude.astype(np.float32), (sw, sh), interpolation=cv2.INTER_AREA) < 0.1)
+    ys, xs = np.nonzero(ridge > 0.30)
+    if len(xs) == 0:
+        return []
+    taken = np.zeros((sh, sw), bool)
+    paths = []
+    for i in rng.permutation(len(xs)):
+        y, x = int(ys[i]), int(xs[i])
+        if taken[max(0, y - 6):y + 7, max(0, x - 5):x + 6].any() or y > sh - 20:
+            continue
+        pts, cx, cy, miss = [(float(x), float(y))], float(x), y, 0
+        limit = y + rng.uniform(50, 190) * (sh / 720.0)
+        while cy < limit and cy < sh - 3:
+            ny = cy + 2
+            xi = int(round(cx))
+            lo, hi = max(0, xi - 2), min(sw, xi + 3)
+            win = ridge[ny, lo:hi]
+            if win.size and win.max() > 0.18:
+                cx = 0.5 * cx + 0.5 * (lo + int(win.argmax()))                      # 줄기를 따라 살짝 휘어짐
+                miss = 0
+            else:
+                miss += 1
+                if miss > 4:
+                    break
+            cy = ny
+            pts.append((cx, float(cy)))
+        if len(pts) >= 12:
+            for px, py in pts:
+                taken[max(0, int(py) - 3):int(py) + 4, max(0, int(px) - 3):int(px) + 4] = True
+            paths.append(np.array([(int(round(px * s)), int(round(py * s))) for px, py in pts], np.int32))
+            if len(paths) >= max_paths:
+                break
+    return paths
+
+
 class WetRocks:
-    def __init__(self, bg, mask, N, fps, wet=1.0, seed=7):
-        """bg: wet_look 이 이미 적용된 float RGB (H,W,3). mask: rock_mask 결과."""
+    def __init__(self, bg, mask, N, fps, wet=1.0, seed=7, paths=None):
+        """bg: wet_look 이 이미 적용된 float RGB (H,W,3). mask: rock_mask 결과 (젖은 표면).
+        paths: vertical_edge_paths 가 찾은 대나무·기둥 줄기 물줄기 경로."""
         import cv2
         self.cv2 = cv2
         self.bg, self.mask = bg, mask
@@ -81,15 +141,20 @@ class WetRocks:
         self.k_sheen = 3
         self.sheen_gain = 0.42 * wet
 
-        # (2) 흘러내리는 물줄기
+        # (2) 흘러내리는 물줄기: 젖은 표면(돌·지붕·벽) 위 + 세로 줄기(대나무·기둥)를 따라
         self.rivulets = self._make_rivulets(mask, rng, wet)
+        self.n_surface = len(self.rivulets)
+        for pts in (paths or []):
+            self.rivulets.append({"pts": pts, "k": int(rng.integers(1, 4)), "phase": float(rng.uniform(0, 1)),
+                                  "w": max(1, int(round(rng.uniform(1.0, 1.9) * self.res)))})
+        self.n_edge = len(self.rivulets) - self.n_surface
         self._buf = np.zeros((self.H, self.W), np.uint8)
         self.trail = self._draw_trails()
 
     # ---------- 물줄기 경로 ----------
     def _make_rivulets(self, mask, rng, wet):
         res = self.res
-        n = int(np.clip(self.coverage * 170 * wet, 4, 70)) if self.coverage > 0.01 else 0
+        n = int(np.clip(self.coverage * 260 * wet, 6, 140)) if self.coverage > 0.01 else 0
         if n == 0:
             return []
         weight = (mask > 0.55).astype(np.float64)
@@ -128,8 +193,8 @@ class WetRocks:
             cv2.polylines(edge, [line], False, 255, r["w"] + 2, cv2.LINE_AA)
             cv2.polylines(core, [line], False, 255, max(1, int(round(r["w"] * 0.6))), cv2.LINE_AA)
         edge = cv2.GaussianBlur(edge, (0, 0), 1.1 * self.res)
-        self.trail_dark = (edge.astype(np.float32) * (1 / 255.0) * 0.30 * min(1.4, self.wet)).astype(np.float32)
-        self.trail_core = (core.astype(np.float32) * (1 / 255.0) * 0.20 * min(1.4, self.wet)).astype(np.float32)
+        self.trail_dark = (edge.astype(np.float32) * (1 / 255.0) * 0.36 * min(1.4, self.wet)).astype(np.float32)
+        self.trail_core = (core.astype(np.float32) * (1 / 255.0) * 0.28 * min(1.4, self.wet)).astype(np.float32)
         return self.trail_dark
 
     # ---------- 프레임 ----------
@@ -163,7 +228,7 @@ class WetRocks:
                 if 0 <= head < n:                                   # 맨 앞의 작고 동그란 물방울
                     cv2.circle(buf, (int(pts[head][0]), int(pts[head][1])), max(1, int(round(1.7 * self.res))),
                                255, -1, cv2.LINE_AA)
-            drops = buf.astype(np.float32) * (1 / 255.0) * (0.62 * min(1.4, self.wet))
+            drops = buf.astype(np.float32) * (1 / 255.0) * (0.80 * min(1.4, self.wet))
             out += ((0.96 - out) * drops[..., None])
         return out
 
