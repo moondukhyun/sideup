@@ -30,7 +30,10 @@ AXES = {
 }
 # v11.22: 실내 장면은 '한낮·여름' 같은 자연 풍경 문구가 섞이면 안 되므로 전용 축을 쓴다
 INTERIOR_SCENES = {"candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "living_fireplace_storm",
-                   "living_fireplace_candles", "hearth_dog_cat"}
+                   "living_fireplace_candles", "hearth_dog_cat", "candle_nook",
+                   "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
+                   "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window",
+                   "cabin_fireplace_window"}
 INTERIOR_AXES = {
     "time": ["late at night", "deep midnight", "quiet night", "before dawn"],
     "mood": ["warm amber glow", "soft golden glow", "dim warm light with deep shadows", "gentle warm candlelit atmosphere"],

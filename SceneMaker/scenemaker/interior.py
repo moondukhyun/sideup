@@ -10,13 +10,16 @@
 import numpy as np
 
 LUMA = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
-WARM = np.array([1.0, 0.70, 0.36], dtype=np.float32)         # 불빛이 닿은 곳의 색 변화 (빨강이 가장 크게)
+WARM = np.array([1.0, 0.84, 0.62], dtype=np.float32)         # 불빛이 닿은 곳의 색 변화 (빨강이 가장 크게)
 
 
 # ---------------------------------------------------------------- 불빛 찾기
-def find_lights(bg, max_candles=24):
-    """bg: float RGB (H,W,3) 0..1.
-    반환: {"candles": [{"x","y","w","h"}...], "fire": {"mask","box","cx","cy","base"} 또는 None}  (전체 해상도 좌표)"""
+def find_lights(bg, max_candles=24, exclude=None):
+    """bg: float RGB (H,W,3) 0..1.  exclude: (H,W) 0~1 — 이 영역(창문 유리 등)의 불빛은 무시.
+    반환: {"candles": [{"x","y","w","h"}...], "fire": {"mask","box","cx","cy","base"} 또는 None}  (전체 해상도 좌표)
+
+    벽난로 불 = '뜨거운 핵'(노랑·흰빛으로 아주 밝은 덩어리)가 있는 가장 큰 덩어리. 불빛 받은 러그·벽·돌은 주황이어도 핵이 없어 제외된다.
+    촛불 불꽃 = 주변보다 확 튀는 작고 따뜻한 밝은 점 (top-hat)."""
     import cv2
     H, W = bg.shape[:2]
     sw = 960
@@ -26,54 +29,92 @@ def find_lights(bg, max_candles=24):
     lum = small @ LUMA
     r, g, b = small[..., 0], small[..., 1], small[..., 2]
     area_px = float(sw * sh)
+    ex = None
+    if exclude is not None:
+        ex = cv2.resize(np.asarray(exclude, np.float32), (sw, sh), interpolation=cv2.INTER_AREA) > 0.4
+        ex = cv2.dilate(ex.astype(np.uint8), np.ones((9, 9), np.uint8)) > 0
 
-    # 벽난로 불: 주황·노랑이 진하고 밝은 큰 덩어리 (불꽃 본체 + 뜨거운 핵)
-    local = cv2.blur(lum, (61, 61))                                  # 주변보다 확실히 밝아야 '불' (불빛 받은 벽·벽난로 틀은 제외)
-    body = ((r > 0.50) & ((r - b) > 0.22) & (g < r * 1.02) & (lum > 0.33) & ((lum - local) > 0.10)).astype(np.uint8)
-    body = cv2.morphologyEx(body, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
-    body = cv2.morphologyEx(body, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
-    n, lab, stats, cent = cv2.connectedComponentsWithStats(body, connectivity=8)
-    fire = None
-    best = 0
-    for i in range(1, n):
-        x, y, w, h, a = stats[i]
-        if a >= 0.0011 * area_px and a > best and w >= 0.025 * sw and h >= 0.03 * sh:
-            best, fire = a, i
+    # ---- 벽난로 불 ----
+    hot = ((r > 0.72) & (g > 0.42) & (lum > 0.58) & ((r - b) > 0.22)).astype(np.uint8)
+    if ex is not None:
+        hot[ex] = 0
+    hot = cv2.morphologyEx(hot, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+    n, lab, stats, cent = cv2.connectedComponentsWithStats(hot, connectivity=8)
     fire_info = None
     fire_zone = np.zeros((sh, sw), np.uint8)
-    if fire is not None:
-        sel = (lab == fire).astype(np.uint8)
-        sel = cv2.dilate(sel, np.ones((9, 9), np.uint8))
-        fire_zone = sel
-        ys, xs = np.nonzero(lab == fire)
-        m = cv2.GaussianBlur((lab == fire).astype(np.float32), (0, 0), 2.0)
-        m = np.clip(m * 1.15, 0, 1)
+    best, pick = 0.0, None
+    for i in range(1, n):
+        x, y, w, h, a = stats[i]
+        if a < 0.0004 * area_px or w < 0.012 * sw or h < 0.025 * sh:
+            continue
+        score = a * float(lum[lab == i].mean())
+        if score > best:
+            best, pick = score, i
+    if pick is not None:
+        x, y, w, h, a = stats[pick]
+        bx0, bx1 = max(0, int(x - 0.35 * w)), min(sw, int(x + w + 0.35 * w))
+        by0, by1 = max(0, int(y - 0.35 * h)), min(sh, int(y + h + 0.08 * h))
+        orange = ((r > 0.45) & ((r - b) > 0.18) & (lum > 0.28)).astype(np.uint8)
+        box = np.zeros_like(orange)
+        box[by0:by1, bx0:bx1] = 1
+        body = (orange & box)
+        body = cv2.morphologyEx(body, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
+        n2, lab2, st2, _ = cv2.connectedComponentsWithStats(body, connectivity=8)
+        core_lab = set(np.unique(lab2[lab == pick]).tolist()) - {0}
+        sel = np.isin(lab2, list(core_lab)).astype(np.uint8) if core_lab else (lab == pick).astype(np.uint8)
+        sel = np.maximum(sel, (lab == pick).astype(np.uint8))
+        ys, xs = np.nonzero(sel)
+        fire_zone = cv2.dilate(sel, np.ones((25, 25), np.uint8))
+        hotness = np.clip((lum - 0.48) / 0.32, 0, 1) * np.clip((g - 0.30) / 0.25, 0, 1)      # 밝고 노란 불꽃 부분만 (뒷벽·장작·벽돌은 제외)
+        m = np.clip(cv2.GaussianBlur((cv2.dilate(sel, np.ones((5, 5), np.uint8)) * hotness).astype(np.float32), (0, 0), 1.6) * 1.1, 0, 1)
         fire_info = {
             "mask": np.clip(cv2.resize(m, (W, H), interpolation=cv2.INTER_LINEAR), 0, 1),
             "box": (xs.min() / s, ys.min() / s, xs.max() / s, ys.max() / s),
             "cx": float(xs.mean()) / s, "cy": float(ys.mean()) / s, "base": float(ys.max()) / s,
         }
 
-    # 촛불 불꽃: 작고 아주 밝은 따뜻한 점 (불 덩어리 안쪽은 제외). 또렷하지 않은 그림이면 기준을 한 단계 낮춰 다시 찾음
-    warm_local = cv2.blur((r - b), (11, 11)) > 0.07
+    # ---- 촛불 불꽃: 주황빛 밝은 덩어리(불꽃 + 불빛 받은 양초) 안에서 '가장 밝은 점' = 불꽃 심 ----
     candles = []
-    for thr in (0.74, 0.62):
-        seed = ((lum > thr) & warm_local).astype(np.uint8)
-        seed[fire_zone > 0] = 0
-        seed = cv2.morphologyEx(seed, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
-        n, lab, stats, cent = cv2.connectedComponentsWithStats(seed, connectivity=8)
-        for i in range(1, n):
-            x, y, w, h, a = stats[i]
-            if w > 0.035 * sw or a < 5:
-                continue
-            h = min(h, int(max(2.6 * w, 8)))          # 불꽃 아래로 이어진 밝은 양초 몸통은 잘라냄 (불꽃은 폭의 2~3배 높이)
-            if h > 0.08 * sh or a > 0.0016 * area_px:
-                continue
-            if h < 0.8 * w and a > 40:                # 가로로 퍼진 덩어리 = 램프 갓·창문 불빛, 불꽃 아님
-                continue
-            candles.append((float(lum[lab == i].max()) * min(a, 120), x, y, w, h))
+    sm_lum = cv2.GaussianBlur(lum, (0, 0), 1.2)
+    for thr, redness, peak_min in ((0.70, 0.22, 0.88), (0.62, 0.18, 0.80)):
         if candles:
-            break
+            break                                      # 또렷한 불꽃을 찾았으면 느슨한 기준은 쓰지 않음
+        seed = ((lum > thr) & ((r - b) > redness)).astype(np.uint8)
+        seed[fire_zone > 0] = 0
+        if ex is not None:
+            seed[ex] = 0
+        seed = cv2.dilate(seed, np.ones((7, 7), np.uint8))           # 불꽃 심은 거의 흰색이라 주황 테두리까지 포함해 한 덩어리로
+        n, lab, stats, cent = cv2.connectedComponentsWithStats(seed, connectivity=8)
+        # 불꽃 끝(밝은 곳의 맨 위)을 세로줄마다 찾고, 그 윤곽에서 '뾰족하게 솟은 곳'마다 불꽃 하나
+        bright = (sm_lum >= peak_min - 0.03) & (seed > 0)
+        has = bright.any(0)
+        top = np.where(has, bright.argmax(0), sh).astype(np.int32)
+        k_ = 7
+        tips = []
+        for xc in range(k_, sw - k_):
+            if top[xc] >= sh:
+                continue
+            win_ = top[xc - k_:xc + k_ + 1]
+            if top[xc] <= win_.min() and (win_ > top[xc]).any():
+                if not tips or xc - tips[-1][0] > k_:
+                    tips.append((xc, int(top[xc])))
+                elif top[xc] < tips[-1][1]:
+                    tips[-1] = (xc, int(top[xc]))
+        for xt, yt in tips:
+            blob_id = int(lab[min(sh - 1, yt + 2), xt])
+            if blob_id == 0:
+                continue
+            x, y, w, h, a = stats[blob_id]
+            if a < 6 or a > 0.02 * area_px or w > 0.12 * sw:
+                continue                               # 너무 작은 점·너무 큰 덩어리(벽·창)는 제외
+            row = bright[min(sh - 1, yt + 3), max(0, xt - 14):xt + 15]
+            fw = float(row.sum())
+            if fw > 13:                                # 위가 넓적하게 밝으면 램프 갓·반사광이지 불꽃이 아님
+                continue
+            fw = float(min(max(fw, 3), 11))
+            fh = float(min(max(2.4 * fw, 8), 24))
+            peak = float(sm_lum[yt:yt + 6, max(0, xt - 3):xt + 4].max())
+            candles.append((peak * min(a, 120), xt - fw / 2.0, yt + 0.2 * fh, fw, fh))
     # 같은 세로줄에 겹쳐 잡힌 것 = 불꽃 + 그 아래 밝게 비친 양초 몸통 → 위쪽(불꽃)만 남김
     keep = []
     for c in candles:
@@ -157,7 +198,7 @@ class Interior:
             cx, cy = c["x"] / W * self.lw, c["y"] / H * self.lh
             sx = (0.15 if nc <= 2 else 0.10) * self.lw * (1.0 + 0.15 * min(c["h"] / (0.05 * H), 3))
             sy = sx * 0.85
-            amp = (0.16 if nc <= 2 else 0.10 if nc <= 6 else 0.07) * self.strength
+            amp = (0.11 if nc <= 2 else 0.07 if nc <= 6 else 0.05) * self.strength
             maps.append(amp * np.exp(-(((xx - cx) / sx) ** 2 + ((yy - cy) / sy) ** 2) / 2.0))
             sigs.append(sig)
         self.fire_sig = None
@@ -215,16 +256,16 @@ class Interior:
                 P = max(48, bh)
                 self.fP = P
                 self.fk = max(2, int(round(1.5 * bh * sec / P)))                 # 초당 불꽃 높이의 약 1.5배 속도로 타오름
-                self.fn1 = _periodic_noise(rng, P, bw, 9 * res, 5 * res, cv2)
-                self.fn2 = _periodic_noise(rng, P, bw, 3.0 * res, 2.2 * res, cv2)
-                self.fn3 = _periodic_noise(rng, P, bw, 14 * res, 12 * res, cv2)
+                self.fn1 = _periodic_noise(rng, P, bw, 20 * res, 3.5 * res, cv2)       # 세로로 길쭉한 결 → 불꽃 혀가 기둥처럼 좌우로 흔들림 (물결처럼 보이지 않게)
+                self.fn2 = _periodic_noise(rng, P, bw, 8 * res, 2.0 * res, cv2)
+                self.fn3 = _periodic_noise(rng, P, bw, 30 * res, 14 * res, cv2)
                 reps = (bh + 2 * P) // P + 2
                 self.fn1, self.fn2, self.fn3 = [np.tile(a, (reps, 1)) for a in (self.fn1, self.fn2, self.fn3)]
                 m = self.fire["mask"][fy0:fy1, fx0:fx1]
                 yy_, xx_ = np.mgrid[0:bh, 0:bw].astype(np.float32)
                 topw = _smooth((self.fire["base"] - fy0 - yy_) / max(1.0, (self.fire["base"] - by0) * 0.9))   # 위로 갈수록 크게 일렁
                 self.fx = {"box": (fx0, fy0, fx1, fy1), "mask": m[..., None].astype(np.float32), "topw": topw.astype(np.float32),
-                           "ax": (0.05 * bw + 5 * res), "bh": bh, "bw": bw,
+                           "ax": (0.035 * bw + 3 * res), "bh": bh, "bw": bw,
                            "X": xx_, "Y": yy_, "src": bg[fy0:fy1, fx0:fx1].copy()}
                 self.ember = self._make_embers(rng, bw, bh, fx0, fy0)
 
@@ -277,23 +318,15 @@ class Interior:
             n1, n2, n3 = self.fn1[rows], self.fn2[rows], self.fn3[rows]
             fs = float(self.fire_sig[f])
             ax = fx["ax"] * (1.0 + 0.12 * fs) * self.fire_strength
-            dx = (0.62 * n1 + 0.22 * n2 + 0.16 * n3) * ax * fx["topw"]
-            dy = (0.40 * n1 + 0.25 * n3) * ax * 0.55 * fx["topw"] + 0.0
-            mapx = (fx["X"] + dx).astype(np.float32)
-            mapy = (fx["Y"] + dy + 0.06 * fx["bh"] * max(-1.0, min(1.0, fs)) * fx["topw"]).astype(np.float32)
-            warped = cv2.remap(fx["src"], mapx, mapy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+            dx = (0.70 * n1 + 0.30 * n2) * ax * fx["topw"]
+            dy = 0.45 * n1 * ax * 0.5 * fx["topw"] - 0.05 * fx["bh"] * fs * fx["topw"]          # 위아래로도 조금 (불꽃이 솟았다 가라앉음)
+            warped = cv2.remap(fx["src"], (fx["X"] + dx).astype(np.float32), (fx["Y"] + dy).astype(np.float32),
+                               cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
             m = fx["mask"]
+            dg = (0.09 * n3[..., None] + 0.05 * fs) * self.fire_strength                      # 불꽃 밝기가 천천히 오르내림
+            flame = np.clip(warped * (1.0 + dg * np.array([1.0, 0.80, 0.45], np.float32)), 0, 1)   # 밝아져도 푸르스름해지지 않게 따뜻한 색 쪽으로만
             reg = out[y0:y1, x0:x1]
-            gain = 1.0 + (0.20 * n3[..., None] + 0.12 * n2[..., None] + 0.10 * fs) * self.fire_strength
-            flame = np.clip(warped * gain, 0, 1)
-            # 위로 길게 솟는 혀 (불꽃이 가끔 더 높이 튐): 위쪽으로 당긴 복사본을 '밝은 쪽 우선'으로 합침
-            lift = (0.05 + 0.07 * (0.5 + 0.5 * np.tanh(fs))) * fx["bh"] * self.fire_strength
-            tongue = cv2.remap(warped, fx["X"].astype(np.float32), (fx["Y"] + lift * fx["topw"]).astype(np.float32),
-                               cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
-            flame = np.maximum(flame, tongue * 0.88 * (0.55 + 0.25 * np.tanh(fs)))
-            near = np.clip(cv2.GaussianBlur(m[..., 0], (0, 0), 7.0 * self.res)[..., None] * 1.2 - m, 0, 1) * 0.55   # 불꽃 둘레 번짐
             reg[...] = reg * (1 - m) + flame * m
-            reg[...] = reg * (1 - near) + np.maximum(reg, flame) * near
             self._draw_embers(out, f)
         # 2) 촛불 불꽃 흔들림 + 번쩍임
         for c in self.flames:
@@ -306,10 +339,11 @@ class Interior:
             w = c["win"][..., None]
             reg[...] = reg * (1 - w) + warped * w
             b = float(c["sig"][f])
-            reg += (c["core"][..., None] * (0.07 * b * st) + c["halo"][..., None] * (0.05 * b * st)) * WARM
+            reg += (c["core"][..., None] * (0.05 * b * st) + c["halo"][..., None] * (0.035 * b * st)) * WARM
         # 3) 불빛이 방 안에 일렁이며 닿는 효과 (곱셈 → 질감은 그대로, 밝기만 변함)
         if self.light_maps is not None:
             lo = np.tensordot(self.light_sigs[:, f], self.light_maps, axes=(0, 0))
+            lo = 0.17 * np.tanh(lo / 0.17)                          # 불이 확 어두워져도 색이 푸르스름해지거나 깜깜해지지 않게 부드럽게 제한
             L = cv2.resize(lo, (self.W, self.H), interpolation=cv2.INTER_LINEAR)
             out *= 1.0 + L[..., None] * WARM
         return out

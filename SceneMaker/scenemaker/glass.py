@@ -97,7 +97,7 @@ def _lens(src, x, y, rad, stretch, cv2):
 class GlassRain:
     GROUPS = 5
 
-    def __init__(self, bg, mask, N, fps, amount=1.0, seed=7):
+    def __init__(self, bg, mask, N, fps, amount=1.0, seed=7, view_blur=9.0):
         import cv2
         self.cv2 = cv2
         self.bg, self.mask, self.N, self.fps = bg, mask, N, fps
@@ -106,7 +106,7 @@ class GlassRain:
         self.res = res
         rng = np.random.default_rng(seed + 101)
         # 뒤 풍경은 초점 밖처럼 흐리게 (초점은 유리 위 물방울)
-        blur = cv2.GaussianBlur(bg, (0, 0), 9.0 * res)
+        blur = cv2.GaussianBlur(bg, (0, 0), view_blur * res)
         self.base = bg * (1 - mask[..., None]) + blur * mask[..., None]
 
         # 결로(김서림): 아래쪽일수록 살짝 뿌옇게 — 주변 색을 밝게 끌어올린 안개. 방울이 지나간 자리는 맑아짐

@@ -351,7 +351,8 @@ class RainRenderer:
         if self.glass is not None:
             # 초점이 유리(실내)에 있으므로 창밖 빗줄기도 배경만큼 흐리게 → 개별 줄 대신 흐릿한 비 결
             import cv2
-            rm = np.minimum(cv2.GaussianBlur(rm, (0, 0), 5.0 * self.res) * 2.2, 1.0)
+            soft, gain = (1.7, 3.0) if self.s.interior > 0 else (5.0, 2.2)     # 실내 장면: 창밖 빗줄기를 더 또렷하고 많이
+            rm = np.minimum(cv2.GaussianBlur(rm, (0, 0), soft * self.res) * gain, 1.0)
             rm = rm * self.glass.mask                           # 실내에는 비가 오지 않음
         mask = rm[..., None] * self.s.brightness * self.vis
         out += (self.rain_color - out) * np.minimum(mask, 1.0)

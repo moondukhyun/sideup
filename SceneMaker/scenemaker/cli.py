@@ -256,7 +256,7 @@ def _attach_interior(renderer, job, rs, args):
     if rs.interior <= 0 or getattr(args, "no_interior", False):
         return
     from .interior import FanSpin, Interior, PetBreath, find_lights
-    info = find_lights(renderer.bg)
+    info = find_lights(renderer.bg, exclude=renderer.glass.mask if renderer.glass is not None else None)    # 창밖 불빛은 촛불이 아님
     it = Interior(renderer.bg, renderer.N, renderer.fps, strength=rs.interior, fire_strength=rs.fire,
                   seed=rs.seed, info=info)
     marks = _load_pets(job, args)
@@ -398,7 +398,8 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
             return
         from .glass import GlassRain, window_mask
         wmask = window_mask(dfull, renderer.bg)
-        renderer.glass = GlassRain(renderer.bg, wmask, renderer.N, renderer.fps, amount=rs.intensity, seed=rs.seed)
+        renderer.glass = GlassRain(renderer.bg, wmask, renderer.N, renderer.fps, amount=rs.intensity, seed=rs.seed,
+                                   view_blur=4.0 if rs.interior > 0 else 9.0)      # 실내 장면: 창밖 풍경·창틀 격자가 덜 뭉개지게
         g = renderer.glass
         tint = (np.clip(renderer.bg, 0, 1) * 255).astype(np.float32)
         tint[..., 2] = tint[..., 2] * (1 - wmask * 0.5) + 255 * wmask * 0.5
