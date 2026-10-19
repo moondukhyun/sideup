@@ -255,11 +255,16 @@ def _attach_interior(renderer, job, rs, args):
     """v11.22: 촛불·벽난로 불꽃·방 안 불빛 일렁임·반려동물 숨쉬기."""
     if rs.interior <= 0 or getattr(args, "no_interior", False):
         return
-    from .interior import Interior, PetBreath, find_lights
+    from .interior import FanSpin, Interior, PetBreath, find_lights
     info = find_lights(renderer.bg)
     it = Interior(renderer.bg, renderer.N, renderer.fps, strength=rs.interior, fire_strength=rs.fire,
                   seed=rs.seed, info=info)
-    pets = _load_pets(job, args)
+    marks = _load_pets(job, args)
+    pets = [p for p in marks if p.get("kind") != "fan"]
+    fans = [p for p in marks if p.get("kind") == "fan"]
+    if fans:
+        renderer.fans = FanSpin(fans, renderer.W, renderer.H, renderer.N, renderer.fps, seed=rs.seed)
+        print(f"  천장 선풍기 회전: {len(renderer.fans.items)}대 (루프당 {renderer.fans.k}바퀴)")
     if it.candles or it.fire is not None:
         renderer.interior = it
         for line in it.describe():
@@ -279,8 +284,10 @@ def _attach_interior(renderer, job, rs, args):
             dr.rectangle(it.fire["box"], outline=(255, 60, 0), width=4)
         for p in renderer.pets.items if renderer.pets else []:
             dr.rectangle(p["box"], outline=(0, 220, 255), width=4)
+        for p in renderer.fans.items if renderer.fans else []:
+            dr.rectangle(p["box"], outline=(255, 0, 255), width=4)
         pv.resize((1280, int(1280 * renderer.H / renderer.W))).save(Path(job) / "interior_mask.jpg")
-        print("  적용 위치 확인: interior_mask.jpg (노란 원=촛불, 빨간 상자=벽난로 불, 하늘색 상자=반려동물)")
+        print("  적용 위치 확인: interior_mask.jpg (노란 원=촛불, 빨간 상자=벽난로 불, 하늘색 상자=반려동물, 보라 상자=선풍기)")
     except Exception:
         pass
 
@@ -797,7 +804,7 @@ def _add_rain_args(p):
     g.add_argument("--no-motion", action="store_true", help="잎 흔들림·물 일렁임(배경 움직임) 끄기")
     g.add_argument("--no-wet", action="store_true", help="젖은 바위·흘러내리는 물줄기·수면 빗방울 끄기")
     g.add_argument("--no-interior", action="store_true", help="촛불·벽난로 불꽃·반려동물 숨쉬기(실내 효과) 끄기")
-    g.add_argument("--pet", action="append", help="자는 반려동물 위치 'x0,y0,x1,y1[,dog|cat]' (0~1 비율, 여러 번 지정 가능)")
+    g.add_argument("--pet", action="append", help="자는 반려동물·선풍기 위치 'x0,y0,x1,y1[,dog|cat|fan]' (0~1 비율, 여러 번 지정 가능)")
     g.add_argument("--fire-sound", action="store_true", help="벽난로 타닥거리는 소리를 합성해 섞음 (벽난로 장면은 기본 켜짐)")
     g.add_argument("--no-fire-sound", action="store_true", help="벽난로 소리 합성 끄기")
     g.add_argument("--fire-db", type=float, help="벽난로 소리 크기 조절 dB (기본 0, 작게 하려면 -6)")

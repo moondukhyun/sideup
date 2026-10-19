@@ -90,3 +90,4 @@ LoopMaker 쪽은 `LoopMaker_v9.py`(v11.19 최신)로 교체하면 [AI 배경] �
 - 소리: 벽난로 장면은 타닥거리는 소리를 자동 합성(`--no-fire-sound` 로 끔, `--fire-db -6` 로 작게). 녹음한 빗소리가 없으면 창가 빗소리도 합성.
   따로 만들기: `python -m scenemaker ambience --kind fire+rain --seconds 90 --out amb.wav`
 - 확인용 파일: `interior_mask.jpg` (노란 원=촛불, 빨간 상자=벽난로 불, 하늘색 상자=반려동물), `glass_mask.jpg` (창)
+- 천장 선풍기: `🐾 반려동물·선풍기 위치 지정` 에서 '천장 선풍기' 를 고르고 날개 전체를 상자로 감싸면 천천히 돌아갑니다 (CLI: `--pet x0,y0,x1,y1,fan`). 가운데 몸통은 고정, 날개만 회전·흐려짐.

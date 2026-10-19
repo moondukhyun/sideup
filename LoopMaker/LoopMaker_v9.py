@@ -4803,7 +4803,7 @@ class SceneTabMixin:
         ttk.Button(sbtn, text="🔄 새로고침", command=self.sm_refresh_list).pack(side="left")
         ttk.Button(sbtn, text="📂 내 사진 쓰기", command=self.sm_pick_image).pack(side="left", padx=6)
         ttk.Button(sbtn, text="🔍 크게 보기", command=self.sm_open_image).pack(side="left")
-        ttk.Button(sbtn, text="🐾 반려동물 위치 지정", command=self.sm_pick_pets).pack(side="left", padx=6)
+        ttk.Button(sbtn, text="🐾 반려동물·선풍기 위치 지정", command=self.sm_pick_pets).pack(side="left", padx=6)
 
         v = ttk.LabelFrame(tab, text=" ③ 빗소리 루프 영상 만들기 ")
         v.pack(fill="x", padx=10, pady=(4, 0))
@@ -4944,7 +4944,7 @@ class SceneTabMixin:
         cw, ch = int(im.width * sc), int(im.height * sc)
         photo = ImageTk.PhotoImage(im.resize((cw, ch)))
         win = tk.Toplevel(self)
-        win.title("반려동물 위치 지정 — 자는 강아지·고양이 몸 전체를 감싸게 드래그")
+        win.title("위치 지정 — 자는 강아지·고양이 몸 전체, 천장 선풍기 날개 전체를 감싸게 드래그")
         cv = tk.Canvas(win, width=cw, height=ch, highlightthickness=0, cursor="crosshair")
         cv.pack(padx=8, pady=8)
         cv.create_image(0, 0, image=photo, anchor="nw")
@@ -4955,10 +4955,10 @@ class SceneTabMixin:
         def redraw():
             cv.delete("box")
             for b in boxes:
-                col = "#ffcc00" if b.get("kind") == "cat" else "#00ddff"
+                col = {"cat": "#ffcc00", "fan": "#ff66ff"}.get(b.get("kind"), "#00ddff")
                 cv.create_rectangle(b["x0"] * cw, b["y0"] * ch, b["x1"] * cw, b["y1"] * ch, outline=col, width=3, tags="box")
                 cv.create_text(b["x0"] * cw + 4, b["y0"] * ch + 4, anchor="nw", fill=col, tags="box",
-                               text="고양이" if b.get("kind") == "cat" else "강아지")
+                               text={"cat": "고양이", "fan": "선풍기"}.get(b.get("kind"), "강아지"))
 
         def down(e):
             state["start"] = (e.x, e.y)
@@ -5004,6 +5004,7 @@ class SceneTabMixin:
         bar = ttk.Frame(win); bar.pack(fill="x", padx=8, pady=(0, 8))
         ttk.Radiobutton(bar, text="강아지", variable=kind, value="dog").pack(side="left")
         ttk.Radiobutton(bar, text="고양이", variable=kind, value="cat").pack(side="left", padx=6)
+        ttk.Radiobutton(bar, text="천장 선풍기(날개 전체)", variable=kind, value="fan").pack(side="left")
         ttk.Label(bar, text="상자는 동물보다 살짝 크게", foreground="#666666").pack(side="left", padx=10)
         ttk.Button(bar, text="마지막 취소", command=undo).pack(side="right")
         ttk.Button(bar, text="저장", command=save).pack(side="right", padx=6)

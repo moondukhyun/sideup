@@ -338,6 +338,8 @@ class PetBreath:
         rng = np.random.default_rng(seed + 977)
         sec = N / float(fps)
         for p in pets:
+            if p.get("kind") == "fan":
+                continue
             x0, y0 = int(max(0, min(1, p["x0"])) * W), int(max(0, min(1, p["y0"])) * H)
             x1, y1 = int(max(0, min(1, p["x1"])) * W), int(max(0, min(1, p["y1"])) * H)
             if x1 - x0 < 24 or y1 - y0 < 16:
@@ -369,4 +371,51 @@ class PetBreath:
             warped = cv2.remap(reg, (it["X"] + dx).astype(np.float32), (it["Y"] + dy).astype(np.float32),
                                cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
             reg[...] = warped
+        return out
+
+
+# ---------------------------------------------------------------- 천장 선풍기 회전
+class FanSpin:
+    """fans: [{"x0","y0","x1","y1" (0~1 비율), "kind": "fan"}]. 상자 안에 꼭 맞는 타원(아래에서 올려다본 날개)을
+    천천히 돌린다. 한 루프에 정수 바퀴 → 이음새 없음. 가운데 몸통은 고정하고 날개 부분만 돌며 살짝 흐려진다."""
+
+    def __init__(self, fans, W, H, N, fps, rps=0.5, seed=7):
+        import cv2
+        self.cv2 = cv2
+        self.N = N
+        sec = N / float(fps)
+        self.k = max(1, int(round(rps * sec)))                       # 루프당 바퀴 수 (초당 약 0.5바퀴 = 느릿한 선풍기)
+        self.items = []
+        for p in fans:
+            x0, y0 = int(max(0, min(1, p["x0"])) * W), int(max(0, min(1, p["y0"])) * H)
+            x1, y1 = int(max(0, min(1, p["x1"])) * W), int(max(0, min(1, p["y1"])) * H)
+            if x1 - x0 < 12 or y1 - y0 < 6:
+                continue
+            cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+            a, b = (x1 - x0) / 2.0, (y1 - y0) / 2.0
+            pad = 3
+            rx0, ry0, rx1, ry1 = max(0, x0 - pad), max(0, y0 - pad), min(W, x1 + pad), min(H, y1 + pad)
+            yy, xx = np.mgrid[ry0:ry1, rx0:rx1].astype(np.float32)
+            u, v = (xx - cx) / a, (yy - cy) / b
+            r = np.sqrt(u * u + v * v)
+            w = _smooth((1.02 - r) / 0.22) * _smooth((r - 0.05) / 0.08)    # 바깥 가장자리·가운데 몸통에서는 변형 0
+            self.items.append({"box": (rx0, ry0, rx1, ry1), "u": u, "v": v, "cx": cx, "cy": cy, "a": a, "b": b,
+                               "w": w[..., None].astype(np.float32), "xx": xx, "yy": yy})
+
+    def apply(self, out, f):
+        cv2 = self.cv2
+        th = 2 * np.pi * self.k * (f % self.N) / self.N
+        blur = np.radians(np.array([-5.0, -2.5, 0.0, 2.5, 5.0]))
+        for it in self.items:
+            x0, y0, x1, y1 = it["box"]
+            reg = out[y0:y1, x0:x1]
+            acc = np.zeros_like(reg)
+            for d in blur:
+                c, s = np.cos(th + d), np.sin(th + d)
+                us = it["u"] * c + it["v"] * s
+                vs = -it["u"] * s + it["v"] * c
+                acc += cv2.remap(reg, (it["cx"] + it["a"] * us - x0).astype(np.float32),
+                                 (it["cy"] + it["b"] * vs - y0).astype(np.float32), cv2.INTER_LINEAR,
+                                 borderMode=cv2.BORDER_REPLICATE)
+            reg[...] = reg * (1 - it["w"]) + (acc / len(blur)) * it["w"]
         return out
