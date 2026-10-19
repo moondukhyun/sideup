@@ -170,7 +170,7 @@ class GlassRain:
                 pts = self._sample_fast(8000, rng)
                 while budget > 0 and n < len(pts):
                     if kind == "med":
-                        rad = float(np.clip(rng.lognormal(np.log(4.6), 0.60), 2.2, 24.0)) * res
+                        rad = float(np.clip(rng.lognormal(np.log(2.9), 0.55), 1.6, 11.0)) * res          # 실제 창의 방울은 작은 것이 대부분
                         stretch = (1.0 + min(0.55, rad / (28.0 * res)) * float(rng.uniform(0.3, 1.0))) * float(rng.uniform(0.9, 1.1))
                     else:
                         rad = float(rng.uniform(0.8, 1.9)) * res
@@ -241,8 +241,8 @@ class GlassRain:
         top, bot = (float(rows.min()), float(rows.max())) if len(rows) else (0.0, float(self.H))
         y = top + rng.uniform(0, 0.45) * (bot - top)
         run = int(period * rng.uniform(0.55, 0.95))
-        rad = float(np.clip(rng.lognormal(np.log(7.0), 0.42), 4.0, 15.0)) * res          # 크기는 제각각 (작은 방울이 더 많음)
-        mass = (rad / (7.0 * res)) ** 1.15                                               # 클수록 무겁다
+        rad = float(np.clip(rng.lognormal(np.log(4.6), 0.42), 2.6, 10.0)) * res          # 크기는 제각각 (작은 방울이 더 많음)
+        mass = (rad / (4.6 * res)) ** 1.15                                               # 클수록 무겁다
         fps_k = 30.0 / self.fps
         hang_lo, hang_hi = (14, 40) if self.fast else (26, 70)
         theta = float(rng.normal(0, 0.10))                                               # 진행 방향 (0 = 곧장 아래, 라디안)

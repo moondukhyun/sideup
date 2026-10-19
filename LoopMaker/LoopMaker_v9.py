@@ -4651,6 +4651,11 @@ SM_RAIN = [("자동 (씬 기본값)", ""), ("가랑비", "light"), ("보통 비"
 SM_MODELS = [("자동 (씬 기본값)", ""), ("Z-Image Turbo (사실적)", "zimage"), ("SDXL (+한국 풍경 LoRA)", "sdxl")]
 SM_IMG_EXT = (".png", ".jpg", ".jpeg", ".webp")
 SM_FILTERS = ["전체 보기", "🎬 영상 만든 것만", "영상 아직 안 만든 것만"]
+SM_FIREDB = [("작게 (-18dB)", -18), ("보통 (-12dB)", -12), ("크게 (-6dB)", -6)]
+SM_ANIMAL_SCENES = {"living_fireplace_storm", "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
+                    "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window", "cabin_fireplace_window",
+                    "living_fireplace_candles", "hearth_dog_cat"}
+SM_INTERIOR_SCENES = SM_ANIMAL_SCENES | {"candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "candle_nook"}
 
 
 def sm_python():
@@ -4693,6 +4698,34 @@ def sm_job_label(bg):
     if sm_has_video(bg):
         label += "  🎬"
     return label
+
+
+def claude_find_pets_fans(img_path):
+    """Claude 로 사진 속 자는 강아지·고양이·천장 선풍기 위치를 찾는다 → [{"kind","x0","y0","x1","y1"}] (0~1 비율).
+    (이 PC 에 로그인된 claude 를 쓰므로 추가 비용 없음. 결과는 틀릴 수 있어 사용자가 화면에서 확인·수정)"""
+    path = os.path.abspath(img_path).replace("\\", "/")
+    prompt = (f"Read 도구로 이 이미지 파일을 열어서 보세요: {path}\n\n"
+              "사진 안에서 아래 대상의 위치를 찾아, 이미지 전체를 가로·세로 0~1 로 본 사각형(x0,y0=왼쪽 위, x1,y1=오른쪽 아래)으로 알려주세요.\n"
+              "- dog: 자고 있는 강아지 (몸 전체, 여러 마리가 붙어 있으면 한 상자로)\n"
+              "- cat: 자고 있는 고양이 (몸 전체)\n"
+              "- fan: 천장 선풍기의 날개 전체 (몸통 램프가 아니라 날개가 퍼진 범위)\n"
+              "상자는 대상을 빈틈없이 감싸되 사방으로 약 5% 만 여유를 두세요. 사진에 없는 대상은 빼세요.\n"
+              '출력은 JSON 한 덩어리만: {"items":[{"kind":"dog","x0":0.35,"y0":0.80,"x1":0.52,"y1":0.99}]} — 다른 글은 쓰지 마세요.')
+    out = run_claude_text(prompt, timeout=240, allow_read=True, retries=1)
+    m = re.search(r"\{.*\}", out, re.S)
+    if not m:
+        raise RuntimeError("Claude 응답에서 위치 정보를 찾지 못했어요: " + out[:120])
+    items, res = json.loads(m.group(0)).get("items", []), []
+    for it in items:
+        try:
+            k = str(it.get("kind", "")).lower()
+            x0, y0, x1, y1 = (min(max(float(it[c]), 0.0), 1.0) for c in ("x0", "y0", "x1", "y1"))
+        except (KeyError, TypeError, ValueError):
+            continue
+        area = (x1 - x0) * (y1 - y0)
+        if k in ("dog", "cat", "fan") and x1 - x0 > 0.01 and y1 - y0 > 0.01 and 0.0003 < area < (0.12 if k == "fan" else 0.35):
+            res.append({"kind": k, "x0": x0, "y0": y0, "x1": x1, "y1": y1})
+    return res
 
 
 def sm_job_scene(bg):
@@ -4738,7 +4771,7 @@ class SceneTabMixin:
                    duration=self.sm_dur_var.get(), motion=self.sm_motion_var.get(),
                    details=self.sm_details_var.get(), wan=self.sm_wan_var.get(), wet=self.sm_wet_var.get(),
                    interior=self.sm_interior_var.get(), fire_sound=self.sm_fire_var.get(), out_dir=self.sm_outdir_var.get(),
-                   scene_only=self.sm_scene_only_var.get())
+                   scene_only=self.sm_scene_only_var.get(), firedb=self.sm_firedb_var.get())
         try:
             with open(SM_TAB_CFG, "w", encoding="utf-8") as f:
                 json.dump(cfg, f, ensure_ascii=False, indent=1)
@@ -4762,6 +4795,7 @@ class SceneTabMixin:
         self.sm_interior_var = tk.BooleanVar(value=cfg.get("interior", True))   # v11.22: 촛불·벽난로 불꽃·반려동물 숨쉬기
         self.sm_fire_var = tk.BooleanVar(value=cfg.get("fire_sound", True))      # v11.22: 벽난로 소리 자동 합성
         self.sm_outdir_var = tk.StringVar(value=cfg.get("out_dir", ""))      # v11.22: 완성 영상 저장 폴더 (비우면 배경 폴더)
+        self.sm_firedb_var = tk.StringVar(value=cfg.get("firedb", SM_FIREDB[1][0]))          # v11.22: 장작 소리 크기
         self.sm_scene_only_var = tk.BooleanVar(value=cfg.get("scene_only", True))   # v11.22: 고른 장면의 배경만 보기
         self.sm_filter_var = tk.StringVar(value=SM_FILTERS[0])               # v11.22: 배경 목록 보기 필터
         self.sm_comfy_var = tk.StringVar(value="ComfyUI 확인 중…")
@@ -4863,9 +4897,10 @@ class SceneTabMixin:
         ttk.Label(v2b, text="비우면 배경 폴더", foreground="#666666").pack(side="left", padx=4)
         v3c = ttk.Frame(v); v3c.pack(fill="x", padx=8, pady=2)
         ttk.Checkbutton(v3c, text="🕯 촛불·벽난로 불꽃 일렁임·🐾 반려동물 숨쉬기", variable=self.sm_interior_var).pack(side="left")
-        ttk.Checkbutton(v3c, text="🔥 벽난로 소리 자동 합성", variable=self.sm_fire_var).pack(side="left", padx=10)
+        ttk.Checkbutton(v3c, text="🔥 장작 소리", variable=self.sm_fire_var).pack(side="left", padx=10)
+        ttk.Combobox(v3c, textvariable=self.sm_firedb_var, width=12, state="readonly", values=[n for n, _ in SM_FIREDB]).pack(side="left")
         v3b = ttk.Frame(v); v3b.pack(fill="x", padx=8, pady=2)
-        ttk.Checkbutton(v3b, text="💧 물·안개 AI 움직임 (Wan 2.2 · 약 10분 · 물 없는 장면은 자동 건너뜀)",
+        ttk.Checkbutton(v3b, text="💧 AI 움직임 (Wan 2.2 · 물·안개 / 실내는 불꽃·촛불·숨쉬기 · 약 15~25분)",
                         variable=self.sm_wan_var).pack(side="left")
         v4 =ttk.Frame(v); v4.pack(fill="x", padx=8, pady=(2, 6))
         self.sm_vid_btn = ttk.Button(v4, text="🎬 영상 만들기", command=self.sm_make_video)
@@ -5056,6 +5091,34 @@ class SceneTabMixin:
         ttk.Radiobutton(bar, text="고양이", variable=kind, value="cat").pack(side="left", padx=6)
         ttk.Radiobutton(bar, text="천장 선풍기(날개 전체)", variable=kind, value="fan").pack(side="left")
         ttk.Label(bar, text="상자는 동물보다 살짝 크게", foreground="#666666").pack(side="left", padx=10)
+        auto_btn = ttk.Button(bar, text="🤖 자동 찾기")
+        auto_btn.pack(side="right", padx=(6, 0))
+
+        def auto():
+            auto_btn.configure(state="disabled", text="찾는 중… (약 30초)")
+            q = queue.Queue()
+
+            def work():
+                try:
+                    q.put(claude_find_pets_fans(img))
+                except Exception as ex:
+                    q.put(ex)
+            threading.Thread(target=work, daemon=True).start()
+
+            def poll():
+                try:
+                    r = q.get_nowait()
+                except queue.Empty:
+                    win.after(500, poll)
+                    return
+                auto_btn.configure(state="normal", text="🤖 자동 찾기")
+                if isinstance(r, Exception):
+                    messagebox.showwarning("자동 찾기 실패", str(r)[:300], parent=win)
+                else:
+                    boxes[:] = r
+                    redraw()
+            win.after(500, poll)
+        auto_btn.configure(command=auto)
         ttk.Button(bar, text="마지막 취소", command=undo).pack(side="right")
         ttk.Button(bar, text="저장", command=save).pack(side="right", padx=6)
         redraw()
@@ -5106,6 +5169,13 @@ class SceneTabMixin:
             self.sm_preview.image = None
         self.sm_refresh_list()
         self.log(f"🗑 배경 {removed}개 삭제" + (f", 사진 {len(photos)}장 목록에서 제외" if photos else ""))
+
+    def _sm_find_pets_thread(self, img):
+        try:
+            res = claude_find_pets_fans(img)
+        except Exception as ex:           # 로그인 만료·인터넷 등 — 메인 스레드에서 안내
+            res = ex
+        self.log_q.put(("__SM_PETS__", img, res))
 
     def sm_pick_outdir(self):
         cur = self.sm_outdir_var.get().strip()
@@ -5169,6 +5239,21 @@ class SceneTabMixin:
         except (OSError, ValueError):
             pass
         fire_auto = self.sm_fire_var.get() and any(k in img_scene for k in ("fireplace", "hearth"))
+        interior = img_scene in SM_INTERIOR_SCENES and self.sm_interior_var.get()
+        if (interior and img_scene in SM_ANIMAL_SCENES and not getattr(self, "_sm_skip_pets", False)
+                and not os.path.isfile(os.path.join(os.path.dirname(img), "pets.json"))):
+            ans = messagebox.askyesnocancel("반려동물·선풍기 위치",
+                                            "자는 강아지·고양이와 천장 선풍기 위치가 아직 없어요 (없으면 숨쉬기·선풍기가 안 움직여요).\n\n"
+                                            "Claude 로 사진을 보고 자동으로 찾을까요? (약 30초, 영상 만들기가 이어서 시작돼요)\n\n"
+                                            "예 = 자동으로 찾기\n아니오 = 위치 없이 진행\n취소 = 돌아가기")
+            if ans is None:
+                return
+            if ans:
+                self.log("🐾 사진 속 반려동물·선풍기 위치를 Claude 로 찾는 중… (약 30초)")
+                self._sm_buttons(True)
+                threading.Thread(target=self._sm_find_pets_thread, args=(img,), daemon=True).start()
+                return
+        self._sm_skip_pets = False
         if not audio and not fire_auto:
             if not messagebox.askyesno("빗소리 없음", "빗소리 파일 없이 화면만 만들까요?\n"
                                                      "(보통은 직접 녹음한 빗소리를 넣어요)"):
@@ -5203,8 +5288,23 @@ class SceneTabMixin:
         if not self.sm_fire_var.get():
             args.append("--no-fire-sound")
         wan = self.sm_wan_var.get()
+        if interior and not wan and not getattr(self, "_sm_wan_asked", False):
+            self._sm_wan_asked = True
+            ans = messagebox.askyesnocancel("AI 움직임 (Wan 2.2)",
+                                            "벽난로 불꽃·촛불·반려동물 숨쉬기는 AI 영상(Wan 2.2)이 움직임을 만들면 훨씬 자연스러워요.\n"
+                                            "대신 영상 1개당 약 15~25분이 더 걸려요 (ComfyUI 자동 실행).\n\n"
+                                            "예 = AI 움직임으로 만들기\n아니오 = 빠른 방식 (수식 움직임)\n취소 = 돌아가기")
+            if ans is None:
+                self._sm_wan_asked = False
+                return
+            if ans:
+                wan = True
+                self.sm_wan_var.set(True)
         if wan:
             args.append("--wan")
+        fdb = dict(SM_FIREDB).get(self.sm_firedb_var.get())
+        if fdb is not None:
+            args += ["--fire-db", str(fdb)]
         self._sm_save_cfg()
         self._sm_run("video", args, need_comfy=wan)
 
@@ -5291,6 +5391,23 @@ class SceneTabMixin:
             self.sm_comfy_var.set("🟢 ComfyUI 켜짐 (배경 만들기 가능)" if msg[1]
                                   else "⚪ ComfyUI 꺼짐 — 배경 만들기를 누르면 자동으로 켜요")
             self.sm_comfy_btn.configure(state="disabled" if msg[1] else "normal")
+        elif tag == "__SM_PETS__":
+            _, img, res = msg
+            self._sm_buttons(False)
+            if isinstance(res, Exception):
+                self.log(f"⚠ 자동 찾기 실패 — 위치 없이 진행해요 ({str(res)[:160]}). 나중에 [🐾 위치 지정] 에서 직접 표시할 수 있어요")
+            else:
+                if res:
+                    try:
+                        with open(os.path.join(os.path.dirname(img), "pets.json"), "w", encoding="utf-8") as f:
+                            json.dump(res, f, ensure_ascii=False, indent=1)
+                    except OSError as ex:
+                        self.log(f"⚠ pets.json 저장 실패: {ex}")
+                names = {"dog": "강아지", "cat": "고양이", "fan": "선풍기"}
+                self.log("🐾 찾은 것: " + (", ".join(names.get(r["kind"], r["kind"]) for r in res) if res else "없음")
+                         + "  (위치가 어긋났으면 [🐾 위치 지정] 에서 고칠 수 있어요)")
+            self._sm_skip_pets = True
+            self.sm_make_video()
         elif tag == "__SM_DONE__":
             _, kind, found, rc, stopped = msg
             self._sm_buttons(False)

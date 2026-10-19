@@ -48,10 +48,10 @@ def fire_crackle(seconds=90.0, sr=SR, seed=5):
     for ch in range(2):
         r = np.random.default_rng(seed * 7 + ch * 101)
         roar = _band(r.normal(0, 1, n), sr, 45, 420, 2.0) * _slow_noise(r, n, sr, 0.35, 0.45, 1.0)
-        roar = roar / (np.std(roar) + 1e-9) * 0.32
+        roar = roar / (np.std(roar) + 1e-9) * 0.12
         hiss = _band(r.normal(0, 1, n), sr, 2500, 9000, 2.0)
         ticks = np.zeros(n)
-        count = int(seconds * 15)                                   # 작은 타닥 (초당 약 15번)
+        count = int(seconds * 9)                                    # 작은 타닥 (초당 약 9번)
         starts = r.integers(0, n, count)
         for s in starts:
             ln = int(sr * r.uniform(0.0008, 0.006))
@@ -66,10 +66,10 @@ def fire_crackle(seconds=90.0, sr=SR, seed=5):
             body = _band(r.normal(0, 1, ln + 400), sr, 250, 3500, 1.5)[200:200 + ln]
             burst = body * np.exp(-np.arange(ln) / tau) * r.uniform(1.2, 3.2)
             _place(pops, int(s), burst)
-        ticks = _band(ticks, sr, 1200, 8000, 1.5)
-        ticks = ticks / (np.std(ticks) + 1e-9) * 0.30
-        pops = pops / (np.std(pops) + 1e-9) * 0.16
-        hiss = hiss / (np.std(hiss) + 1e-9) * 0.05 * _slow_noise(r, n, sr, 0.5, 0.4, 1.0)
+        ticks = _band(ticks, sr, 700, 5000, 1.5)                    # 지직거리는 고음 잡음처럼 들리지 않게 대역을 낮춤
+        ticks = ticks / (np.std(ticks) + 1e-9) * 0.17
+        pops = pops / (np.std(pops) + 1e-9) * 0.30
+        hiss = hiss / (np.std(hiss) + 1e-9) * 0.012 * _slow_noise(r, n, sr, 0.5, 0.4, 1.0)
         chans.append(roar + ticks + pops + hiss)
     return _norm(np.stack(chans, 1), -23.0)
 

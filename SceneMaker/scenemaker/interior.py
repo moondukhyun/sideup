@@ -181,6 +181,7 @@ class Interior:
         self.res = H / 1080.0
         self.strength = float(strength)
         self.fire_strength = float(fire_strength)
+        self.procedural = True                     # False 면 불꽃·촛불 모양 움직임은 Wan 이 만들므로 방 안 불빛 일렁임만 담당
         rng = np.random.default_rng(seed + 811)
         self.rng = rng
         info = info if info is not None else find_lights(bg)
@@ -249,7 +250,7 @@ class Interior:
             sway /= (sway.std() + 1e-6)
             sway = 1.6 * np.tanh(sway / 1.6)                                               # 가끔 크게 휘어도 한계가 있음
             self.flames.append({
-                "box": (x0, y0, x1, y1), "win": win.astype(np.float32), "above2": above.astype(np.float32),
+                "idx": i, "box": (x0, y0, x1, y1), "win": win.astype(np.float32), "above2": above.astype(np.float32),
                 "core": core.astype(np.float32), "halo": halo.astype(np.float32),
                 "amp": (0.045 * fw + 0.5 * res) * self.strength, "sway": sway, "sig": self.candle_sigs[i],
                 "xx": xx_ - x0, "yy": yy_ - y0,
@@ -282,7 +283,7 @@ class Interior:
 
     # ------------------------------------------------------------ 불티
     def _make_embers(self, rng, bw, bh, fx0, fy0):
-        n = int(26 * self.strength) + 6
+        n = 0                                                    # 불티(떠오르는 점)는 방울처럼 보여서 뺌 — AI 움직임(Wan)을 쓰면 AI 가 불티까지 만듦
         bx0, by0, bx1, by1 = self.fire["box"]
         em = []
         for _ in range(n):
@@ -320,12 +321,12 @@ class Interior:
         f %= self.N
         st = self.strength
         # 1) 벽난로 불꽃 일렁임
-        if self.fx is not None:
+        if self.fx is not None and self.procedural:
             fx = self.fx
             x0, y0, x1, y1 = fx["box"]
             P, k = self.fP, self.fk
             shift = int(round(k * P * f / self.N)) % P
-            rows = slice(P - shift, P - shift + fx["bh"])
+            rows = slice(shift, shift + fx["bh"])                  # 무늬가 '위로' 올라감 (이전에는 아래로 흘러내려 불꽃이 부자연스러웠음)
             n1, n2, n3 = self.fn1[rows], self.fn2[rows], self.fn3[rows]
             fs = float(self.fire_sig[f])
             ax = fx["ax"] * (1.0 + 0.12 * fs) * self.fire_strength
@@ -340,7 +341,7 @@ class Interior:
             reg[...] = reg * (1 - m) + flame * m
             self._draw_embers(out, f)
         # 2) 촛불 불꽃 흔들림 + 번쩍임
-        for c in self.flames:
+        for c in (self.flames if self.procedural else ()):
             x0, y0, x1, y1 = c["box"]
             reg = out[y0:y1, x0:x1]
             s = float(c["sway"][f])
@@ -358,6 +359,18 @@ class Interior:
             L = cv2.resize(lo, (self.W, self.H), interpolation=cv2.INTER_LINEAR)
             out *= 1.0 + L[..., None] * WARM
         return out
+
+    def set_signals(self, fire=None, candles=None):
+        """방 안 불빛 일렁임을 다른 신호(예: Wan 영상 속 불꽃의 실제 밝기 변화)로 바꾼다. candles: {후보 번호: 신호}."""
+        if candles:
+            for i, s in candles.items():
+                if 0 <= i < len(self.candle_sigs):
+                    self.candle_sigs[i] = np.asarray(s, np.float32)
+        if fire is not None and self.fire is not None:
+            self.fire_sig = np.asarray(fire, np.float32)
+        sigs = list(self.candle_sigs) + ([self.fire_sig, self.fire_sig] if self.fire is not None else [])
+        if sigs:
+            self.light_sigs = np.stack(sigs).astype(np.float32)
 
     def describe(self):
         lines = []

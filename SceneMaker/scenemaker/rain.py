@@ -130,6 +130,7 @@ class RainRenderer:
         self.water = None            # waterrain.WaterRain (호수·계곡·물웅덩이 수면에 떨어지는 빗방울)
         self.wet = None              # wetrock.WetRocks (젖은 표면 반짝임 + 흘러내리는 빗물, v11.19)
         self.interior = None         # interior.Interior (촛불·벽난로 불꽃·불빛 일렁임, v11.22)
+        self.wan_room = None         # wanroom.WanRoom (Wan 이 만든 불꽃·촛불·숨쉬기 움직임, v11.22)
         self.fans = None             # interior.FanSpin (천장 선풍기 회전, v11.22)
         self.pets = None             # interior.PetBreath (반려동물 숨쉬기, v11.22)
         self.stream = None           # streamflow.StreamFlow (대롱·폭포 물줄기 흐름, v11.21)
@@ -327,6 +328,8 @@ class RainRenderer:
     def frame(self, f):
         f %= self.N
         out = self.motion.frame(f).copy() if self.motion is not None else self.bg.copy()
+        if self.wan_room is not None:
+            out = self.wan_room.apply(out, f)                # AI 가 만든 불꽃·촛불·숨쉬기 (v11.22)
         if self.pets is not None:
             out = self.pets.apply(out, f)                    # 자는 반려동물 숨쉬기 (v11.22)
         if self.fans is not None:

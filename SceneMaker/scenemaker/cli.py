@@ -306,7 +306,7 @@ def _ambience(job, rs, args, audio):
         print("  벽난로 소리 합성 중 (90초, 끝과 처음이 이어지는 루프)")
         ambience.make(fire, "fire", 90.0, seed=rs.seed)
     db = getattr(args, "fire_db", None)
-    db = float(db) if db is not None else 0.0
+    db = float(db) if db is not None else -12.0                 # 녹음한 빗소리 위에 얹을 때: 빗소리가 주인공, 장작 소리는 뒤에서 작게
     if audio:
         print(f"  벽난로 소리를 녹음 파일 위에 섞음 ({db:+.0f}dB)")
         return audio, [(fire, db)]
@@ -327,10 +327,59 @@ def _final_path(job, args, label, v):
     return out / f"{Path(job).name}_{label}_{v['resolution']}.mp4"
 
 
+def _attach_wan_interior(cfg, renderer, job, bg, meta, args):
+    """v11.22: 실내 장면 — 벽난로 불·촛불·자는 반려동물을 Wan 2.2 가 만든 움직임으로 (실패하면 수식 움직임 그대로)."""
+    from . import wanmotion
+    from .wanroom import WanRoom
+    it = renderer.interior
+    pets = list(renderer.pets.items) if renderer.pets is not None else []
+    has_fire = it is not None and it.fire is not None
+    flames = list(it.flames) if it is not None else []
+    if not (has_fire or flames or pets):
+        print("  Wan 실내 움직임: 불꽃·촛불·반려동물을 찾지 못해 건너뜀")
+        return
+    client = ComfyClient(cfg["comfy"]["url"], timeout=3600)
+    try:
+        client.ping()
+    except ComfyError as e:
+        raise SystemExit(f"Wan 움직임에는 ComfyUI 가 필요합니다: {e}")
+    kinds = [p.get("kind", "dog") for p in pets] if pets else []
+    extra = ", ".join(x for x in (renderer.s.wan_hint, getattr(args, "wan_prompt", "") or "") if x)
+    prompt = wanmotion.wan_room_prompt(has_fire, len(flames), kinds, extra)
+    seed0 = args.wan_seed if getattr(args, "wan_seed", None) is not None else int(meta.get("seed", 7))
+    n = max(1, int(getattr(args, "wan_clips", None) or 2))
+    clips = []
+    try:
+        for i in range(n):
+            print(f"  Wan 클립 {i + 1}/{n} (서로 다른 움직임 → 반복 주기가 길어짐)")
+            clips.append(wanmotion.generate_clip(client, bg, Path(job) / f"wan_room_{i}", prompt, seed0 + i * 101,
+                                                  negative=wanmotion.WAN_ROOM_NEG))
+        room = WanRoom(renderer.bg, clips, renderer.N, renderer.fps, fire=it.fire if has_fire else None,
+                       flames=flames, pets=pets)
+    except Exception as e:                                   # 생성 실패해도 수식 움직임으로 영상은 만든다
+        print(f"  ⚠ Wan 실내 움직임 실패 → 수식 움직임으로 대신함: {e}")
+        return
+    renderer.wan_room = room
+    renderer.pets = None                                     # 숨쉬기는 Wan 흐름이 담당
+    if it is not None:
+        it.procedural = False                                # 불꽃·촛불 모양은 Wan 이 담당, 방 안 불빛 일렁임만 남김
+        cand = {}
+        for j, c in enumerate(flames):
+            s = room.signal(f"candle{j}")
+            if s is not None:
+                cand[c["idx"]] = s
+        it.set_signals(fire=room.signal("fire") if has_fire else None, candles=cand)
+    sec = renderer.N / renderer.fps
+    print(f"  Wan 실내 움직임: 벽난로 불 {'O' if has_fire else 'X'} · 촛불 {len(flames)}개 · 반려동물 {len(pets)}마리 · 클립 {n}개 "
+          f"(움직임 반복 주기 약 {sum(room.Ks) / 16:.0f}초, 루프 {sec:.0f}초)")
+
+
 def _attach_wan(cfg, renderer, job, bg, meta, args):
     """4단계: Wan 2.2 로 물·안개 부분만 AI 움직임 (잎은 기존 절차적 흔들림 유지)."""
     from . import wanmotion
     from .motion import vegetation_mask
+    if renderer.s.interior > 0 and not getattr(args, "no_interior", False):
+        return _attach_wan_interior(cfg, renderer, job, bg, meta, args)
     if not renderer.s.wan_ok and not getattr(args, "wan_force", False):
         print("  Wan 건너뜀: 이 장면은 물·안개가 거의 없어 AI 물 움직임이 아무것도 못 찾습니다 (2~15분 절약, 강제하려면 --wan-force)")
         return
@@ -820,7 +869,7 @@ def _add_rain_args(p):
     g.add_argument("--pet", action="append", help="자는 반려동물·선풍기 위치 'x0,y0,x1,y1[,dog|cat|fan]' (0~1 비율, 여러 번 지정 가능)")
     g.add_argument("--fire-sound", action="store_true", help="벽난로 타닥거리는 소리를 합성해 섞음 (벽난로 장면은 기본 켜짐)")
     g.add_argument("--no-fire-sound", action="store_true", help="벽난로 소리 합성 끄기")
-    g.add_argument("--fire-db", type=float, help="벽난로 소리 크기 조절 dB (기본 0, 작게 하려면 -6)")
+    g.add_argument("--fire-db", type=float, help="벽난로 소리 크기 dB (기본 -12, 더 작게 -18, 크게 -6)")
     g.add_argument("--grade", type=float, help="색 보정 강도 (기본 1.0, 0 = 끔)")
     g.add_argument("--grain", type=float, help="필름 그레인 강도 (기본 1.0, 0 = 끔)")
     g.add_argument("--classic-rain", action="store_true", help="예전 빗줄기 방식 (거리별 빗줄기·색 보정·그레인 끔)")
@@ -831,6 +880,7 @@ def _add_video_args(p):
     p.add_argument("--wan-force", action="store_true", help="물이 없는 장면에서도 Wan 을 강제로 실행")
     p.add_argument("--wan-prompt", default="", help="Wan 움직임 묘사 추가 (영어)")
     p.add_argument("--wan-seed", type=int, help="Wan 시드 (기본: 배경 시드)")
+    p.add_argument("--wan-clips", type=int, default=2, help="실내 장면 Wan 클립 개수 (기본 2, 많을수록 움직임 반복이 길어지고 시간이 늘어남)")
     p.add_argument("--wan-period", type=float, help="Wan 움직임 한 바퀴 길이(초, 기본: 원래 속도 5초), 루프를 나누도록 조정됨")
     p.add_argument("--out-dir", help="완성 영상을 저장할 폴더 (기본: 배경 이미지가 있는 작업 폴더)")
     p.add_argument("--duration", help="길이: 3m / 1h / 10h, 여러 개 '3m,1h,10h', 전부 'all'")
