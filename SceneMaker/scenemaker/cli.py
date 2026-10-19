@@ -309,13 +309,7 @@ def _ambience(job, rs, args, audio):
     if audio:
         print(f"  벽난로 소리를 녹음 파일 위에 섞음 ({db:+.0f}dB)")
         return audio, [(fire, db)]
-    if rs.window and rs.intensity > 0.2:
-        both = job / "ambience_fire_rain.wav"
-        if not both.exists():
-            print("  창가 빗소리 + 벽난로 소리 합성 중 (녹음 파일이 없어 자동 생성)")
-            ambience.make(both, "fire+rain", 90.0, seed=rs.seed, heavy=min(2.0, max(0.5, rs.intensity)))
-        return both, []
-    print("  녹음 파일이 없어 벽난로 소리만 사용")
+    print("  빗소리 파일이 없어 벽난로 장작 소리만 넣음 (빗소리를 넣으려면 오디오 파일을 지정하세요)")
     return fire, []
 
 

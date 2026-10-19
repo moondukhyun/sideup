@@ -5051,14 +5051,25 @@ class SceneTabMixin:
             messagebox.showwarning("확인", "② 에서 배경을 먼저 골라주세요")
             return
         audio = self.sm_audio_var.get().strip()
-        fire_auto = self.sm_fire_var.get() and any(k in self._sm_scene_name() for k in ("fireplace", "hearth"))
+        img_scene = self._sm_scene_name()
+        try:                                       # 고른 배경을 만들 때의 장면 이름이 있으면 그것을 우선
+            with open(os.path.join(os.path.dirname(img), "meta.json"), encoding="utf-8") as f:
+                img_scene = json.load(f).get("scene") or img_scene
+        except (OSError, ValueError):
+            pass
+        fire_auto = self.sm_fire_var.get() and any(k in img_scene for k in ("fireplace", "hearth"))
         if not audio and not fire_auto:
             if not messagebox.askyesno("빗소리 없음", "빗소리 파일 없이 화면만 만들까요?\n"
                                                      "(보통은 직접 녹음한 빗소리를 넣어요)"):
                 return
         elif not os.path.isfile(audio):
-            messagebox.showwarning("확인", f"빗소리 파일을 찾을 수 없어요:\n{audio}")
-            return
+            if fire_auto:
+                self.log(f"⚠ 빗소리 파일을 찾을 수 없어 벽난로 장작 소리만 넣어요: {audio}")
+                self.sm_audio_var.set("")
+                audio = ""
+            else:
+                messagebox.showwarning("확인", f"빗소리 파일을 찾을 수 없어요:\n{audio}")
+                return
         dur = dict(SM_DURATIONS).get(self.sm_dur_var.get(), "3m")
         args = ["loop", img, "--duration", dur]
         if audio:
