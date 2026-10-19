@@ -4650,6 +4650,7 @@ SM_DURATIONS = [("3분 (테스트)", "3m"), ("1시간", "1h"), ("3시간", "3h")
 SM_RAIN = [("자동 (씬 기본값)", ""), ("가랑비", "light"), ("보통 비", "steady"), ("폭우", "heavy")]
 SM_MODELS = [("자동 (씬 기본값)", ""), ("Z-Image Turbo (사실적)", "zimage"), ("SDXL (+한국 풍경 LoRA)", "sdxl")]
 SM_IMG_EXT = (".png", ".jpg", ".jpeg", ".webp")
+SM_FILTERS = ["전체 보기", "🎬 영상 만든 것만", "영상 아직 안 만든 것만"]
 
 
 def sm_python():
@@ -4666,7 +4667,7 @@ def comfy_alive(timeout=1.5):
         return False
 
 
-def sm_recent_jobs(limit=60):
+def sm_recent_jobs(limit=300):
     """SceneMaker 결과 폴더에서 배경 이미지가 있는 작업을 최신순으로."""
     try:
         names = sorted(os.listdir(SCENEMAKER_OUT), reverse=True)
@@ -4689,12 +4690,21 @@ def sm_job_label(bg):
     name = os.path.basename(job)
     m = re.match(r"(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})\d{2}_(.+?)(?:_\d+)?$", name)
     label = f"{m.group(2)}-{m.group(3)} {m.group(4)}:{m.group(5)}  {m.group(6)}" if m else name
+    if sm_has_video(bg):
+        label += "  🎬"
+    return label
+
+
+def sm_has_video(bg):
+    """이 배경으로 이미 영상을 만들었는지 (영상을 다른 폴더에 저장했어도 meta.json 기록으로 앎)."""
+    job = os.path.dirname(bg)
     try:
         if any(f.startswith("final_") and f.endswith(".mp4") for f in os.listdir(job)):
-            label += "  🎬"
-    except OSError:
-        pass
-    return label
+            return True
+        with open(os.path.join(job, "meta.json"), encoding="utf-8") as f:
+            return bool(json.load(f).get("finals"))
+    except (OSError, ValueError):
+        return False
 
 
 class SceneTabMixin:
@@ -4713,7 +4723,7 @@ class SceneTabMixin:
                    model=self.sm_model_var.get(), audio=self.sm_audio_var.get(),
                    duration=self.sm_dur_var.get(), motion=self.sm_motion_var.get(),
                    details=self.sm_details_var.get(), wan=self.sm_wan_var.get(), wet=self.sm_wet_var.get(),
-                   interior=self.sm_interior_var.get(), fire_sound=self.sm_fire_var.get())
+                   interior=self.sm_interior_var.get(), fire_sound=self.sm_fire_var.get(), out_dir=self.sm_outdir_var.get())
         try:
             with open(SM_TAB_CFG, "w", encoding="utf-8") as f:
                 json.dump(cfg, f, ensure_ascii=False, indent=1)
@@ -4736,6 +4746,8 @@ class SceneTabMixin:
         self.sm_wet_var = tk.BooleanVar(value=cfg.get("wet", True))      # v11.19: 젖은 바위·물줄기·수면 빗방울
         self.sm_interior_var = tk.BooleanVar(value=cfg.get("interior", True))   # v11.22: 촛불·벽난로 불꽃·반려동물 숨쉬기
         self.sm_fire_var = tk.BooleanVar(value=cfg.get("fire_sound", True))      # v11.22: 벽난로 소리 자동 합성
+        self.sm_outdir_var = tk.StringVar(value=cfg.get("out_dir", ""))      # v11.22: 완성 영상 저장 폴더 (비우면 배경 폴더)
+        self.sm_filter_var = tk.StringVar(value=SM_FILTERS[0])               # v11.22: 배경 목록 보기 필터
         self.sm_comfy_var = tk.StringVar(value="ComfyUI 확인 중…")
         self.sm_proc = None
         self.sm_stop_flag = threading.Event()
@@ -4801,6 +4813,9 @@ class SceneTabMixin:
         self.sm_preview.pack(side="left", padx=(8, 0))
         sbtn = ttk.Frame(s); sbtn.pack(fill="x", padx=8, pady=(2, 6))
         ttk.Button(sbtn, text="🔄 새로고침", command=self.sm_refresh_list).pack(side="left")
+        flt_cb = ttk.Combobox(sbtn, textvariable=self.sm_filter_var, width=20, state="readonly", values=SM_FILTERS)
+        flt_cb.pack(side="left", padx=6)
+        flt_cb.bind("<<ComboboxSelected>>", lambda e: self.sm_refresh_list())
         ttk.Button(sbtn, text="📂 내 사진 쓰기", command=self.sm_pick_image).pack(side="left", padx=6)
         ttk.Button(sbtn, text="🔍 크게 보기", command=self.sm_open_image).pack(side="left")
         ttk.Button(sbtn, text="🐾 반려동물·선풍기 위치 지정", command=self.sm_pick_pets).pack(side="left", padx=6)
@@ -4820,6 +4835,12 @@ class SceneTabMixin:
         ttk.Checkbutton(v3, text="잎 흔들림·물 일렁임", variable=self.sm_motion_var).pack(side="left")
         ttk.Checkbutton(v3, text="물 튀김·물결·물방울", variable=self.sm_details_var).pack(side="left", padx=10)
         ttk.Checkbutton(v3, text="젖은 표면·흘러내리는 빗물·물줄기·수면 빗방울", variable=self.sm_wet_var).pack(side="left")
+        v2b = ttk.Frame(v); v2b.pack(fill="x", padx=8, pady=2)
+        ttk.Label(v2b, text="💾 영상 저장 폴더:").pack(side="left")
+        ttk.Entry(v2b, textvariable=self.sm_outdir_var, width=40).pack(side="left", padx=4)
+        ttk.Button(v2b, text="찾기", command=self.sm_pick_outdir).pack(side="left")
+        ttk.Button(v2b, text="📂 열기", command=self.sm_open_outdir).pack(side="left", padx=4)
+        ttk.Label(v2b, text="비우면 배경 폴더", foreground="#666666").pack(side="left", padx=4)
         v3c = ttk.Frame(v); v3c.pack(fill="x", padx=8, pady=2)
         ttk.Checkbutton(v3c, text="🕯 촛불·벽난로 불꽃 일렁임·🐾 반려동물 숨쉬기", variable=self.sm_interior_var).pack(side="left")
         ttk.Checkbutton(v3c, text="🔥 벽난로 소리 자동 합성", variable=self.sm_fire_var).pack(side="left", padx=10)
@@ -4879,7 +4900,13 @@ class SceneTabMixin:
     # ---------- 배경 목록 ----------
     def sm_refresh_list(self, select=None):
         keep = [p for p in self.sm_items if not p.startswith(SCENEMAKER_OUT)]   # 직접 고른 사진은 유지
-        self.sm_items = keep + [p for p in sm_recent_jobs() if p not in keep]
+        flt = self.sm_filter_var.get() if hasattr(self, "sm_filter_var") else SM_FILTERS[0]
+        jobs = [p for p in sm_recent_jobs() if p not in keep]
+        if flt == SM_FILTERS[1]:
+            jobs = [p for p in jobs if sm_has_video(p)]
+        elif flt == SM_FILTERS[2]:
+            jobs = [p for p in jobs if not sm_has_video(p)]
+        self.sm_items = keep + jobs
         self.sm_list.delete(0, "end")
         for p in self.sm_items:
             self.sm_list.insert("end", sm_job_label(p) if p.startswith(SCENEMAKER_OUT)
@@ -5010,6 +5037,20 @@ class SceneTabMixin:
         ttk.Button(bar, text="저장", command=save).pack(side="right", padx=6)
         redraw()
 
+    def sm_pick_outdir(self):
+        cur = self.sm_outdir_var.get().strip()
+        p = filedialog.askdirectory(initialdir=cur if cur and os.path.isdir(cur) else None,
+                                    title="완성 영상을 저장할 폴더")
+        if p:
+            self.sm_outdir_var.set(os.path.normpath(p))
+
+    def sm_open_outdir(self):
+        d = self.sm_outdir_var.get().strip()
+        if d and os.path.isdir(d):
+            os.startfile(d)
+        else:
+            messagebox.showinfo("확인", "영상 저장 폴더를 먼저 정해주세요 (비워두면 배경 폴더에 저장돼요)")
+
     def sm_pick_audio(self):
         cur = self.sm_audio_var.get()
         p = filedialog.askopenfilename(initialdir=os.path.dirname(cur) if cur else None,
@@ -5084,6 +5125,9 @@ class SceneTabMixin:
             args.append("--no-details")
         if not self.sm_wet_var.get():
             args.append("--no-wet")
+        outdir = self.sm_outdir_var.get().strip()
+        if outdir:
+            args += ["--out-dir", outdir]
         if not self.sm_interior_var.get():
             args.append("--no-interior")
         if not self.sm_fire_var.get():
@@ -5140,6 +5184,9 @@ class SceneTabMixin:
                         m = re.search(r"미리보기:\s+(.+?)[\\/]preview\.png", line)
                         if m:
                             job = os.path.normpath(os.path.join(SCENEMAKER_DIR, m.group(1).strip()))
+                        m = re.search(r"영상 저장 위치:\s+(.+?\.mp4)\s*$", line)
+                        if m:
+                            found.append(os.path.normpath(m.group(1).strip()))
                         m = re.search(r"->\s+(final_\S+\.mp4)", line)
                         if m and job:
                             found.append(os.path.join(job, m.group(1)))

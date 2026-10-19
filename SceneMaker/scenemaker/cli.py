@@ -213,11 +213,12 @@ def make_loop(cfg, image, scene_name, args, job=None):
     for duration in durations:
         label = format_duration(duration)
         seg, kbps = segment_for_duration(master, job, duration, v, cache)
-        final = job / f"final_{label}_{v['resolution']}.mp4"
+        final = _final_path(job, args, label, v)
         print(f"[{label}] 조립 중 — {v['resolution']} {v['encoder']} {kbps / 1000:.1f}Mbps")
         assemble(seg, final, duration, v, audio=audio, extra=extra_audio)
         gb = final.stat().st_size / 1e9
         print(f"  -> {final.name}  {gb:.2f}GB (상한 {v['max_size_gb']}GB)")
+        print(f"  영상 저장 위치: {final}")
         finals.append({"file": final.name, "duration": duration, "kbps": kbps, "gb": round(gb, 2)})
     _write_meta(job, finals=finals, audio=str(audio) if audio else None)
     n = variety.mark_used(job / "background.png", note=", ".join(f["file"] for f in finals))
@@ -311,6 +312,19 @@ def _ambience(job, rs, args, audio):
         return audio, [(fire, db)]
     print("  빗소리 파일이 없어 벽난로 장작 소리만 넣음 (빗소리를 넣으려면 오디오 파일을 지정하세요)")
     return fire, []
+
+
+def _final_path(job, args, label, v):
+    """완성 영상 경로. --out-dir 을 주면 배경 이미지 폴더가 아니라 그 폴더에 저장 (이름: 작업폴더이름_길이_해상도.mp4)."""
+    out = getattr(args, "out_dir", None)
+    if not out:
+        return Path(job) / f"final_{label}_{v['resolution']}.mp4"
+    out = Path(out)
+    try:
+        out.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise SystemExit(f"영상 저장 폴더를 만들 수 없습니다: {out} ({e})")
+    return out / f"{Path(job).name}_{label}_{v['resolution']}.mp4"
 
 
 def _attach_wan(cfg, renderer, job, bg, meta, args):
@@ -814,6 +828,7 @@ def _add_video_args(p):
     p.add_argument("--wan-prompt", default="", help="Wan 움직임 묘사 추가 (영어)")
     p.add_argument("--wan-seed", type=int, help="Wan 시드 (기본: 배경 시드)")
     p.add_argument("--wan-period", type=float, help="Wan 움직임 한 바퀴 길이(초, 기본: 원래 속도 5초), 루프를 나누도록 조정됨")
+    p.add_argument("--out-dir", help="완성 영상을 저장할 폴더 (기본: 배경 이미지가 있는 작업 폴더)")
     p.add_argument("--duration", help="길이: 3m / 1h / 10h, 여러 개 '3m,1h,10h', 전부 'all'")
     p.add_argument("--resolution", choices=list(RESOLUTIONS), help="출력 해상도 (기본 1440p)")
     p.add_argument("--max-size-gb", type=float, help="최종 파일 용량 상한 (기본 40)")
