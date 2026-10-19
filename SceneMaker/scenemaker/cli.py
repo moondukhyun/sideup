@@ -256,13 +256,17 @@ def _attach_interior(renderer, job, rs, args):
     """v11.22: 촛불·벽난로 불꽃·방 안 불빛 일렁임·반려동물 숨쉬기."""
     if rs.interior <= 0 or getattr(args, "no_interior", False):
         return
-    from .interior import FanSpin, Interior, PetBreath, find_lights
+    from .interior import FanSpin, Interior, PetBreath, RecordSpin, find_lights
     info = find_lights(renderer.bg, exclude=renderer.glass.mask if renderer.glass is not None else None)    # 창밖 불빛은 촛불이 아님
     it = Interior(renderer.bg, renderer.N, renderer.fps, strength=rs.interior, fire_strength=rs.fire,
                   seed=rs.seed, info=info, fire_speed=float(getattr(args, "fire_speed", None) or 0.45))
     marks = _load_pets(job, args)
-    pets = [p for p in marks if p.get("kind") != "fan"]
+    pets = [p for p in marks if p.get("kind") not in ("fan", "record")]
     fans = [p for p in marks if p.get("kind") == "fan"]
+    recs = [p for p in marks if p.get("kind") == "record"]
+    if recs:
+        renderer.records = RecordSpin(recs, renderer.W, renderer.H, renderer.N, renderer.fps)
+        print(f"  턴테이블 레코드판 회전: {len(renderer.records.items)}장 ({renderer.records.rpm:.1f}회전/분, 루프당 {renderer.records.k}바퀴)")
     if fans:
         renderer.fans = FanSpin(fans, renderer.W, renderer.H, renderer.N, renderer.fps, seed=rs.seed)
         print(f"  천장 선풍기 회전: {len(renderer.fans.items)}대 (루프당 {renderer.fans.k}바퀴)")
@@ -287,31 +291,43 @@ def _attach_interior(renderer, job, rs, args):
             dr.rectangle(p["box"], outline=(0, 220, 255), width=4)
         for p in renderer.fans.items if renderer.fans else []:
             dr.rectangle(p["box"], outline=(255, 0, 255), width=4)
+        for p in renderer.records.items if renderer.records else []:
+            dr.rectangle(p["box"], outline=(255, 160, 0), width=4)
         pv.resize((1280, int(1280 * renderer.H / renderer.W))).save(Path(job) / "interior_mask.jpg")
-        print("  적용 위치 확인: interior_mask.jpg (노란 원=촛불, 빨간 상자=벽난로 불, 하늘색 상자=반려동물, 보라 상자=선풍기)")
+        print("  적용 위치 확인: interior_mask.jpg (노란 원=촛불, 빨간 상자=벽난로 불, 하늘색 상자=반려동물, 보라 상자=선풍기, 주황 상자=레코드판)")
     except Exception:
         pass
 
 
 def _ambience(job, rs, args, audio):
-    """v11.22: 벽난로 타닥거리는 소리·(녹음 파일이 없을 때) 창가 빗소리를 합성해 섞는다.
+    """v11.22: 벽난로 타닥거리는 소리·레코드판 지직 소리를 합성해 녹음 파일 위에 섞는다 (둘 다 뒤에서 작게).
     반환: (주 오디오, [(추가 오디오, dB)])"""
     want_fire = (rs.fire_sound or getattr(args, "fire_sound", False)) and not getattr(args, "no_fire_sound", False)
-    if not want_fire:
+    want_vinyl = rs.vinyl_sound and not getattr(args, "no_vinyl_sound", False)
+    if not (want_fire or want_vinyl):
         return audio, []
     from . import ambience
     job = Path(job)
-    fire = job / "fire_crackle.wav"
-    if not fire.exists():
-        print("  벽난로 소리 합성 중 (90초, 끝과 처음이 이어지는 루프)")
-        ambience.make(fire, "fire", 90.0, seed=rs.seed)
-    db = getattr(args, "fire_db", None)
-    db = float(db) if db is not None else -12.0                 # 녹음한 빗소리 위에 얹을 때: 빗소리가 주인공, 장작 소리는 뒤에서 작게
+    extras = []
+    if want_fire:
+        fire = job / "fire_crackle.wav"
+        if not fire.exists():
+            print("  벽난로 소리 합성 중 (90초, 끝과 처음이 이어지는 루프)")
+            ambience.make(fire, "fire", 90.0, seed=rs.seed)
+        db = getattr(args, "fire_db", None)
+        extras.append((fire, float(db) if db is not None else -12.0))      # 녹음한 빗소리 위: 빗소리가 주인공, 장작 소리는 뒤에서 작게
+    if want_vinyl:
+        vin = job / "vinyl_crackle.wav"
+        if not vin.exists():
+            print("  레코드판 지직 소리 합성 중 (90초 루프)")
+            ambience.make(vin, "vinyl", 90.0, seed=rs.seed)
+        db = getattr(args, "vinyl_db", None)
+        extras.append((vin, float(db) if db is not None else -20.0))
     if audio:
-        print(f"  벽난로 소리를 녹음 파일 위에 섞음 ({db:+.0f}dB)")
-        return audio, [(fire, db)]
-    print("  빗소리 파일이 없어 벽난로 장작 소리만 넣음 (빗소리를 넣으려면 오디오 파일을 지정하세요)")
-    return fire, []
+        print("  합성 소리를 녹음 파일 위에 섞음: " + ", ".join(f"{p.stem} {d:+.0f}dB" for p, d in extras))
+        return audio, extras
+    print("  음악·빗소리 파일이 없어 합성한 소리만 넣음 (음악이나 빗소리 파일을 지정하면 그 위에 섞여요)")
+    return extras[0][0], extras[1:]
 
 
 def _final_path(job, args, label, v):
@@ -866,9 +882,11 @@ def _add_rain_args(p):
     g.add_argument("--no-motion", action="store_true", help="잎 흔들림·물 일렁임(배경 움직임) 끄기")
     g.add_argument("--no-wet", action="store_true", help="젖은 바위·흘러내리는 물줄기·수면 빗방울 끄기")
     g.add_argument("--no-interior", action="store_true", help="촛불·벽난로 불꽃·반려동물 숨쉬기(실내 효과) 끄기")
-    g.add_argument("--pet", action="append", help="자는 반려동물·선풍기 위치 'x0,y0,x1,y1[,dog|cat|fan]' (0~1 비율, 여러 번 지정 가능)")
+    g.add_argument("--pet", action="append", help="자는 반려동물·선풍기·레코드판 위치 'x0,y0,x1,y1[,dog|cat|fan|record]' (0~1 비율, 여러 번 지정 가능)")
     g.add_argument("--fire-sound", action="store_true", help="벽난로 타닥거리는 소리를 합성해 섞음 (벽난로 장면은 기본 켜짐)")
     g.add_argument("--no-fire-sound", action="store_true", help="벽난로 소리 합성 끄기")
+    g.add_argument("--no-vinyl-sound", action="store_true", help="레코드판 지직 소리 합성 끄기")
+    g.add_argument("--vinyl-db", type=float, help="레코드판 소리 크기 dB (기본 -20)")
     g.add_argument("--fire-db", type=float, help="벽난로 소리 크기 dB (기본 -12, 더 작게 -18, 크게 -6)")
     g.add_argument("--grade", type=float, help="색 보정 강도 (기본 1.0, 0 = 끔)")
     g.add_argument("--grain", type=float, help="필름 그레인 강도 (기본 1.0, 0 = 끔)")

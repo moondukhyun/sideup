@@ -33,7 +33,8 @@ INTERIOR_SCENES = {"candle_single", "candle_many", "cozy_parlor", "candle_rain_w
                    "living_fireplace_candles", "hearth_dog_cat", "candle_nook",
                    "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
                    "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window",
-                   "cabin_fireplace_window"}
+                   "cabin_fireplace_window", "living_turntable_fireplace", "turntable_candles_windowless",
+                   "turntable_window_rain"}
 INTERIOR_AXES = {
     "time": ["late at night", "deep midnight", "quiet night", "before dawn"],
     "mood": ["warm amber glow", "soft golden glow", "dim warm light with deep shadows", "gentle warm candlelit atmosphere"],

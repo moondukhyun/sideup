@@ -4655,7 +4655,10 @@ SM_FIREDB = [("작게 (-18dB)", -18), ("보통 (-12dB)", -12), ("크게 (-6dB)",
 SM_ANIMAL_SCENES = {"living_fireplace_storm", "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
                     "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window", "cabin_fireplace_window",
                     "living_fireplace_candles", "hearth_dog_cat"}
-SM_INTERIOR_SCENES = SM_ANIMAL_SCENES | {"candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "candle_nook"}
+SM_TURNTABLE_SCENES = {"living_turntable_fireplace", "turntable_candles_windowless", "turntable_window_rain"}
+SM_ANIMAL_SCENES = SM_ANIMAL_SCENES | {"living_turntable_fireplace", "turntable_window_rain"}
+SM_MARK_SCENES = SM_ANIMAL_SCENES | SM_TURNTABLE_SCENES          # 위치 표시(반려동물·선풍기·레코드판)가 필요한 장면
+SM_INTERIOR_SCENES = SM_MARK_SCENES | {"candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "candle_nook"}
 
 
 def sm_python():
@@ -4709,6 +4712,7 @@ def claude_find_pets_fans(img_path):
               "- dog: 자고 있는 강아지 (몸 전체, 여러 마리가 붙어 있으면 한 상자로)\n"
               "- cat: 자고 있는 고양이 (몸 전체)\n"
               "- fan: 천장 선풍기의 날개 전체 (몸통 램프가 아니라 날개가 퍼진 범위)\n"
+              "- record: 턴테이블 위 LP 레코드판 전체 원 (비스듬히 보이는 타원 전체, 가운데 라벨 포함)\n"
               "상자는 대상을 빈틈없이 감싸되 사방으로 약 5% 만 여유를 두세요. 사진에 없는 대상은 빼세요.\n"
               '출력은 JSON 한 덩어리만: {"items":[{"kind":"dog","x0":0.35,"y0":0.80,"x1":0.52,"y1":0.99}]} — 다른 글은 쓰지 마세요.')
     out = run_claude_text(prompt, timeout=240, allow_read=True, retries=1)
@@ -4723,7 +4727,7 @@ def claude_find_pets_fans(img_path):
         except (KeyError, TypeError, ValueError):
             continue
         area = (x1 - x0) * (y1 - y0)
-        if k in ("dog", "cat", "fan") and x1 - x0 > 0.01 and y1 - y0 > 0.01 and 0.0003 < area < (0.12 if k == "fan" else 0.35):
+        if k in ("dog", "cat", "fan", "record") and x1 - x0 > 0.01 and y1 - y0 > 0.005 and 0.0003 < area < (0.12 if k in ("fan", "record") else 0.35):
             res.append({"kind": k, "x0": x0, "y0": y0, "x1": x1, "y1": y1})
     return res
 
@@ -4871,7 +4875,7 @@ class SceneTabMixin:
         ttk.Checkbutton(sbtn, text="고른 장면만", variable=self.sm_scene_only_var, command=self.sm_refresh_list).pack(side="left")
         ttk.Button(sbtn, text="📂 내 사진 쓰기", command=self.sm_pick_image).pack(side="left", padx=6)
         ttk.Button(sbtn, text="🔍 크게 보기", command=self.sm_open_image).pack(side="left")
-        ttk.Button(sbtn, text="🐾 반려동물·선풍기 위치 지정", command=self.sm_pick_pets).pack(side="left", padx=6)
+        ttk.Button(sbtn, text="🐾 반려동물·선풍기·레코드판 위치 지정", command=self.sm_pick_pets).pack(side="left", padx=6)
         ttk.Button(sbtn, text="🗑 선택 삭제", command=self.sm_delete_selected).pack(side="left")
 
         v = ttk.LabelFrame(tab, text=" ③ 빗소리 루프 영상 만들기 ")
@@ -5029,7 +5033,7 @@ class SceneTabMixin:
         cw, ch = int(im.width * sc), int(im.height * sc)
         photo = ImageTk.PhotoImage(im.resize((cw, ch)))
         win = tk.Toplevel(self)
-        win.title("위치 지정 — 자는 강아지·고양이 몸 전체, 천장 선풍기 날개 전체를 감싸게 드래그")
+        win.title("위치 지정 — 자는 강아지·고양이 몸 전체, 선풍기 날개 전체, 레코드판 원 전체를 감싸게 드래그")
         cv = tk.Canvas(win, width=cw, height=ch, highlightthickness=0, cursor="crosshair")
         cv.pack(padx=8, pady=8)
         cv.create_image(0, 0, image=photo, anchor="nw")
@@ -5040,10 +5044,10 @@ class SceneTabMixin:
         def redraw():
             cv.delete("box")
             for b in boxes:
-                col = {"cat": "#ffcc00", "fan": "#ff66ff"}.get(b.get("kind"), "#00ddff")
+                col = {"cat": "#ffcc00", "fan": "#ff66ff", "record": "#ff9900"}.get(b.get("kind"), "#00ddff")
                 cv.create_rectangle(b["x0"] * cw, b["y0"] * ch, b["x1"] * cw, b["y1"] * ch, outline=col, width=3, tags="box")
                 cv.create_text(b["x0"] * cw + 4, b["y0"] * ch + 4, anchor="nw", fill=col, tags="box",
-                               text={"cat": "고양이", "fan": "선풍기"}.get(b.get("kind"), "강아지"))
+                               text={"cat": "고양이", "fan": "선풍기", "record": "레코드판"}.get(b.get("kind"), "강아지"))
 
         def down(e):
             state["start"] = (e.x, e.y)
@@ -5090,6 +5094,7 @@ class SceneTabMixin:
         ttk.Radiobutton(bar, text="강아지", variable=kind, value="dog").pack(side="left")
         ttk.Radiobutton(bar, text="고양이", variable=kind, value="cat").pack(side="left", padx=6)
         ttk.Radiobutton(bar, text="천장 선풍기(날개 전체)", variable=kind, value="fan").pack(side="left")
+        ttk.Radiobutton(bar, text="레코드판(원 전체)", variable=kind, value="record").pack(side="left", padx=6)
         ttk.Label(bar, text="상자는 동물보다 살짝 크게", foreground="#666666").pack(side="left", padx=10)
         auto_btn = ttk.Button(bar, text="🤖 자동 찾기")
         auto_btn.pack(side="right", padx=(6, 0))
@@ -5238,12 +5243,12 @@ class SceneTabMixin:
                 img_scene = json.load(f).get("scene") or img_scene
         except (OSError, ValueError):
             pass
-        fire_auto = self.sm_fire_var.get() and any(k in img_scene for k in ("fireplace", "hearth"))
+        fire_auto = (self.sm_fire_var.get() and any(k in img_scene for k in ("fireplace", "hearth"))) or img_scene in SM_TURNTABLE_SCENES
         interior = img_scene in SM_INTERIOR_SCENES and self.sm_interior_var.get()
-        if (interior and img_scene in SM_ANIMAL_SCENES and not getattr(self, "_sm_skip_pets", False)
+        if (interior and img_scene in SM_MARK_SCENES and not getattr(self, "_sm_skip_pets", False)
                 and not os.path.isfile(os.path.join(os.path.dirname(img), "pets.json"))):
             ans = messagebox.askyesnocancel("반려동물·선풍기 위치",
-                                            "자는 강아지·고양이와 천장 선풍기 위치가 아직 없어요 (없으면 숨쉬기·선풍기가 안 움직여요).\n\n"
+                                            "자는 강아지·고양이, 천장 선풍기, 턴테이블 레코드판 위치가 아직 없어요 (없으면 숨쉬기·선풍기·레코드판이 안 움직여요).\n\n"
                                             "Claude 로 사진을 보고 자동으로 찾을까요? (약 30초, 영상 만들기가 이어서 시작돼요)\n\n"
                                             "예 = 자동으로 찾기\n아니오 = 위치 없이 진행\n취소 = 돌아가기")
             if ans is None:
@@ -5403,7 +5408,7 @@ class SceneTabMixin:
                             json.dump(res, f, ensure_ascii=False, indent=1)
                     except OSError as ex:
                         self.log(f"⚠ pets.json 저장 실패: {ex}")
-                names = {"dog": "강아지", "cat": "고양이", "fan": "선풍기"}
+                names = {"dog": "강아지", "cat": "고양이", "fan": "선풍기", "record": "레코드판"}
                 self.log("🐾 찾은 것: " + (", ".join(names.get(r["kind"], r["kind"]) for r in res) if res else "없음")
                          + "  (위치가 어긋났으면 [🐾 위치 지정] 에서 고칠 수 있어요)")
             self._sm_skip_pets = True

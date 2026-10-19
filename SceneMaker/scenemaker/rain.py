@@ -42,6 +42,7 @@ class RainSettings:
     interior: float = 0.0     # v11.22: 아늑한 실내 — 촛불·벽난로 불꽃·방 안 불빛 일렁임·반려동물 숨쉬기 세기 (0 = 끔)
     fire: float = 1.0         # v11.22: 벽난로 불 세기 배율
     sway: bool = True         # v11.22: False 면 잎 흔들림(식물 감지)을 건너뜀 (실내 장면)
+    vinyl_sound: bool = False # v11.22: True 면 레코드판 특유의 지직거리는 소리를 자동으로 합성해 섞음
     fire_sound: bool = False  # v11.22: True 면 벽난로 타닥거리는 소리를 자동으로 합성해 섞음
     dof: float = 0.0          # 깊이 기반 피사계심도 (0 = 끔). 가을 씬은 1.0 (2026-10-02 Cowork: 잘린 종이 느낌 해소)
     seed: int = 7
@@ -131,6 +132,7 @@ class RainRenderer:
         self.wet = None              # wetrock.WetRocks (젖은 표면 반짝임 + 흘러내리는 빗물, v11.19)
         self.interior = None         # interior.Interior (촛불·벽난로 불꽃·불빛 일렁임, v11.22)
         self.wan_room = None         # wanroom.WanRoom (Wan 이 만든 불꽃·촛불·숨쉬기 움직임, v11.22)
+        self.records = None          # interior.RecordSpin (턴테이블 레코드판 회전, v11.22)
         self.fans = None             # interior.FanSpin (천장 선풍기 회전, v11.22)
         self.pets = None             # interior.PetBreath (반려동물 숨쉬기, v11.22)
         self.stream = None           # streamflow.StreamFlow (대롱·폭포 물줄기 흐름, v11.21)
@@ -332,6 +334,8 @@ class RainRenderer:
             out = self.wan_room.apply(out, f)                # AI 가 만든 불꽃·촛불·숨쉬기 (v11.22)
         if self.pets is not None:
             out = self.pets.apply(out, f)                    # 자는 반려동물 숨쉬기 (v11.22)
+        if self.records is not None:
+            out = self.records.apply(out, f)                 # 턴테이블 레코드판 (v11.22)
         if self.fans is not None:
             out = self.fans.apply(out, f)                    # 천장 선풍기 회전 (v11.22)
         if self.interior is not None:

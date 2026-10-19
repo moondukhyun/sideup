@@ -640,6 +640,52 @@ SCENES = {
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST, animals=True,
         ),
         Scene(
+            "living_turntable_fireplace",
+            "클래식 턴테이블 + 벽난로 거실 · 폭우",
+            "a cozy living room at night with a classic vintage wooden record player turntable on a low wooden cabinet, "
+            "a black vinyl record on the platter with its colorful center label clearly visible and the tonearm resting on it, "
+            "shelves of vinyl records and a pair of old speakers, a stone fireplace with a crackling wood fire, "
+            "a large window with clean clear glass and a dark stormy night outside, a few candles with bright steady flames, "
+            "exactly one single dog with one head sleeping curled up peacefully with eyes closed on a rug, warm firelight, empty room without people",
+            [
+                "wide view of the room with the turntable in the foreground",
+                "close view of the turntable and records with the fireplace glowing behind",
+                "a cat is also sleeping on an armchair",
+            ],
+            {"intensity": 1.8, "brightness": 0.45, "window": True, "interior": 1.0, "fire": 1.0, "fire_sound": True,
+             "vinyl_sound": True, **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST, animals=True,
+        ),
+        Scene(
+            "turntable_candles_windowless",
+            "창문 없는 어두운 방 · 턴테이블 + 촛불",
+            "a dark cozy windowless room with solid plain walls and no windows, a classic vintage wooden record player turntable on a wooden table, "
+            "a black vinyl record on the platter with its colorful center label clearly visible and the tonearm resting on it, "
+            "lit only by several candles with bright steady flames, shelves of vinyl records and charming little decorations, "
+            "warm golden glow, deep soft shadows, empty room without people",
+            [
+                "close view of the turntable with candles beside it",
+                "an armchair and a stack of records beside the turntable",
+                "wide view of the room with record shelves on the wall",
+            ],
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "vinyl_sound": True, **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
+            "turntable_window_rain",
+            "창가 클래식 턴테이블 + 큰 창 폭우 + 촛불",
+            "a classic vintage wooden record player turntable on a wooden cabinet beside a large window with clean clear glass and a dark stormy night outside, "
+            "a black vinyl record on the platter with its colorful center label clearly visible and the tonearm resting on it, "
+            "a few candles with bright steady flames, shelves of vinyl records, a knitted blanket on an armchair, warm golden glow, empty room without people",
+            [
+                "close view of the turntable with the rainy window behind",
+                "wide view of the cozy corner with the window and records",
+                "a cat is sleeping on the armchair",
+            ],
+            {"intensity": 1.8, "brightness": 0.45, "window": True, "interior": 1.0, "vinyl_sound": True, **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST, animals=True,
+        ),
+        Scene(
             "living_fireplace_candles",
             "벽난로 + 촛불 여러 개 거실 + 반려견",
             "a cozy living room at night lit by a crackling wood fire in a stone fireplace and many lit candles with bright steady flames "

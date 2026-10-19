@@ -396,7 +396,7 @@ class PetBreath:
         rng = np.random.default_rng(seed + 977)
         sec = N / float(fps)
         for p in pets:
-            if p.get("kind") == "fan":
+            if p.get("kind") in ("fan", "record"):
                 continue
             x0, y0 = int(max(0, min(1, p["x0"])) * W), int(max(0, min(1, p["y0"])) * H)
             x1, y1 = int(max(0, min(1, p["x1"])) * W), int(max(0, min(1, p["y1"])) * H)
@@ -478,4 +478,49 @@ class FanSpin:
                                  (it["cy"] + it["b"] * vs - y0).astype(np.float32), cv2.INTER_LINEAR,
                                  borderMode=cv2.BORDER_REPLICATE)
             reg[...] = reg * (1 - it["w"]) + (acc / len(blur)) * it["w"]
+        return out
+
+
+# ---------------------------------------------------------------- 턴테이블 레코드판 회전
+class RecordSpin:
+    """records: [{"x0","y0","x1","y1" (0~1 비율), "kind": "record"}]. 상자에 꼭 맞는 타원(비스듬히 본 LP)의 '가운데 라벨'을
+    33⅓ 회전/분으로 돌린다. 실제 LP 는 홈 위 반사광이 제자리에 있고 라벨 무늬만 도는 것처럼 보이므로 바깥 홈 부분은 그대로 둔다.
+    한 루프에 정수 바퀴 → 이음새 없음. 가운데 축(스핀들)은 고정."""
+
+    def __init__(self, records, W, H, N, fps, rpm=33.33, label=0.36):
+        import cv2
+        self.cv2 = cv2
+        self.N = N
+        sec = N / float(fps)
+        self.k = max(1, int(round(rpm / 60.0 * sec)))
+        self.rpm = self.k * 60.0 / sec
+        self.items = []
+        for p in records:
+            x0, y0 = int(max(0, min(1, p["x0"])) * W), int(max(0, min(1, p["y0"])) * H)
+            x1, y1 = int(max(0, min(1, p["x1"])) * W), int(max(0, min(1, p["y1"])) * H)
+            if x1 - x0 < 16 or y1 - y0 < 6:
+                continue
+            cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+            a, b = (x1 - x0) / 2.0, (y1 - y0) / 2.0
+            rx0, ry0, rx1, ry1 = max(0, x0 - 3), max(0, y0 - 3), min(W, x1 + 3), min(H, y1 + 3)
+            yy, xx = np.mgrid[ry0:ry1, rx0:rx1].astype(np.float32)
+            u, v = (xx - cx) / a, (yy - cy) / b
+            r = np.sqrt(u * u + v * v)
+            w = _smooth((label - r) / 0.06) * _smooth((r - 0.045) / 0.035)             # 라벨 안쪽만, 가운데 축은 제외
+            self.items.append({"box": (rx0, ry0, rx1, ry1), "u": u, "v": v, "cx": cx, "cy": cy, "a": a, "b": b,
+                               "w": w[..., None].astype(np.float32)})
+
+    def apply(self, out, f):
+        cv2 = self.cv2
+        th = -2 * np.pi * self.k * (f % self.N) / self.N                              # 위에서 볼 때 시계 방향
+        c, s = np.cos(th), np.sin(th)
+        for it in self.items:
+            x0, y0, x1, y1 = it["box"]
+            reg = out[y0:y1, x0:x1]
+            us = it["u"] * c + it["v"] * s
+            vs = -it["u"] * s + it["v"] * c
+            warped = cv2.remap(reg, (it["cx"] + it["a"] * us - x0).astype(np.float32),
+                               (it["cy"] + it["b"] * vs - y0).astype(np.float32), cv2.INTER_LINEAR,
+                               borderMode=cv2.BORDER_REPLICATE)
+            reg[...] = reg * (1 - it["w"]) + warped * it["w"]
         return out

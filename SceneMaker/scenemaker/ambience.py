@@ -107,6 +107,30 @@ def rain_window(seconds=90.0, sr=SR, seed=9, heavy=1.0):
     return _norm(np.stack(chans, 1), -21.0)
 
 
+def vinyl_crackle(seconds=90.0, sr=SR, seed=3):
+    """LP 레코드 표면 소리: 아주 작은 쉬익 소리 + 가끔 '틱' + 드물게 '톡' (음악 뒤에서 은은하게)."""
+    n = int(seconds * sr)
+    chans = []
+    for ch in range(2):
+        r = np.random.default_rng(seed * 11 + ch * 53)
+        hiss = _band(r.normal(0, 1, n), sr, 1500, 7000, 1.5)
+        hiss = hiss / (np.std(hiss) + 1e-9) * 0.05
+        rumble = _band(r.normal(0, 1, n), sr, 20, 90, 2.0)
+        rumble = rumble / (np.std(rumble) + 1e-9) * 0.03
+        clicks = np.zeros(n)
+        for s_ in r.integers(0, n, int(seconds * 2.2)):
+            ln = int(sr * r.uniform(0.0004, 0.0022))
+            burst = r.normal(0, 1, ln) * np.exp(-np.arange(ln) / (0.0007 * sr)) * r.lognormal(-0.3, 0.7)
+            _place(clicks, int(s_), burst)
+        for s_ in r.integers(0, n, max(1, int(seconds * 0.12))):                  # 가끔 크게 '톡'
+            ln = int(sr * r.uniform(0.004, 0.012))
+            burst = _band(r.normal(0, 1, ln + 200), sr, 300, 4000, 1.5)[100:100 + ln] * np.exp(-np.arange(ln) / (0.003 * sr)) * r.uniform(1.5, 3.0)
+            _place(clicks, int(s_), burst)
+        clicks = clicks / (np.std(clicks) + 1e-9) * 0.14
+        chans.append(hiss + rumble + clicks)
+    return _norm(np.stack(chans, 1), -26.0)
+
+
 def _norm(x, rms_db):
     rms = np.sqrt(np.mean(x ** 2)) + 1e-9
     x = x * (10 ** (rms_db / 20.0) / rms)
@@ -126,6 +150,8 @@ def write_wav(path, x, sr=SR):
 def make(path, kind="fire", seconds=90.0, seed=5, heavy=1.0):
     """kind: fire | rain | fire+rain.  path: 저장할 wav."""
     parts = []
+    if kind == "vinyl":
+        return write_wav(path, vinyl_crackle(seconds, seed=seed))
     if "fire" in kind:
         parts.append(fire_crackle(seconds, seed=seed))
     if "rain" in kind:
