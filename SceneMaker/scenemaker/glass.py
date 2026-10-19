@@ -68,28 +68,41 @@ def _smoothstep(a, b, x):
 
 
 def _lens(src, x, y, rad, stretch, cv2):
-    """한 방울의 굴절 패치 (좌표, RGB, 알파). 물방울은 작은 볼록 렌즈: 뒤 풍경이 거꾸로 작게 맺힌다."""
+    """한 방울의 굴절 패치 (좌표, RGB, 알파). 물방울은 작은 볼록 렌즈: 뒤 풍경이 거꾸로 작게 맺힌다.
+    v11.22: 모든 방울이 똑같은 동그라미로 보이지 않게 방울마다 모양이 다르다 —
+    울퉁불퉁한 윤곽, 중력 때문에 아래쪽이 불룩한 물방울꼴, 굴절 세기·테두리·반사광 위치 차이, 가끔 두 방울이 붙은 모양."""
+    rs = np.random.default_rng((int(x * 7919) * 31 + int(y * 104729) + int(rad * 1009)) & 0xFFFFFFFF)   # 위치로 정해져서 프레임마다 같은 모양
+    big = float(np.clip(rad / 6.0, 0.25, 1.0))                     # 작은 방울일수록 거의 동그랗다
+    ext = 1.0 + 0.40 * big
     rx, ry = rad, rad * stretch
     H, W = src.shape[:2]
-    x0, y0, x1, y1 = int(x - rx) - 2, int(y - ry) - 2, int(x + rx) + 3, int(y + ry) + 3
+    x0, y0, x1, y1 = int(x - rx * ext) - 2, int(y - ry * ext) - 2, int(x + rx * ext) + 3, int(y + ry * ext) + 3
     if x0 < 0 or y0 < 0 or x1 >= W or y1 >= H or rx < 0.6:
         return None
     yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
     ex, ey = (xx - x) / rx, (yy - y) / ry
-    rr = ex * ex + ey * ey
-    r = np.sqrt(rr)
+    th = np.arctan2(ey, ex)                                        # +y = 아래쪽
+    rb = np.ones_like(th)
+    for k in (2, 3, 4, 5):                                         # 울퉁불퉁한 윤곽 (저차 조화 성분)
+        rb += float(rs.uniform(0.0, 0.17 / (k - 0.6))) * big * np.cos(k * th + float(rs.uniform(0, 6.28)))
+    drop = float(rs.uniform(0.04, 0.20)) * big                      # 물방울꼴: 아래가 불룩하고 위가 좁음
+    rb *= 1.0 + drop * np.clip(np.sin(th), 0, 1) - 0.55 * drop * np.clip(-np.sin(th), 0, 1)
+    rb *= 1.0 + float(rs.uniform(-0.12, 0.12)) * big * ex.clip(-1, 1)    # 한쪽으로 쏠린 모양
+    r = np.sqrt(ex * ex + ey * ey) / np.maximum(rb, 0.55)
+    rr = r * r
     alpha = np.clip((1 - rr) * 3.2, 0, 1)                         # 가장자리가 또렷한 방울
-    k = 7.0 + rad * 0.22                                           # 방울은 넓은 풍경을 거꾸로 작게 담는다 (어두운 곳에서도 불빛이 보임)
+    k = (7.0 + rad * 0.22) * float(rs.uniform(0.7, 1.35))         # 굴절 세기도 방울마다 다름
     mx = (x - ex * rx * k).astype(np.float32)
     my = (y - ey * ry * k).astype(np.float32)
     lens = cv2.remap(src, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
-    lens = lens * 1.12 + 0.012                                     # 물방울은 빛을 모아 살짝 밝다
-    rim = np.clip(1 - np.abs(r - 0.90) / 0.15, 0, 1)
-    rim_w = rim * (0.26 + 0.34 * (ey > 0))                         # 테두리 어두운 고리 (아래쪽이 더 진함)
+    lens = lens * float(rs.uniform(1.02, 1.18)) + 0.012            # 물방울은 빛을 모아 살짝 밝다
+    rim = np.clip(1 - np.abs(r - 0.90) / float(rs.uniform(0.11, 0.2)), 0, 1)
+    rim_w = rim * (float(rs.uniform(0.14, 0.32)) + 0.34 * (ey > 0))      # 테두리 어두운 고리 (아래쪽이 더 진함)
     lens = lens * (1.0 - rim_w[..., None])
-    hl = np.exp(-(((ex + 0.32) / 0.20) ** 2 + ((ey + 0.38) / 0.20) ** 2)) * 0.55      # 위쪽 큰 반사광
+    hx, hy = -0.32 + float(rs.uniform(-0.14, 0.14)), -0.38 + float(rs.uniform(-0.12, 0.12))
+    hl = np.exp(-(((ex - hx) / float(rs.uniform(0.14, 0.26))) ** 2 + ((ey - hy) / float(rs.uniform(0.14, 0.26))) ** 2)) * 0.55   # 위쪽 큰 반사광
     hl2 = np.exp(-(((ex - 0.30) / 0.15) ** 2 + ((ey - 0.46) / 0.10) ** 2)) * 0.16     # 아래쪽 약한 반사광
-    hs = float(np.clip(rad / 5.0, 0.28, 1.0))                      # 작은 방울은 반사광도 작고 약하게 (별처럼 반짝이지 않게)
+    hs = float(np.clip(rad / 5.0, 0.28, 1.0)) * float(rs.uniform(0.45, 1.0))          # 반사광 세기도 제각각
     lens = lens + ((hl + hl2) * hs)[..., None]
     return x0, y0, x1, y1, lens, alpha
 
@@ -166,6 +179,14 @@ class GlassRain:
         region = layer[y0:y1, x0:x1]
         region += (lens - region) * a[..., None]
         alpha[y0:y1, x0:x1] = np.maximum(alpha[y0:y1, x0:x1], a)
+        if rad > 3.0 * self.res and ((int(x * 13) + int(y * 7)) % 9 == 0):          # 가끔 옆에 작은 방울이 붙어 합쳐진 모양
+            ang = ((int(x) * 37 + int(y) * 11) % 628) / 100.0
+            q = _lens(self.base, x + np.cos(ang) * rad * 0.95, y + abs(np.sin(ang)) * rad * 0.9, rad * 0.62, stretch, cv2)
+            if q:
+                qx0, qy0, qx1, qy1, ql, qa = q
+                rg = layer[qy0:qy1, qx0:qx1]
+                rg += (ql - rg) * qa[..., None]
+                alpha[qy0:qy1, qx0:qx1] = np.maximum(alpha[qy0:qy1, qx0:qx1], qa)
 
     def _sample_fast(self, n, rng):
         """유리 영역 안의 무작위 좌표 n개 (누적분포로 한 번에)."""
