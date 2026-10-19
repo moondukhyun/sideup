@@ -150,6 +150,14 @@ def _signal(rng, N, lo, hi, n_terms=5):
     return sig.astype(np.float32)
 
 
+def _sig_hz(rng, N, fps, lo_hz, hi_hz, n_terms=5):
+    """초당 lo_hz~hi_hz 번 정도로 변하는 신호 (루프 안에서 정수 번 반복 → 이음새 없음). 평균 0, 표준편차 1."""
+    sec = N / float(fps)
+    lo = max(1, int(round(lo_hz * sec)))
+    hi = max(lo + 1, int(round(hi_hz * sec)))
+    return _signal(rng, N, lo, hi, n_terms)
+
+
 def _periodic_noise(rng, P, w, sy, sx, cv2):
     """세로 방향으로 이음새 없이 이어지는 무늬 (P x w), 표준편차 1."""
     base = rng.normal(0, 1, (P, w)).astype(np.float32)
@@ -187,11 +195,11 @@ class Interior:
         self.lw, self.lh = max(48, W // 10), max(27, H // 10)
         yy, xx = np.mgrid[0:self.lh, 0:self.lw].astype(np.float32)
         maps, sigs = [], []
-        shared = _signal(rng, N, 2, 7, 3)                           # 바람이 한 번 불면 촛불이 다 같이 흔들림
+        shared = _sig_hz(rng, N, fps, 0.06, 0.30, 3)                # 방 안 공기 흐름: 촛불이 다 같이 아주 천천히 흔들림
         nc = max(1, len(self.candles))
         self.candle_sigs = []
         for c in self.candles:
-            own = _signal(rng, N, 5, max(16, int(N * 0.30)), 6)
+            own = _sig_hz(rng, N, fps, 0.25, 1.6, 6)                # 촛불 밝기: 초당 한두 번 정도로 느긋하게
             sig = 0.78 * own + 0.45 * shared
             sig /= (sig.std() + 1e-6)
             self.candle_sigs.append(sig)
@@ -203,7 +211,7 @@ class Interior:
             sigs.append(sig)
         self.fire_sig = None
         if self.fire is not None:
-            fs = 0.8 * _signal(rng, N, 3, max(10, int(N * 0.24)), 7) + 0.4 * shared
+            fs = 0.8 * _sig_hz(rng, N, fps, 0.15, 1.3, 7) + 0.4 * shared      # 장작불: 천천히 크게 일렁이다 가라앉음
             fs /= (fs.std() + 1e-6)
             self.fire_sig = fs
             cx, cy = self.fire["cx"] / W * self.lw, self.fire["cy"] / H * self.lh
@@ -230,17 +238,20 @@ class Interior:
                 continue
             yy_, xx_ = np.mgrid[y0:y1, x0:x1].astype(np.float32)
             edge = _smooth(np.minimum(np.minimum(xx_ - x0, x1 - 1 - xx_), np.minimum(yy_ - y0, y1 - 1 - yy_)) / max(4.0, 0.22 * min(x1 - x0, y1 - y0)))
-            win = np.exp(-(((xx_ - c["x"]) / (1.9 * fw + 6 * res)) ** 2 + ((yy_ - c["y"]) / (1.5 * fh + 6 * res)) ** 2))
+            base_y = c["y"] + 0.45 * fh                                                    # 불꽃 맨 아래 (이 아래의 심지·양초 몸통은 절대 안 움직임)
+            win = (np.exp(-((xx_ - c["x"]) / (0.8 * fw + 1.5 * res)) ** 2)
+                   * _smooth((base_y - yy_) / (0.35 * fh + 1.0)) * _smooth((yy_ - (c["y"] - 1.7 * fh)) / (0.5 * fh + 1.0)))
             win = win * edge                                                              # 조각 가장자리에서 변형 0 → 네모 경계가 안 보임
-            above = np.clip((c["y"] + 0.5 * fh - yy_) / max(fh, 4.0), 0, 1.6)             # 불꽃 아래(심지)는 고정, 위로 갈수록 흔들림
+            above = np.clip((base_y - yy_) / max(fh, 4.0), 0, 1.2) ** 1.4                 # 불꽃 끝으로 갈수록 더 흔들림
             core = np.exp(-(((xx_ - c["x"]) / (0.9 * fw + 2)) ** 2 + ((yy_ - c["y"]) / (0.7 * fh + 2)) ** 2)) * edge
             halo = np.exp(-(((xx_ - c["x"]) / (2.0 * fw + 5 * res)) ** 2 + ((yy_ - c["y"]) / (1.7 * fh + 5 * res)) ** 2) / 2) * edge
-            sway = 0.80 * _signal(rng, N, 3, 12, 4) + 0.35 * shared
+            sway = 0.80 * _sig_hz(rng, N, fps, 0.15, 0.9, 4) + 0.45 * shared
             sway /= (sway.std() + 1e-6)
+            sway = 1.6 * np.tanh(sway / 1.6)                                               # 가끔 크게 휘어도 한계가 있음
             self.flames.append({
-                "box": (x0, y0, x1, y1), "win": win.astype(np.float32), "above2": (above ** 2).astype(np.float32),
+                "box": (x0, y0, x1, y1), "win": win.astype(np.float32), "above2": above.astype(np.float32),
                 "core": core.astype(np.float32), "halo": halo.astype(np.float32),
-                "amp": (0.30 * fw + 1.2 * res) * self.strength, "sway": sway, "sig": self.candle_sigs[i],
+                "amp": (0.045 * fw + 0.5 * res) * self.strength, "sway": sway, "sig": self.candle_sigs[i],
                 "xx": xx_ - x0, "yy": yy_ - y0,
             })
 
@@ -255,7 +266,7 @@ class Interior:
             if bh > 16 and bw > 16:
                 P = max(48, bh)
                 self.fP = P
-                self.fk = max(2, int(round(1.5 * bh * sec / P)))                 # 초당 불꽃 높이의 약 1.5배 속도로 타오름
+                self.fk = max(1, int(round(0.45 * bh * sec / P)))                # 초당 불꽃 높이의 약 0.45배 속도 (너무 빠르면 출렁이는 물결처럼 보임)
                 self.fn1 = _periodic_noise(rng, P, bw, 20 * res, 3.5 * res, cv2)       # 세로로 길쭉한 결 → 불꽃 혀가 기둥처럼 좌우로 흔들림 (물결처럼 보이지 않게)
                 self.fn2 = _periodic_noise(rng, P, bw, 8 * res, 2.0 * res, cv2)
                 self.fn3 = _periodic_noise(rng, P, bw, 30 * res, 14 * res, cv2)
@@ -265,7 +276,7 @@ class Interior:
                 yy_, xx_ = np.mgrid[0:bh, 0:bw].astype(np.float32)
                 topw = _smooth((self.fire["base"] - fy0 - yy_) / max(1.0, (self.fire["base"] - by0) * 0.9))   # 위로 갈수록 크게 일렁
                 self.fx = {"box": (fx0, fy0, fx1, fy1), "mask": m[..., None].astype(np.float32), "topw": topw.astype(np.float32),
-                           "ax": (0.035 * bw + 3 * res), "bh": bh, "bw": bw,
+                           "ax": (0.028 * bw + 2.5 * res), "bh": bh, "bw": bw,
                            "X": xx_, "Y": yy_, "src": bg[fy0:fy1, fx0:fx1].copy()}
                 self.ember = self._make_embers(rng, bw, bh, fx0, fy0)
 
@@ -319,7 +330,7 @@ class Interior:
             fs = float(self.fire_sig[f])
             ax = fx["ax"] * (1.0 + 0.12 * fs) * self.fire_strength
             dx = (0.70 * n1 + 0.30 * n2) * ax * fx["topw"]
-            dy = 0.45 * n1 * ax * 0.5 * fx["topw"] - 0.05 * fx["bh"] * fs * fx["topw"]          # 위아래로도 조금 (불꽃이 솟았다 가라앉음)
+            dy = 0.25 * n1 * ax * 0.4 * fx["topw"]                                              # 위아래는 아주 조금만
             warped = cv2.remap(fx["src"], (fx["X"] + dx).astype(np.float32), (fx["Y"] + dy).astype(np.float32),
                                cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
             m = fx["mask"]
@@ -381,7 +392,7 @@ class PetBreath:
             kind = p.get("kind", "dog")
             period = 4.2 if kind == "dog" else 3.0                    # 자는 개 ≈ 호흡 14/분, 고양이 ≈ 20/분
             cycles = max(1, int(round(sec / period)))
-            amp = (0.020 if kind == "dog" else 0.016) * float(p.get("amount", 1.0))
+            amp = (0.040 if kind == "dog" else 0.034) * float(p.get("amount", 1.0))      # 잠든 개·고양이의 갈비뼈·배가 눈에 보일 만큼 오르내림
             yy, xx = np.mgrid[0:y1 - y0, 0:x1 - x0].astype(np.float32)
             bw, bh = x1 - x0, y1 - y0
             wx = _smooth(np.minimum(xx, bw - 1 - xx) / (0.20 * bw))
@@ -390,6 +401,7 @@ class PetBreath:
             self.items.append({
                 "box": (x0, y0, x1, y1), "X": xx, "Y": yy, "w": (wx * wy).astype(np.float32), "yb": yb, "xc": bw / 2.0,
                 "cycles": cycles, "amp": amp, "ph": float(rng.random()), "kind": kind,
+                "deep": max(1, int(round(sec / 13.0))), "ph2": float(rng.random()),
             })
 
     def apply(self, out, f):
@@ -399,9 +411,10 @@ class PetBreath:
             b = np.sin(th) + 0.25 * np.sin(2 * th + 0.7)              # 들이쉼은 길고 내쉼은 짧게
             x0, y0, x1, y1 = it["box"]
             reg = out[y0:y1, x0:x1]
-            a = it["amp"] * b
+            deep = 1.0 + 0.30 * np.sin(2 * np.pi * (it["deep"] * f / self.N + it["ph2"]))     # 가끔 한 번씩 더 깊게 숨을 쉼
+            a = it["amp"] * b * deep
             dy = (it["yb"] - it["Y"]) * a * it["w"]                   # 위쪽일수록 많이 움직임 (바닥 접촉면은 고정)
-            dx = (it["X"] - it["xc"]) * a * 0.35 * it["w"]
+            dx = (it["X"] - it["xc"]) * a * 0.55 * it["w"]
             warped = cv2.remap(reg, (it["X"] + dx).astype(np.float32), (it["Y"] + dy).astype(np.float32),
                                cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
             reg[...] = warped

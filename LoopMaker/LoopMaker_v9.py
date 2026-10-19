@@ -4695,6 +4695,20 @@ def sm_job_label(bg):
     return label
 
 
+def sm_job_scene(bg):
+    """이 배경을 만든 장면 이름 (meta.json 우선, 없으면 폴더 이름 '날짜_시간_장면_시드' 에서)."""
+    job = os.path.dirname(bg)
+    try:
+        with open(os.path.join(job, "meta.json"), encoding="utf-8") as f:
+            sc = json.load(f).get("scene")
+        if sc:
+            return sc
+    except (OSError, ValueError):
+        pass
+    m = re.match(r"\d{8}_\d{6}_(.+?)(?:_\d+)?$", os.path.basename(job))
+    return m.group(1) if m else ""
+
+
 def sm_has_video(bg):
     """이 배경으로 이미 영상을 만들었는지 (영상을 다른 폴더에 저장했어도 meta.json 기록으로 앎)."""
     job = os.path.dirname(bg)
@@ -4723,7 +4737,8 @@ class SceneTabMixin:
                    model=self.sm_model_var.get(), audio=self.sm_audio_var.get(),
                    duration=self.sm_dur_var.get(), motion=self.sm_motion_var.get(),
                    details=self.sm_details_var.get(), wan=self.sm_wan_var.get(), wet=self.sm_wet_var.get(),
-                   interior=self.sm_interior_var.get(), fire_sound=self.sm_fire_var.get(), out_dir=self.sm_outdir_var.get())
+                   interior=self.sm_interior_var.get(), fire_sound=self.sm_fire_var.get(), out_dir=self.sm_outdir_var.get(),
+                   scene_only=self.sm_scene_only_var.get())
         try:
             with open(SM_TAB_CFG, "w", encoding="utf-8") as f:
                 json.dump(cfg, f, ensure_ascii=False, indent=1)
@@ -4747,6 +4762,7 @@ class SceneTabMixin:
         self.sm_interior_var = tk.BooleanVar(value=cfg.get("interior", True))   # v11.22: 촛불·벽난로 불꽃·반려동물 숨쉬기
         self.sm_fire_var = tk.BooleanVar(value=cfg.get("fire_sound", True))      # v11.22: 벽난로 소리 자동 합성
         self.sm_outdir_var = tk.StringVar(value=cfg.get("out_dir", ""))      # v11.22: 완성 영상 저장 폴더 (비우면 배경 폴더)
+        self.sm_scene_only_var = tk.BooleanVar(value=cfg.get("scene_only", True))   # v11.22: 고른 장면의 배경만 보기
         self.sm_filter_var = tk.StringVar(value=SM_FILTERS[0])               # v11.22: 배경 목록 보기 필터
         self.sm_comfy_var = tk.StringVar(value="ComfyUI 확인 중…")
         self.sm_proc = None
@@ -4779,6 +4795,7 @@ class SceneTabMixin:
         ttk.Label(r1, text="장면:").pack(side="left")
         self.sm_scene_cb = ttk.Combobox(r1, textvariable=self.sm_scene_var, width=32, state="readonly")
         self.sm_scene_cb.pack(side="left", padx=4)
+        self.sm_scene_cb.bind("<<ComboboxSelected>>", lambda e: self.sm_refresh_list())
         ttk.Label(r1, text="장수:").pack(side="left", padx=(10, 0))
         ttk.Spinbox(r1, from_=1, to=8, width=4, textvariable=self.sm_count_var).pack(side="left", padx=4)
         r2 = ttk.Frame(g); r2.pack(fill="x", padx=8, pady=2)
@@ -4801,13 +4818,14 @@ class SceneTabMixin:
         s.pack(fill="x", padx=10, pady=(4, 0))
         body = ttk.Frame(s); body.pack(fill="x", padx=8, pady=(4, 2))
         lf = ttk.Frame(body); lf.pack(side="left", fill="y")
-        self.sm_list = tk.Listbox(lf, height=8, width=34, exportselection=False, font=("Malgun Gothic", 9))
+        self.sm_list = tk.Listbox(lf, height=8, width=34, exportselection=False, selectmode="extended", font=("Malgun Gothic", 9))
         sb = ttk.Scrollbar(lf, orient="vertical", command=self.sm_list.yview)
         self.sm_list.configure(yscrollcommand=sb.set)
         self.sm_list.pack(side="left", fill="y")
         sb.pack(side="left", fill="y")
         self.sm_list.bind("<<ListboxSelect>>", self._sm_on_select)
         self.sm_list.bind("<Double-Button-1>", lambda e: self.sm_open_image())
+        self.sm_list.bind("<Delete>", lambda e: self.sm_delete_selected())
         self.sm_preview = tk.Label(body, text="배경을 고르면\n여기에 미리보기", width=40, height=9,
                                    background="#222222", foreground="#aaaaaa")
         self.sm_preview.pack(side="left", padx=(8, 0))
@@ -4816,9 +4834,11 @@ class SceneTabMixin:
         flt_cb = ttk.Combobox(sbtn, textvariable=self.sm_filter_var, width=20, state="readonly", values=SM_FILTERS)
         flt_cb.pack(side="left", padx=6)
         flt_cb.bind("<<ComboboxSelected>>", lambda e: self.sm_refresh_list())
+        ttk.Checkbutton(sbtn, text="고른 장면만", variable=self.sm_scene_only_var, command=self.sm_refresh_list).pack(side="left")
         ttk.Button(sbtn, text="📂 내 사진 쓰기", command=self.sm_pick_image).pack(side="left", padx=6)
         ttk.Button(sbtn, text="🔍 크게 보기", command=self.sm_open_image).pack(side="left")
         ttk.Button(sbtn, text="🐾 반려동물·선풍기 위치 지정", command=self.sm_pick_pets).pack(side="left", padx=6)
+        ttk.Button(sbtn, text="🗑 선택 삭제", command=self.sm_delete_selected).pack(side="left")
 
         v = ttk.LabelFrame(tab, text=" ③ 빗소리 루프 영상 만들기 ")
         v.pack(fill="x", padx=10, pady=(4, 0))
@@ -4902,6 +4922,9 @@ class SceneTabMixin:
         keep = [p for p in self.sm_items if not p.startswith(SCENEMAKER_OUT)]   # 직접 고른 사진은 유지
         flt = self.sm_filter_var.get() if hasattr(self, "sm_filter_var") else SM_FILTERS[0]
         jobs = [p for p in sm_recent_jobs() if p not in keep]
+        scn = self._sm_scene_name() if hasattr(self, "sm_scene_var") else ""
+        if scn and self.sm_scene_only_var.get():
+            jobs = [p for p in jobs if sm_job_scene(p) == scn]
         if flt == SM_FILTERS[1]:
             jobs = [p for p in jobs if sm_has_video(p)]
         elif flt == SM_FILTERS[2]:
@@ -5036,6 +5059,53 @@ class SceneTabMixin:
         ttk.Button(bar, text="마지막 취소", command=undo).pack(side="right")
         ttk.Button(bar, text="저장", command=save).pack(side="right", padx=6)
         redraw()
+
+    def sm_delete_selected(self):
+        """② 목록에서 고른 배경(여러 개 가능)을 폴더째 삭제. 영상이 그 폴더 안에 있으면 영상도 같이 지워지므로 먼저 개수·용량을 보여주고 확인한다."""
+        sel = list(self.sm_list.curselection())
+        if not sel:
+            messagebox.showinfo("확인", "지울 배경을 목록에서 먼저 골라주세요 (Ctrl·Shift 로 여러 개 선택 가능)")
+            return
+        root = os.path.normcase(os.path.abspath(SCENEMAKER_OUT))
+        jobs, photos = [], []
+        for i in sel:
+            p = self.sm_items[i]
+            d = os.path.dirname(os.path.abspath(p))
+            if os.path.normcase(os.path.dirname(d)) == root and not os.path.basename(d).startswith("_"):
+                jobs.append((p, d))
+            else:
+                photos.append(p)                      # 직접 고른 사진: 원본은 건드리지 않고 목록에서만 뺀다
+        n_vid, size = 0, 0
+        for _, d in jobs:
+            for f in os.listdir(d):
+                if f.lower().endswith(".mp4"):
+                    n_vid += 1
+                    try:
+                        size += os.path.getsize(os.path.join(d, f))
+                    except OSError:
+                        pass
+        if jobs:
+            msg = f"선택한 배경 {len(jobs)}개를 폴더째 삭제할까요?\n(되돌릴 수 없어요)"
+            if n_vid:
+                msg += f"\n\n⚠ 이 폴더들 안에 영상 파일 {n_vid}개({size / 1e9:.1f}GB)도 들어 있어서 같이 삭제돼요."
+            if photos:
+                msg += f"\n\n(직접 고른 사진 {len(photos)}장은 원본을 지우지 않고 목록에서만 빼요)"
+            if not messagebox.askyesno("배경 삭제", msg, default="no", icon="warning"):
+                return
+        removed = 0
+        for _, d in jobs:
+            try:
+                shutil.rmtree(d)
+                removed += 1
+            except OSError as ex:
+                self.log(f"⚠ 삭제 실패: {d} ({ex})")
+        self.sm_items = [p for p in self.sm_items if p not in photos]
+        if self.sm_image_var.get() and not os.path.isfile(self.sm_image_var.get()):
+            self.sm_image_var.set("")
+            self.sm_preview.configure(image="", text="배경을 고르면\n여기에 미리보기", width=40, height=9)
+            self.sm_preview.image = None
+        self.sm_refresh_list()
+        self.log(f"🗑 배경 {removed}개 삭제" + (f", 사진 {len(photos)}장 목록에서 제외" if photos else ""))
 
     def sm_pick_outdir(self):
         cur = self.sm_outdir_var.get().strip()

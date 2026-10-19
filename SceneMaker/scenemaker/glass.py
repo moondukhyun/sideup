@@ -97,10 +97,11 @@ def _lens(src, x, y, rad, stretch, cv2):
 class GlassRain:
     GROUPS = 5
 
-    def __init__(self, bg, mask, N, fps, amount=1.0, seed=7, view_blur=9.0):
+    def __init__(self, bg, mask, N, fps, amount=1.0, seed=7, view_blur=9.0, cover=1.0, n_sliders=None):
         import cv2
         self.cv2 = cv2
         self.bg, self.mask, self.N, self.fps = bg, mask, N, fps
+        self.fast = n_sliders is not None                      # 폭우: 방울이 오래 매달려 있지 않고 계속 흘러내림
         self.H, self.W = bg.shape[:2]
         res = self.H / 1080.0
         self.res = res
@@ -124,7 +125,7 @@ class GlassRain:
         self._cdf = np.cumsum(flat / max(flat.sum(), 1.0))              # 위치 뽑기용 누적분포 (한 번만 계산)
         G = self.GROUPS
         a_amt = float(np.clip(amount, 0.5, 1.5))
-        med_cov, micro_cov = 0.10 * a_amt, 0.035 * a_amt
+        med_cov, micro_cov = 0.10 * a_amt * cover, 0.035 * a_amt * cover
         self.groups = []
         self.stats = {"med": 0, "micro": 0}
         for g in range(G):
@@ -148,9 +149,9 @@ class GlassRain:
 
         # 흘러내리는 방울 (속도·크기 제각각)
         self.sliders = []
-        n_slide = int(np.clip(round(8 * amount), 6, 12))
-        for i in range(n_slide):
-            sl = self._make_path(rng, N, mask, res)
+        n_slide = int(n_sliders) if n_sliders else int(np.clip(round(8 * amount), 6, 12))
+        paths = sorted((self._make_path(rng, N, mask, res) for _ in range(n_slide)), key=lambda p: -p["rad"])   # 큰 방울이 먼저
+        for i, sl in enumerate(paths):
             sl["start"] = int((i + float(rng.uniform(0, 0.8))) / n_slide * N) % N
             sl["beads"] = self._make_beads(sl, rng, res)
             self.sliders.append(sl)
@@ -183,32 +184,37 @@ class GlassRain:
         return list(zip(xs.astype(float) + rng.uniform(-0.5, 0.5, n), ys.astype(float)))
 
     def _make_path(self, rng, period, mask, res):
-        """멈춤-미끄러짐(stick-slip) 경로: 한참 매달려 있다가 순간 미끄러지며 감속, 다시 멈춤을 반복.
-        한 번 미끄러질 때 약 100~400px (1440p), 주기 동안 위→아래로 한 번 흐르고 사라진다."""
+        """멈춤-미끄러짐(stick-slip) 경로. 실제 유리처럼:
+        - 큰 방울은 무거워서 오래 안 매달리고 먼저·빠르게·멀리 미끄러진다 (작은 방울은 오래 매달려 있다가 짧게)
+        - 미끄러질 때마다 방향이 조금씩 바뀌고 살짝 휘어서 구불구불하다 (일직선 아님)"""
         cols = np.nonzero((mask > 0.5).any(axis=0))[0]
         x = float(rng.choice(cols)) if len(cols) else self.W / 2
         rows = np.nonzero(mask[:, int(x)] > 0.5)[0]
         top, bot = (float(rows.min()), float(rows.max())) if len(rows) else (0.0, float(self.H))
-        y = top + rng.uniform(0, 0.35) * (bot - top)
-        run = int(period * rng.uniform(0.45, 0.85))
-        drift = float(rng.uniform(-0.25, 0.25))
-        big = rng.random() < 0.25
-        rad = float(rng.uniform(9.0, 13.0) if big else rng.uniform(5.5, 8.5)) * res      # 흘러내리는 방울은 합쳐져서 정지 방울보다 큼
-        mass = 0.8 + rad / (13.0 * res)                            # 큰 방울일수록 빠르고 멀리
+        y = top + rng.uniform(0, 0.45) * (bot - top)
+        run = int(period * rng.uniform(0.55, 0.95))
+        rad = float(np.clip(rng.lognormal(np.log(7.0), 0.42), 4.0, 15.0)) * res          # 크기는 제각각 (작은 방울이 더 많음)
+        mass = (rad / (7.0 * res)) ** 1.15                                               # 클수록 무겁다
         fps_k = 30.0 / self.fps
+        hang_lo, hang_hi = (14, 40) if self.fast else (26, 70)
+        theta = float(rng.normal(0, 0.10))                                               # 진행 방향 (0 = 곧장 아래, 라디안)
         xs, ys = [], []
         while len(xs) < run and y < bot:
-            for _ in range(int(rng.integers(8, 48))):               # 매달려 거의 정지 (아주 미세하게 흔들림)
+            for _ in range(int(rng.integers(hang_lo, hang_hi) / mass ** 1.4) + 1):       # 매달려 거의 정지 (큰 방울일수록 짧게)
                 xs.append(x + float(rng.normal(0, 0.12)) * res); ys.append(y)
-            v0 = float(rng.uniform(4.0, 11.0)) * res * mass * fps_k   # 미끄러짐 시작 속도 (px/프레임)
-            for k in range(int(rng.integers(7, 22))):
-                v = v0 * (1.0 - 0.75 * k / 22.0)                    # 점점 느려지며 멈춤
-                y += v
-                x += drift * res * fps_k + float(rng.normal(0, 0.28)) * res
+            theta = 0.5 * theta + float(rng.normal(0, 0.13))                             # 미끄러질 때마다 방향이 달라짐
+            v0 = float(rng.uniform(4.0, 10.0)) * res * mass * fps_k                       # 큰 방울일수록 빠르게 시작
+            n_slide = int(rng.integers(10, 26) * (0.65 + 0.55 * mass))                    # 큰 방울일수록 멀리
+            for k in range(n_slide):
+                v = v0 * (1.0 - 0.7 * k / n_slide)                                        # 점점 느려지며 멈춤
+                theta += float(rng.normal(0, 0.03))                                       # 가는 동안 살짝 휘어짐
+                theta = float(np.clip(theta, -0.45, 0.45))
+                y += v * float(np.cos(theta))
+                x += v * float(np.sin(theta)) + float(rng.normal(0, 0.25)) * res
                 xs.append(x); ys.append(y)
                 if y > bot:
                     break
-        return {"xs": np.array(xs), "ys": np.array(ys), "period": period, "rad": rad}
+        return {"xs": np.array(xs), "ys": np.array(ys), "period": period, "rad": rad, "mass": mass}
 
     def _make_beads(self, sl, rng, res):
         """지나간 자리에 남는 작은 방울들: (경로 인덱스, 반지름). 머리가 지나간 뒤 서서히 사라진다."""
@@ -313,3 +319,41 @@ class GlassRain:
                     region = out[y0:y1, x0:x1]
                     region += (lens - region) * a[..., None]
         return out
+
+
+def window_mask_cool(bg, depth=None):
+    """실내 장면용 창 유리 찾기 (v11.22): 창밖 = 푸르스름·무채색 / 실내 = 따뜻한 색 이라는 점을 이용한다.
+    따뜻한 창틀·가로세로 격자(창살)·벽은 자동으로 빠져서 격자는 선명하게 남고, 벽·침대·천장에는 물방울이 맺히지 않는다.
+    depth 가 있으면 '먼 곳'만 남긴다. 못 찾으면 None."""
+    import cv2
+    H, W = bg.shape[:2]
+    sw = 960
+    s = sw / float(W)
+    sh = max(8, int(round(H * s)))
+    small = cv2.resize(bg, (sw, sh), interpolation=cv2.INTER_AREA)
+    r, g, b = small[..., 0], small[..., 1], small[..., 2]
+    lum = small @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+    warm = cv2.GaussianBlur(r - b, (0, 0), 1.2)
+    cool = ((warm < 0.055) & (lum < 0.78)).astype(np.uint8)                 # 푸르스름하거나 무채색 (실내 벽·나무·조명은 따뜻해서 제외)
+    if depth is not None:
+        d = cv2.resize(np.asarray(depth, np.float32), (sw, sh), interpolation=cv2.INTER_AREA)
+        cand = cool.astype(bool)
+        if cand.sum() > 0:
+            far = (d < min(0.5, float(np.percentile(d[cand], 60)) + 0.05))
+            if (cand & far).sum() > 0.004 * sw * sh:
+                cool = (cand & far).astype(np.uint8)
+    cool = cv2.morphologyEx(cool, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(cool, connectivity=4)
+    keep = np.zeros((sh, sw), np.uint8)
+    for i in range(1, n):
+        x, y, w, h, a = stats[i]
+        if a < 0.0015 * sw * sh or w < 0.03 * sw or h < 0.04 * sh:
+            continue
+        if a / float(w * h) < 0.55 or max(w / float(h), h / float(w)) > 6:         # 창 칸은 네모에 가깝게 꽉 찬 모양
+            continue
+        keep[lab == i] = 1
+    if keep.sum() < 0.01 * sw * sh:
+        return None
+    keep = cv2.erode(keep, np.ones((3, 3), np.uint8))                              # 창틀 쪽 가장자리 여유
+    m = cv2.GaussianBlur(keep.astype(np.float32), (0, 0), 1.2)
+    return np.clip(cv2.resize(m, (W, H), interpolation=cv2.INTER_LINEAR), 0, 1)

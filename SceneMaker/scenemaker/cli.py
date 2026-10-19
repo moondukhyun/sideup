@@ -402,12 +402,16 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
     if real or depth_rain:
         renderer.set_depth(dfull)
     if want_window:
-        if not real:
-            return
-        from .glass import GlassRain, window_mask
-        wmask = window_mask(dfull, renderer.bg)
+        from .glass import GlassRain, window_mask, window_mask_cool
+        wmask = window_mask_cool(renderer.bg, dfull if real else None) if rs.interior > 0 else None     # 실내: 색으로 창 유리만 찾음
+        if wmask is None:
+            if not real:
+                return
+            wmask = window_mask(dfull, renderer.bg)
         renderer.glass = GlassRain(renderer.bg, wmask, renderer.N, renderer.fps, amount=rs.intensity, seed=rs.seed,
-                                   view_blur=4.0 if rs.interior > 0 else 9.0)      # 실내 장면: 창밖 풍경·창틀 격자가 덜 뭉개지게
+                                   view_blur=4.0 if rs.interior > 0 else 9.0,
+                                   cover=0.4 if rs.interior > 0 else 1.0,                  # 실내(폭우): 맺힌 방울은 적게
+                                   n_sliders=int(np.clip(round(14 * rs.intensity), 14, 34)) if rs.interior > 0 else None)   # 흘러내리는 방울·물줄기는 많이      # 실내 장면: 창밖 풍경·창틀 격자가 덜 뭉개지게
         g = renderer.glass
         tint = (np.clip(renderer.bg, 0, 1) * 255).astype(np.float32)
         tint[..., 2] = tint[..., 2] * (1 - wmask * 0.5) + 255 * wmask * 0.5
