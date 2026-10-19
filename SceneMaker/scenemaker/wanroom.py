@@ -23,6 +23,7 @@ class _Region:
     """한 영역: kind 'paste' (Wan 픽셀) | 'flow' (Wan 흐름으로 원본을 움직임)."""
 
     def __init__(self, kind, box, weight, name):
+        self.m = 1
         self.kind, self.box, self.weight, self.name = kind, box, weight[..., None].astype(np.float32), name
         self.data = []          # 클립마다: paste → (K+1,bh,bw,3) float16 / flow → (K+1,bh,bw,2) float16
         self.keep = []          # paste: (K+1,bh,bw,1)
@@ -31,7 +32,7 @@ class _Region:
 
 
 class WanRoom:
-    def __init__(self, bg, clips, N, fps, fire=None, flames=(), pets=(), max_flow=9.0):
+    def __init__(self, bg, clips, N, fps, fire=None, flames=(), pets=(), max_flow=9.0, fire_speed=0.6):
         import cv2
         self.cv2 = cv2
         self.bg = bg
@@ -45,6 +46,13 @@ class WanRoom:
             self.clips.append(np.clip(F, 0, 1))
         self.Ks = [len(c) - 1 for c in self.clips]
         self.total = float(sum(self.Ks))
+        # 재생 속도: 클립을 '통째로 m 번' 재생해야 루프가 이음새 없이 이어진다. 불꽃·촛불은 느리게(목표 fire_speed 배속), 숨쉬기는 원래 속도로
+        natural = self.total / float(WAN_FPS)
+        loop_sec = N / float(fps)
+        self.m_slow = max(1, int(round(fire_speed * loop_sec / natural)))
+        self.m_pet = max(1, int(round(1.0 * loop_sec / natural)))
+        self.speed_slow = self.m_slow * natural / loop_sec
+        self.speed_pet = self.m_pet * natural / loop_sec
         self.regions = []
         h, w = self.clips[0].shape[1:3]
         self.sx, self.sy = w / float(self.W), h / float(self.H)
@@ -100,6 +108,7 @@ class WanRoom:
             r.keep.append(keep.astype(np.float16))
             lum = (up * np.array([0.2126, 0.7152, 0.0722], np.float32)).sum(-1)
             r.sig.append((lum * r.weight[..., 0]).sum((1, 2)) / (r.weight.sum() + 1e-6))
+        r.m = self.m_slow
         self.regions.append(r)
 
     def _add_flow(self, box, weight, name, max_px):
@@ -122,12 +131,13 @@ class WanRoom:
             r.data.append(np.stack(flows).astype(np.float16))
         yy, xx = np.mgrid[0:bh, 0:bw].astype(np.float32)
         r.X, r.Y = xx, yy
+        r.m = self.m_pet
         self.regions.append(r)
 
     # ---------------------------------------------------------------- 시간
-    def _locate(self, f):
-        """루프 프레임 f → (클립 번호, 클립 안 프레임 위치(실수))."""
-        p = (f % self.N) / float(self.N) * self.total
+    def _locate(self, f, m=1):
+        """루프 프레임 f → (클립 번호, 클립 안 프레임 위치(실수)). m = 루프 동안 전체 클립을 재생하는 횟수."""
+        p = ((f * m) % self.N) / float(self.N) * self.total
         for ci, K in enumerate(self.Ks):
             if p < K or ci == len(self.Ks) - 1:
                 return ci, min(p, K - 1e-6)
@@ -152,7 +162,7 @@ class WanRoom:
         return s / (s.std() + 1e-6)
 
     def _blend_sig(self, r, f):
-        ci, pos = self._locate(f)
+        ci, pos = self._locate(f, r.m)
         k = int(pos)
         t = pos - k
         a = r.sig[ci][k]
@@ -161,8 +171,8 @@ class WanRoom:
     # ---------------------------------------------------------------- 한 프레임
     def apply(self, out, f):
         cv2 = self.cv2
-        ci, pos = self._locate(f)
         for r in self.regions:
+            ci, pos = self._locate(f, r.m)
             x0, y0, x1, y1 = r.box
             reg = out[y0:y1, x0:x1]
             if r.kind == "paste":

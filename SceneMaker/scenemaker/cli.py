@@ -259,7 +259,7 @@ def _attach_interior(renderer, job, rs, args):
     from .interior import FanSpin, Interior, PetBreath, find_lights
     info = find_lights(renderer.bg, exclude=renderer.glass.mask if renderer.glass is not None else None)    # 창밖 불빛은 촛불이 아님
     it = Interior(renderer.bg, renderer.N, renderer.fps, strength=rs.interior, fire_strength=rs.fire,
-                  seed=rs.seed, info=info)
+                  seed=rs.seed, info=info, fire_speed=float(getattr(args, "fire_speed", None) or 0.45))
     marks = _load_pets(job, args)
     pets = [p for p in marks if p.get("kind") != "fan"]
     fans = [p for p in marks if p.get("kind") == "fan"]
@@ -355,7 +355,7 @@ def _attach_wan_interior(cfg, renderer, job, bg, meta, args):
             clips.append(wanmotion.generate_clip(client, bg, Path(job) / f"wan_room_{i}", prompt, seed0 + i * 101,
                                                   negative=wanmotion.WAN_ROOM_NEG))
         room = WanRoom(renderer.bg, clips, renderer.N, renderer.fps, fire=it.fire if has_fire else None,
-                       flames=flames, pets=pets)
+                       flames=flames, pets=pets, fire_speed=float(getattr(args, "fire_speed", None) or 0.6))
     except Exception as e:                                   # 생성 실패해도 수식 움직임으로 영상은 만든다
         print(f"  ⚠ Wan 실내 움직임 실패 → 수식 움직임으로 대신함: {e}")
         return
@@ -371,7 +371,7 @@ def _attach_wan_interior(cfg, renderer, job, bg, meta, args):
         it.set_signals(fire=room.signal("fire") if has_fire else None, candles=cand)
     sec = renderer.N / renderer.fps
     print(f"  Wan 실내 움직임: 벽난로 불 {'O' if has_fire else 'X'} · 촛불 {len(flames)}개 · 반려동물 {len(pets)}마리 · 클립 {n}개 "
-          f"(움직임 반복 주기 약 {sum(room.Ks) / 16:.0f}초, 루프 {sec:.0f}초)")
+          f"(불꽃 재생 속도 {room.speed_slow:.2f}배속 · 숨쉬기 {room.speed_pet:.2f}배속, 루프 {sec:.0f}초)")
 
 
 def _attach_wan(cfg, renderer, job, bg, meta, args):
@@ -880,6 +880,7 @@ def _add_video_args(p):
     p.add_argument("--wan-force", action="store_true", help="물이 없는 장면에서도 Wan 을 강제로 실행")
     p.add_argument("--wan-prompt", default="", help="Wan 움직임 묘사 추가 (영어)")
     p.add_argument("--wan-seed", type=int, help="Wan 시드 (기본: 배경 시드)")
+    p.add_argument("--fire-speed", type=float, help="불꽃·촛불 움직임 속도 (낮을수록 느림. 수식 기본 0.45, Wan 기본 0.6 → 보통 0.5배속)")
     p.add_argument("--wan-clips", type=int, default=2, help="실내 장면 Wan 클립 개수 (기본 2, 많을수록 움직임 반복이 길어지고 시간이 늘어남)")
     p.add_argument("--wan-period", type=float, help="Wan 움직임 한 바퀴 길이(초, 기본: 원래 속도 5초), 루프를 나누도록 조정됨")
     p.add_argument("--out-dir", help="완성 영상을 저장할 폴더 (기본: 배경 이미지가 있는 작업 폴더)")

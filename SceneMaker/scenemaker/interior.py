@@ -173,7 +173,7 @@ def _smooth(x):
 
 # ---------------------------------------------------------------- 렌더러
 class Interior:
-    def __init__(self, bg, N, fps, strength=1.0, fire_strength=1.0, pets=None, seed=7, info=None):
+    def __init__(self, bg, N, fps, strength=1.0, fire_strength=1.0, pets=None, seed=7, info=None, fire_speed=0.45):
         import cv2
         self.cv2 = cv2
         H, W = bg.shape[:2]
@@ -212,7 +212,7 @@ class Interior:
             sigs.append(sig)
         self.fire_sig = None
         if self.fire is not None:
-            fs = 0.8 * _sig_hz(rng, N, fps, 0.15, 1.3, 7) + 0.4 * shared      # 장작불: 천천히 크게 일렁이다 가라앉음
+            fs = 0.8 * _sig_hz(rng, N, fps, 0.12, 1.3 * fire_speed / 0.6, 7) + 0.4 * shared      # 장작불: 천천히 크게 일렁이다 가라앉음
             fs /= (fs.std() + 1e-6)
             self.fire_sig = fs
             cx, cy = self.fire["cx"] / W * self.lw, self.fire["cy"] / H * self.lh
@@ -267,9 +267,9 @@ class Interior:
             if bh > 16 and bw > 16:
                 P = max(48, bh)
                 self.fP = P
-                self.fk = max(1, int(round(0.45 * bh * sec / P)))                # 초당 불꽃 높이의 약 0.45배 속도 (너무 빠르면 출렁이는 물결처럼 보임)
-                self.fn1 = _periodic_noise(rng, P, bw, 20 * res, 3.5 * res, cv2)       # 세로로 길쭉한 결 → 불꽃 혀가 기둥처럼 좌우로 흔들림 (물결처럼 보이지 않게)
-                self.fn2 = _periodic_noise(rng, P, bw, 8 * res, 2.0 * res, cv2)
+                self.fk = max(1, int(round(0.75 * fire_speed * bh * sec / P)))   # 초당 불꽃 높이의 약 0.34배 속도 (fire_speed 0.45 기준, 빠르면 출렁이는 물결처럼 보임)
+                self.fn1 = _periodic_noise(rng, P, bw, 34 * res, 4.5 * res, cv2)       # 세로로 길쭉한 결 → 불꽃 혀가 기둥처럼 좌우로 흔들림 (물결처럼 보이지 않게)
+                self.fn2 = _periodic_noise(rng, P, bw, 14 * res, 2.5 * res, cv2)
                 self.fn3 = _periodic_noise(rng, P, bw, 30 * res, 14 * res, cv2)
                 reps = (bh + 2 * P) // P + 2
                 self.fn1, self.fn2, self.fn3 = [np.tile(a, (reps, 1)) for a in (self.fn1, self.fn2, self.fn3)]
