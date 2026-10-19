@@ -34,6 +34,18 @@ NEGATIVE = (
     "lowres, blurry, jpeg artifacts, deformed, bad composition, sunny, bright blue sky"
 )
 
+# v11.22: 아늑한 실내 (촛불·벽난로·창밖 폭우·반려동물). 실내 불빛이 비 오는 날 색보정으로 차갑게 변하지 않게 grade 를 낮춘다
+INTERIOR_STYLE = (
+    "cozy interior photograph, warm low-key lighting, soft golden glow, deep soft shadows, realistic, "
+    "natural fine detail, shallow depth of field, film grain, 35mm"
+)
+INTERIOR_NEGATIVE = (
+    "bright daylight, overexposed, harsh flash, cold fluorescent light, messy clutter, cartoon, illustration, 3d render, "
+    "oversaturated, text, watermark, melted wax, floating candles, extra limbs, deformed animal, people"
+)
+INTERIOR_RAIN = {"sway": False, "wet": 0.0, "wet_ground": 0.0, "water_rain": 0.0, "splashes": False, "wan_ok": False,
+                 "grade": 0.3, "darken": 0.0, "bloom": 1.3, "fog": 0.0}
+
 # 원시림·판타지 숲 방지 (실제 한국 산은 가는 참나무·소나무 + 낙엽 흙길)
 FOREST_NEGATIVE = (
     "moss, mossy, ferns, primeval forest, ancient forest, rainforest, jungle, fantasy, fairy tale, "
@@ -111,6 +123,7 @@ class Scene:
     style: str = ""           # 비우면 STYLE, 지정하면 대체 (예: NATURAL_STYLE)
     comfy: dict = field(default_factory=dict)   # 씬별 생성 설정 덮어쓰기 (cfg, checkpoint 등)
     post: dict = field(default_factory=dict)    # 후처리: grain, soften, saturation
+    animals: bool = False     # 반려동물이 나오는 씬: 기본 네거티브의 'animal' 을 뺀다
 
     def build_prompt(self, rng: random.Random, extra: str = ""):
         parts = [self.prompt]
@@ -119,7 +132,8 @@ class Scene:
         if extra:
             parts.append(extra)
         parts.append(self.style or STYLE)
-        negative = f"{NEGATIVE}, {self.negative}" if self.negative else NEGATIVE
+        base_neg = NEGATIVE.replace("people, person, human, animal, ", "people, person, human, ") if self.animals else NEGATIVE
+        negative = f"{base_neg}, {self.negative}" if self.negative else base_neg
         return dry_prompt(", ".join(parts)), negative
 
 
@@ -446,6 +460,120 @@ SCENES = {
             {"intensity": 1.8, "angle": 14.0, "speed": 1.2, "brightness": 0.55,
              "darken": 0.15, "fog": 0.2, "lightning": 2},
             negative=FOREST_NEGATIVE,
+        ),
+        # ---------- 아늑한 실내 (v11.22): 촛불·벽난로·반려동물·창밖 폭우 ----------
+        Scene(
+            "candle_single",
+            "촛불 하나 켜진 어두운 방",
+            "a single lit candle with a small bright steady flame on a small wooden table in a dark cozy room, "
+            "the candle is the only light source, warm golden glow falling on a few charming small objects nearby "
+            "(a small closed book, a ceramic cup, dried flowers in a tiny vase), deep soft darkness around, "
+            "empty room without people, calm sleepy atmosphere",
+            [
+                "the candle stands in a small brass holder",
+                "an old wooden desk beside a stack of well-worn books",
+                "a bedside table with the soft edge of a knitted blanket",
+                "a rustic wooden shelf with a few small trinkets",
+            ],
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
+            "candle_many",
+            "촛불 여러 개 아기자기한 방",
+            "a dark cozy room lit only by many small lit candles of different heights with bright steady flames, "
+            "candles on a wooden shelf, a small table and a window ledge, lots of charming little decorations "
+            "(tiny ceramic figurines, glass jars, little framed pictures, dried flowers, stacked books, a knitted blanket), "
+            "warm golden glow, deep soft shadows, empty room without people, calm sleepy atmosphere",
+            [
+                "an old wooden mantel shelf with candles in brass and glass holders",
+                "a round wooden table covered with candles and small trinkets",
+                "a bookshelf corner with candles between the books",
+                "candles in glass lanterns on a wide windowsill, dark window glass behind",
+            ],
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
+            "cozy_parlor",
+            "아늑한 응접실 · 창밖 비 · 촛불",
+            "a cozy old-fashioned parlor living room at night, a comfortable armchair and a small sofa with a knitted blanket, "
+            "a round rug, bookshelves full of books and charming little knick-knacks, a table lamp with a dim warm shade, "
+            "a few lit candles with bright steady flames, patterned wallpaper, dark wooden furniture, "
+            "a large window with dark night outside and clean clear glass, empty room without people",
+            [
+                "wide view of the whole room",
+                "view from the armchair toward the window, candles on a side table",
+                "a small round table with a teapot and cups in the foreground",
+            ],
+            {"intensity": 1.2, "brightness": 0.42, "window": True, "interior": 1.0, "fire_sound": False,
+             **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
+            "candle_rain_window",
+            "창가 촛불 하나 · 창밖 폭우",
+            "a single lit candle with a small bright steady flame on a wooden desk right beside a large dark window, "
+            "clean clear window glass with a dark stormy night outside, a few small cozy objects (an open book, a ceramic cup), "
+            "the candle is the main light source, warm golden glow on the desk, empty room without people",
+            [
+                "the window has a wooden frame and a deep sill",
+                "close view of the candle with the window blurred behind it",
+                "a knitted blanket on a chair next to the desk",
+            ],
+            {"intensity": 1.8, "brightness": 0.45, "window": True, "interior": 1.0, **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
+            "living_fireplace_storm",
+            "3면 창 폭우 + 벽난로 거실 + 반려견",
+            "a spacious cozy living room at night, a wide bay window made of three large window panes with clean clear glass "
+            "showing a dark stormy night outside, a stone fireplace with a crackling wood fire and glowing embers on the hearth, "
+            "a comfortable bed with soft blankets and pillows in the room, a dog sleeping curled up peacefully "
+            "with eyes closed on the rug on the floor, a few candles with bright steady flames on the mantel, "
+            "wooden ceiling beams, charming small decorations, warm firelight, empty room without people",
+            [
+                "wide view of the whole room",
+                "a small cat is also sleeping curled up on the bed",
+                "a cat is also sleeping on an armchair near the fireplace",
+                "a cat is also sleeping on the rug next to the dog",
+                "view from the bed toward the fireplace and the three windows",
+            ],
+            {"intensity": 1.9, "brightness": 0.45, "window": True, "interior": 1.0, "fire": 1.0, "fire_sound": True,
+             **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST, animals=True,
+        ),
+        Scene(
+            "living_fireplace_candles",
+            "벽난로 + 촛불 여러 개 거실 + 반려견",
+            "a cozy living room at night lit by a crackling wood fire in a stone fireplace and many lit candles with bright steady flames "
+            "on the mantel, side tables and shelves, a big window with clean clear glass and a dark night outside, "
+            "a sofa with knitted blankets, a dog sleeping curled up peacefully with eyes closed on a soft rug in front of the fire, "
+            "charming little decorations, warm golden light, empty room without people",
+            [
+                "wide view of the room",
+                "a cat is also sleeping on the sofa",
+                "a cat is also sleeping curled up on the hearth rug beside the dog",
+                "close view of the fireplace and the sleeping dog on the rug",
+            ],
+            {"intensity": 1.3, "brightness": 0.42, "window": True, "interior": 1.0, "fire": 1.0, "fire_sound": True,
+             **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST, animals=True,
+        ),
+        Scene(
+            "hearth_dog_cat",
+            "벽난로 앞에서 자는 반려견·반려묘",
+            "a dog and a cat sleeping peacefully curled up with eyes closed on a soft rug in front of a stone fireplace with a "
+            "crackling wood fire, warm firelight on their fur, a cozy dark living room around them, a few candles on the mantel, "
+            "a window with clean clear glass and dark night outside, charming little decorations, empty room without people",
+            [
+                "low angle view close to the floor",
+                "a knitted blanket on the rug under them",
+                "an armchair and a stack of books beside the hearth",
+            ],
+            {"intensity": 1.0, "brightness": 0.42, "window": True, "interior": 1.0, "fire": 1.0, "fire_sound": True,
+             **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST, animals=True,
         ),
     ]
 }

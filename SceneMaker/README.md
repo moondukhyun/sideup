@@ -68,3 +68,25 @@ LoopMaker 쪽은 `LoopMaker_v9.py`(v11.19 최신)로 교체하면 [AI 배경] �
 ## 시험 결과 (합성 계곡 장면, GPU 없이)
 - 기존 씬(물 튀김 사용 씬·창가 씬): 수정 전후 프레임 **완전히 동일**
 - 잎 영역만 움직이고 바위는 움직이지 않음, 루프 마지막→처음 이음새 정상
+
+## v11.22 — 아늑한 실내 장면 (촛불·벽난로·창밖 폭우·반려동물)
+
+| 장면 이름 | 내용 |
+|---|---|
+| `candle_single` | 촛불 하나만 켜진 어두운 방 |
+| `candle_many` | 촛불 여러 개 + 아기자기한 소품 방 |
+| `cozy_parlor` | 아늑한 응접실 · 창밖 비 · 촛불 |
+| `candle_rain_window` | 창가 촛불 하나 · 창밖 폭우 |
+| `living_fireplace_storm` | 3면 창 폭우 + 벽난로 + 침대 + 바닥에서 자는 반려견 (가끔 반려묘) |
+| `living_fireplace_candles` | 벽난로 + 촛불 여러 개 거실 + 반려견 |
+| `hearth_dog_cat` | 벽난로 앞에서 자는 반려견·반려묘 |
+
+새 파일: `interior.py`(촛불·불꽃·불빛·숨쉬기), `ambience.py`(벽난로·빗소리 합성). 수정: `cli.py rain.py scenes.py variety.py video.py`.
+
+- 촛불: 그림에서 작고 밝은 불꽃을 자동으로 찾아 흔들리게 하고, 방 안 벽·가구에 닿는 불빛이 같이 일렁입니다.
+- 벽난로: 크고 주황·노란 불 덩어리를 찾아 타오르게 하고 불티를 날립니다.
+- 반려동물: 자동으로 못 찾기 때문에 LoopMaker 의 `🐾 반려동물 위치 지정` 으로 상자를 그리면(작업 폴더 `pets.json`) 숨쉬듯 움직입니다.
+  CLI: `--pet 0.52,0.80,0.68,0.93,dog` (0~1 비율, 여러 번 가능)
+- 소리: 벽난로 장면은 타닥거리는 소리를 자동 합성(`--no-fire-sound` 로 끔, `--fire-db -6` 로 작게). 녹음한 빗소리가 없으면 창가 빗소리도 합성.
+  따로 만들기: `python -m scenemaker ambience --kind fire+rain --seconds 90 --out amb.wav`
+- 확인용 파일: `interior_mask.jpg` (노란 원=촛불, 빨간 상자=벽난로 불, 하늘색 상자=반려동물), `glass_mask.jpg` (창)

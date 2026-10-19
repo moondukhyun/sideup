@@ -39,6 +39,10 @@ class RainSettings:
     bloom: float = 1.0        # v11.20: 밝은 빛(하늘·가로등) 주변 번짐 (0 = 끔)
     wet_ground: float = 0.5   # v11.20: 젖은 바닥(어두워짐 + 웅덩이에 하늘 반사) 세기 (0 = 끔)
     wan_ok: bool = True       # v11.20: False 면 물·안개가 거의 없는 씬이라 Wan(AI 물 움직임)을 건너뜀
+    interior: float = 0.0     # v11.22: 아늑한 실내 — 촛불·벽난로 불꽃·방 안 불빛 일렁임·반려동물 숨쉬기 세기 (0 = 끔)
+    fire: float = 1.0         # v11.22: 벽난로 불 세기 배율
+    sway: bool = True         # v11.22: False 면 잎 흔들림(식물 감지)을 건너뜀 (실내 장면)
+    fire_sound: bool = False  # v11.22: True 면 벽난로 타닥거리는 소리를 자동으로 합성해 섞음
     dof: float = 0.0          # 깊이 기반 피사계심도 (0 = 끔). 가을 씬은 1.0 (2026-10-02 Cowork: 잘린 종이 느낌 해소)
     seed: int = 7
 
@@ -125,6 +129,8 @@ class RainRenderer:
         self.glass = None            # glass.GlassRain (창가 씬: 유리 물방울, 빗줄기는 창밖에만)
         self.water = None            # waterrain.WaterRain (호수·계곡·물웅덩이 수면에 떨어지는 빗방울)
         self.wet = None              # wetrock.WetRocks (젖은 표면 반짝임 + 흘러내리는 빗물, v11.19)
+        self.interior = None         # interior.Interior (촛불·벽난로 불꽃·불빛 일렁임, v11.22)
+        self.pets = None             # interior.PetBreath (반려동물 숨쉬기, v11.22)
         self.stream = None           # streamflow.StreamFlow (대롱·폭포 물줄기 흐름, v11.21)
         self.detail_color = np.array([235, 240, 245], dtype=np.float32) / 255.0
         self.haze = None             # set_depth(): 먼 곳이 빗속 공기에 묻히는 원근감 (depth 방식)
@@ -320,6 +326,10 @@ class RainRenderer:
     def frame(self, f):
         f %= self.N
         out = self.motion.frame(f).copy() if self.motion is not None else self.bg.copy()
+        if self.pets is not None:
+            out = self.pets.apply(out, f)                    # 자는 반려동물 숨쉬기 (v11.22)
+        if self.interior is not None:
+            out = self.interior.apply(out, f)                # 촛불·벽난로 불꽃·방 안 불빛 일렁임 (v11.22)
         if self.bloom is not None:
             out += self.bloom                                # 밝은 빛 번짐 (halation)
         if self.water is not None:
@@ -351,7 +361,11 @@ class RainRenderer:
         if self.glass is not None:
             out = self.glass.apply(out, f)
         if self.flash[f] > 0:
-            out += (1.0 - out) * (0.35 * self.flash[f])
+            if self.glass is not None:                      # 번개는 창밖과 유리에서만 번쩍, 실내는 아주 살짝 (v11.22)
+                wgt = (0.05 + 0.95 * self.glass.mask)[..., None]
+                out += (1.0 - out) * (0.35 * self.flash[f]) * wgt
+            else:
+                out += (1.0 - out) * (0.35 * self.flash[f])
         if self.finish is not None:
             out = self.finish.apply(out, f)
         return (np.clip(out, 0, 1) * 255).astype(np.uint8)

@@ -188,6 +188,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
     renderer = RainRenderer(bg, rs, v["fps"], v["loop_seconds"])
     v["loop_seconds"] = renderer.N / v["fps"]
     _attach_details(cfg, renderer, job, bg, rs, args)
+    _attach_interior(renderer, job, rs, args)
     if getattr(args, "wan", False):
         _attach_wan(cfg, renderer, job, bg, meta, args)
 
@@ -207,13 +208,14 @@ def make_loop(cfg, image, scene_name, args, job=None):
 
     if audio:
         audio = loopable_audio(audio, job)
+    audio, extra_audio = _ambience(job, rs, args, audio)
     cache, finals = {}, []
     for duration in durations:
         label = format_duration(duration)
         seg, kbps = segment_for_duration(master, job, duration, v, cache)
         final = job / f"final_{label}_{v['resolution']}.mp4"
         print(f"[{label}] 조립 중 — {v['resolution']} {v['encoder']} {kbps / 1000:.1f}Mbps")
-        assemble(seg, final, duration, v, audio=audio)
+        assemble(seg, final, duration, v, audio=audio, extra=extra_audio)
         gb = final.stat().st_size / 1e9
         print(f"  -> {final.name}  {gb:.2f}GB (상한 {v['max_size_gb']}GB)")
         finals.append({"file": final.name, "duration": duration, "kbps": kbps, "gb": round(gb, 2)})
@@ -221,6 +223,93 @@ def make_loop(cfg, image, scene_name, args, job=None):
     n = variety.mark_used(job / "background.png", note=", ".join(f["file"] for f in finals))
     print(f"완료: {len(finals)}개 영상  (사용 기록 {n}개)")
     return finals
+
+
+def _load_pets(job, args):
+    """반려동물 위치: --pet 'x0,y0,x1,y1[,dog|cat]' (0~1 비율, 여러 번) 또는 작업 폴더의 pets.json."""
+    pets = []
+    for spec in getattr(args, "pet", None) or []:
+        p = [x.strip() for x in str(spec).split(",")]
+        try:
+            v = [float(x) for x in p[:4]]
+        except ValueError:
+            v = []
+        if len(v) != 4:
+            raise SystemExit(f"--pet 형식 오류: {spec!r} (예: 0.52,0.80,0.68,0.93,dog)")
+        pets.append({"x0": v[0], "y0": v[1], "x1": v[2], "y1": v[3], "kind": p[4] if len(p) > 4 else "dog"})
+    if pets:
+        return pets
+    pj = Path(job) / "pets.json"
+    img = getattr(args, "image", None)
+    if not pj.exists() and img and (Path(img).parent / "pets.json").exists():
+        pj = Path(img).parent / "pets.json"          # 내 사진을 직접 고른 경우
+    if pj.exists():
+        try:
+            return json.loads(pj.read_text(encoding="utf-8"))
+        except ValueError:
+            print(f"  pets.json 을 읽을 수 없어 건너뜀: {pj}")
+    return []
+
+
+def _attach_interior(renderer, job, rs, args):
+    """v11.22: 촛불·벽난로 불꽃·방 안 불빛 일렁임·반려동물 숨쉬기."""
+    if rs.interior <= 0 or getattr(args, "no_interior", False):
+        return
+    from .interior import Interior, PetBreath, find_lights
+    info = find_lights(renderer.bg)
+    it = Interior(renderer.bg, renderer.N, renderer.fps, strength=rs.interior, fire_strength=rs.fire,
+                  seed=rs.seed, info=info)
+    pets = _load_pets(job, args)
+    if it.candles or it.fire is not None:
+        renderer.interior = it
+        for line in it.describe():
+            print("  " + line)
+    else:
+        print("  촛불·벽난로 불꽃을 찾지 못함: 그림에 밝게 켜진 불꽃이 또렷하지 않아요 (다른 배경을 쓰거나 '추가 묘사'에 lit candle flame 을 넣어 다시 생성)")
+    if pets:
+        renderer.pets = PetBreath(pets, renderer.W, renderer.H, renderer.N, renderer.fps, seed=rs.seed)
+        print(f"  반려동물 숨쉬기: {len(renderer.pets.items)}마리 ({', '.join(p.get('kind', 'dog') for p in pets)})")
+    try:
+        from PIL import ImageDraw
+        pv = Image.fromarray((np.clip(renderer.bg, 0, 1) * 255).astype(np.uint8))
+        dr = ImageDraw.Draw(pv)
+        for c in it.candles:
+            dr.ellipse((c["x"] - 14, c["y"] - 14, c["x"] + 14, c["y"] + 14), outline=(255, 230, 0), width=3)
+        if it.fire is not None:
+            dr.rectangle(it.fire["box"], outline=(255, 60, 0), width=4)
+        for p in renderer.pets.items if renderer.pets else []:
+            dr.rectangle(p["box"], outline=(0, 220, 255), width=4)
+        pv.resize((1280, int(1280 * renderer.H / renderer.W))).save(Path(job) / "interior_mask.jpg")
+        print("  적용 위치 확인: interior_mask.jpg (노란 원=촛불, 빨간 상자=벽난로 불, 하늘색 상자=반려동물)")
+    except Exception:
+        pass
+
+
+def _ambience(job, rs, args, audio):
+    """v11.22: 벽난로 타닥거리는 소리·(녹음 파일이 없을 때) 창가 빗소리를 합성해 섞는다.
+    반환: (주 오디오, [(추가 오디오, dB)])"""
+    want_fire = (rs.fire_sound or getattr(args, "fire_sound", False)) and not getattr(args, "no_fire_sound", False)
+    if not want_fire:
+        return audio, []
+    from . import ambience
+    job = Path(job)
+    fire = job / "fire_crackle.wav"
+    if not fire.exists():
+        print("  벽난로 소리 합성 중 (90초, 끝과 처음이 이어지는 루프)")
+        ambience.make(fire, "fire", 90.0, seed=rs.seed)
+    db = getattr(args, "fire_db", None)
+    db = float(db) if db is not None else 0.0
+    if audio:
+        print(f"  벽난로 소리를 녹음 파일 위에 섞음 ({db:+.0f}dB)")
+        return audio, [(fire, db)]
+    if rs.window and rs.intensity > 0.2:
+        both = job / "ambience_fire_rain.wav"
+        if not both.exists():
+            print("  창가 빗소리 + 벽난로 소리 합성 중 (녹음 파일이 없어 자동 생성)")
+            ambience.make(both, "fire+rain", 90.0, seed=rs.seed, heavy=min(2.0, max(0.5, rs.intensity)))
+        return both, []
+    print("  녹음 파일이 없어 벽난로 소리만 사용")
+    return fire, []
 
 
 def _attach_wan(cfg, renderer, job, bg, meta, args):
@@ -279,7 +368,7 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
     no_wet = getattr(args, "no_wet", False)
     want_window = rs.window and not no_details
     want_details = rs.splashes and not rs.window and not no_details
-    want_motion = not rs.window and not no_motion
+    want_motion = not rs.window and not no_motion and rs.sway
     want_wet = not rs.window and not no_wet and (rs.wet > 0 or rs.water_rain > 0)
     if not (want_window or want_details or want_motion or want_wet):
         if depth_rain:
@@ -486,6 +575,12 @@ def cmd_plan(cfg, args):
 def cmd_scenes(cfg, args):
     for s in SCENES.values():
         print(f"{s.name:16} {s.title}")
+
+
+def cmd_ambience(cfg, args):
+    from . import ambience
+    out = ambience.make(args.out, args.kind, args.seconds)
+    print(f"저장: {out}")
 
 
 def cmd_check(cfg, args):
@@ -701,6 +796,11 @@ def _add_rain_args(p):
     g.add_argument("--no-details", action="store_true", help="깊이 기반 물 튀김·물결·물방울 끄기")
     g.add_argument("--no-motion", action="store_true", help="잎 흔들림·물 일렁임(배경 움직임) 끄기")
     g.add_argument("--no-wet", action="store_true", help="젖은 바위·흘러내리는 물줄기·수면 빗방울 끄기")
+    g.add_argument("--no-interior", action="store_true", help="촛불·벽난로 불꽃·반려동물 숨쉬기(실내 효과) 끄기")
+    g.add_argument("--pet", action="append", help="자는 반려동물 위치 'x0,y0,x1,y1[,dog|cat]' (0~1 비율, 여러 번 지정 가능)")
+    g.add_argument("--fire-sound", action="store_true", help="벽난로 타닥거리는 소리를 합성해 섞음 (벽난로 장면은 기본 켜짐)")
+    g.add_argument("--no-fire-sound", action="store_true", help="벽난로 소리 합성 끄기")
+    g.add_argument("--fire-db", type=float, help="벽난로 소리 크기 조절 dB (기본 0, 작게 하려면 -6)")
     g.add_argument("--grade", type=float, help="색 보정 강도 (기본 1.0, 0 = 끔)")
     g.add_argument("--grain", type=float, help="필름 그레인 강도 (기본 1.0, 0 = 끔)")
     g.add_argument("--classic-rain", action="store_true", help="예전 빗줄기 방식 (거리별 빗줄기·색 보정·그레인 끔)")
@@ -791,6 +891,12 @@ def main(argv=None):
     p.add_argument("--max-size-gb", type=float)
     p.add_argument("--encoder")
     p.set_defaults(fn=cmd_plan)
+
+    p = sub.add_parser("ambience", help="벽난로·창가 빗소리 환경음 합성 (이음새 없는 루프 wav)")
+    p.add_argument("--kind", default="fire", choices=["fire", "rain", "fire+rain"])
+    p.add_argument("--seconds", type=float, default=90.0)
+    p.add_argument("--out", required=True)
+    p.set_defaults(fn=cmd_ambience)
 
     p = sub.add_parser("used", help="영상에 사용한 배경 기록 (중복 방지)")
     p.add_argument("action", choices=["list", "add", "check"])

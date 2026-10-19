@@ -28,6 +28,16 @@ AXES = {
     "camera": ["wide view", "eye-level view", "slightly low angle", "view from a sheltered spot",
                "looking down a path", "close view of the foreground"],
 }
+# v11.22: 실내 장면은 '한낮·여름' 같은 자연 풍경 문구가 섞이면 안 되므로 전용 축을 쓴다
+INTERIOR_SCENES = {"candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "living_fireplace_storm",
+                   "living_fireplace_candles", "hearth_dog_cat"}
+INTERIOR_AXES = {
+    "time": ["late at night", "deep midnight", "quiet night", "before dawn"],
+    "mood": ["warm amber glow", "soft golden glow", "dim warm light with deep shadows", "gentle warm candlelit atmosphere"],
+    "camera": ["wide view of the room", "eye-level view", "slightly low angle", "view from the doorway",
+               "close view of the foreground"],
+}
+
 # 씬 이름에 시간이 정해진 경우 시간 축을 쓰지 않음
 FIXED_TIME = {"forest_night", "night_park", "city_night"}
 
@@ -54,7 +64,7 @@ def diversify(scene_name, seed, rain_level=None):
     rain_level 을 주면 비의 세기는 고정 (녹음한 빗소리에 맞춤)."""
     rng = random.Random(f"{scene_name}:{seed}")
     picks = {}
-    for axis, options in AXES.items():
+    for axis, options in (INTERIOR_AXES if scene_name in INTERIOR_SCENES else AXES).items():
         if axis == "time" and scene_name in FIXED_TIME:
             continue
         if axis == "season" and scene_name in SEASON_OVERRIDE:

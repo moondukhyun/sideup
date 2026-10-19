@@ -4,6 +4,13 @@ LoopMaker v10 — 무한루프 영상 + 유튜브 패키지 + 숏폼 생성기
 Somnia Forest 전용 도구
 (파일명은 하위 호환을 위해 LoopMaker_v9.py 그대로 유지 — 바탕화면 바로가기/배치파일 안 깨짐)
 
+v11.22 신규 (2026-10-19): 🕯 아늑한 실내 장면 — 촛불·벽난로·창밖 폭우·반려동물 (SceneMaker 수정본 필요)
+ - 새 장면 7종: 촛불 하나 / 촛불 여러 개 / 아늑한 응접실 / 창가 촛불+폭우 / 3면 창 폭우+벽난로 거실+반려견(+가끔 고양이) / 벽난로+촛불 거실 / 벽난로 앞 반려견·반려묘
+ - 촛불 불꽃이 바람에 흔들리고 방 안 벽·가구에 닿는 불빛이 일렁임, 벽난로 불이 타오르며 불티가 날림
+ - 🐾 반려동물 위치 지정: 배경 위에 마우스로 상자를 그리면 자는 강아지·고양이가 숨쉬듯 움직임
+ - 🔥 벽난로 타닥거리는 소리·창가 빗소리를 자동 합성해서 영상에 섞음 (녹음한 빗소리가 있으면 그 위에 얹음)
+ - 3면 창 폭우: 번개가 와도 실내는 번쩍이지 않고 창밖만 번쩍
+
 v11.21 신규 (2026-10-18): 🌧 AI 배경 — 빗물 흘러내림 확대 + 이미지에 빗줄기가 박히지 않게 (SceneMaker 수정본 필요)
  - 배경 이미지를 만들 때 '비' 단어를 모두 '젖은 흐린 날' 표현으로 바꿔 AI 가 빗줄기를 이미지에 그리지 않게 함 (영상에서 고정된 줄로 남던 문제)
  - 돌·기와지붕·벽·기둥 표면과 대나무·나무·기둥 줄기를 따라 빗물이 흘러내림 (모든 장면 기본 적용)
@@ -4705,7 +4712,8 @@ class SceneTabMixin:
         cfg = dict(scene=self.sm_scene_var.get(), count=self._sm_count(), rain=self.sm_rain_var.get(),
                    model=self.sm_model_var.get(), audio=self.sm_audio_var.get(),
                    duration=self.sm_dur_var.get(), motion=self.sm_motion_var.get(),
-                   details=self.sm_details_var.get(), wan=self.sm_wan_var.get(), wet=self.sm_wet_var.get())
+                   details=self.sm_details_var.get(), wan=self.sm_wan_var.get(), wet=self.sm_wet_var.get(),
+                   interior=self.sm_interior_var.get(), fire_sound=self.sm_fire_var.get())
         try:
             with open(SM_TAB_CFG, "w", encoding="utf-8") as f:
                 json.dump(cfg, f, ensure_ascii=False, indent=1)
@@ -4726,6 +4734,8 @@ class SceneTabMixin:
         self.sm_details_var = tk.BooleanVar(value=cfg.get("details", True))
         self.sm_wan_var = tk.BooleanVar(value=cfg.get("wan", False))
         self.sm_wet_var = tk.BooleanVar(value=cfg.get("wet", True))      # v11.19: 젖은 바위·물줄기·수면 빗방울
+        self.sm_interior_var = tk.BooleanVar(value=cfg.get("interior", True))   # v11.22: 촛불·벽난로 불꽃·반려동물 숨쉬기
+        self.sm_fire_var = tk.BooleanVar(value=cfg.get("fire_sound", True))      # v11.22: 벽난로 소리 자동 합성
         self.sm_comfy_var = tk.StringVar(value="ComfyUI 확인 중…")
         self.sm_proc = None
         self.sm_stop_flag = threading.Event()
@@ -4793,6 +4803,7 @@ class SceneTabMixin:
         ttk.Button(sbtn, text="🔄 새로고침", command=self.sm_refresh_list).pack(side="left")
         ttk.Button(sbtn, text="📂 내 사진 쓰기", command=self.sm_pick_image).pack(side="left", padx=6)
         ttk.Button(sbtn, text="🔍 크게 보기", command=self.sm_open_image).pack(side="left")
+        ttk.Button(sbtn, text="🐾 반려동물 위치 지정", command=self.sm_pick_pets).pack(side="left", padx=6)
 
         v = ttk.LabelFrame(tab, text=" ③ 빗소리 루프 영상 만들기 ")
         v.pack(fill="x", padx=10, pady=(4, 0))
@@ -4809,6 +4820,9 @@ class SceneTabMixin:
         ttk.Checkbutton(v3, text="잎 흔들림·물 일렁임", variable=self.sm_motion_var).pack(side="left")
         ttk.Checkbutton(v3, text="물 튀김·물결·물방울", variable=self.sm_details_var).pack(side="left", padx=10)
         ttk.Checkbutton(v3, text="젖은 표면·흘러내리는 빗물·물줄기·수면 빗방울", variable=self.sm_wet_var).pack(side="left")
+        v3c = ttk.Frame(v); v3c.pack(fill="x", padx=8, pady=2)
+        ttk.Checkbutton(v3c, text="🕯 촛불·벽난로 불꽃 일렁임·🐾 반려동물 숨쉬기", variable=self.sm_interior_var).pack(side="left")
+        ttk.Checkbutton(v3c, text="🔥 벽난로 소리 자동 합성", variable=self.sm_fire_var).pack(side="left", padx=10)
         v3b = ttk.Frame(v); v3b.pack(fill="x", padx=8, pady=2)
         ttk.Checkbutton(v3b, text="💧 물·안개 AI 움직임 (Wan 2.2 · 약 10분 · 물 없는 장면은 자동 건너뜀)",
                         variable=self.sm_wan_var).pack(side="left")
@@ -4912,6 +4926,89 @@ class SceneTabMixin:
         if p and os.path.isfile(p):
             os.startfile(p)
 
+    def sm_pick_pets(self):
+        """배경 위에서 자는 반려동물을 마우스로 드래그해 상자로 표시 → 작업 폴더에 pets.json 저장 (영상에서 숨쉬게 함)."""
+        img = self.sm_image_var.get()
+        if not img or not os.path.isfile(img) or not HAS_PIL:
+            messagebox.showwarning("확인", "② 에서 배경을 먼저 골라주세요")
+            return
+        from PIL import ImageTk
+        pj = os.path.join(os.path.dirname(img), "pets.json")
+        try:
+            with open(pj, encoding="utf-8") as f:
+                boxes = json.load(f)
+        except (OSError, ValueError):
+            boxes = []
+        im = Image.open(img).convert("RGB")
+        sc = min(960 / im.width, 540 / im.height)
+        cw, ch = int(im.width * sc), int(im.height * sc)
+        photo = ImageTk.PhotoImage(im.resize((cw, ch)))
+        win = tk.Toplevel(self)
+        win.title("반려동물 위치 지정 — 자는 강아지·고양이 몸 전체를 감싸게 드래그")
+        cv = tk.Canvas(win, width=cw, height=ch, highlightthickness=0, cursor="crosshair")
+        cv.pack(padx=8, pady=8)
+        cv.create_image(0, 0, image=photo, anchor="nw")
+        cv.image = photo
+        kind = tk.StringVar(value="dog")
+        state = {"start": None, "cur": None}
+
+        def redraw():
+            cv.delete("box")
+            for b in boxes:
+                col = "#ffcc00" if b.get("kind") == "cat" else "#00ddff"
+                cv.create_rectangle(b["x0"] * cw, b["y0"] * ch, b["x1"] * cw, b["y1"] * ch, outline=col, width=3, tags="box")
+                cv.create_text(b["x0"] * cw + 4, b["y0"] * ch + 4, anchor="nw", fill=col, tags="box",
+                               text="고양이" if b.get("kind") == "cat" else "강아지")
+
+        def down(e):
+            state["start"] = (e.x, e.y)
+
+        def move(e):
+            if state["start"]:
+                cv.delete("drag")
+                cv.create_rectangle(*state["start"], e.x, e.y, outline="#ffffff", dash=(4, 3), tags="drag")
+
+        def up(e):
+            s = state["start"]
+            state["start"] = None
+            cv.delete("drag")
+            if not s or abs(e.x - s[0]) < 12 or abs(e.y - s[1]) < 8:
+                return
+            x0, x1 = sorted((s[0], e.x))
+            y0, y1 = sorted((s[1], e.y))
+            boxes.append({"x0": max(0, x0) / cw, "y0": max(0, y0) / ch, "x1": min(cw, x1) / cw, "y1": min(ch, y1) / ch,
+                          "kind": kind.get()})
+            redraw()
+
+        def undo():
+            if boxes:
+                boxes.pop()
+                redraw()
+
+        def save():
+            try:
+                if boxes:
+                    with open(pj, "w", encoding="utf-8") as f:
+                        json.dump(boxes, f, ensure_ascii=False, indent=1)
+                elif os.path.exists(pj):
+                    os.remove(pj)
+                self.log(f"🐾 반려동물 {len(boxes)}마리 위치 저장 — 영상 만들기에서 숨쉬게 돼요")
+            except OSError as e:
+                messagebox.showerror("저장 실패", str(e))
+                return
+            win.destroy()
+
+        cv.bind("<ButtonPress-1>", down)
+        cv.bind("<B1-Motion>", move)
+        cv.bind("<ButtonRelease-1>", up)
+        bar = ttk.Frame(win); bar.pack(fill="x", padx=8, pady=(0, 8))
+        ttk.Radiobutton(bar, text="강아지", variable=kind, value="dog").pack(side="left")
+        ttk.Radiobutton(bar, text="고양이", variable=kind, value="cat").pack(side="left", padx=6)
+        ttk.Label(bar, text="상자는 동물보다 살짝 크게", foreground="#666666").pack(side="left", padx=10)
+        ttk.Button(bar, text="마지막 취소", command=undo).pack(side="right")
+        ttk.Button(bar, text="저장", command=save).pack(side="right", padx=6)
+        redraw()
+
     def sm_pick_audio(self):
         cur = self.sm_audio_var.get()
         p = filedialog.askopenfilename(initialdir=os.path.dirname(cur) if cur else None,
@@ -4953,7 +5050,8 @@ class SceneTabMixin:
             messagebox.showwarning("확인", "② 에서 배경을 먼저 골라주세요")
             return
         audio = self.sm_audio_var.get().strip()
-        if not audio:
+        fire_auto = self.sm_fire_var.get() and any(k in self._sm_scene_name() for k in ("fireplace", "hearth"))
+        if not audio and not fire_auto:
             if not messagebox.askyesno("빗소리 없음", "빗소리 파일 없이 화면만 만들까요?\n"
                                                      "(보통은 직접 녹음한 빗소리를 넣어요)"):
                 return
@@ -4974,6 +5072,10 @@ class SceneTabMixin:
             args.append("--no-details")
         if not self.sm_wet_var.get():
             args.append("--no-wet")
+        if not self.sm_interior_var.get():
+            args.append("--no-interior")
+        if not self.sm_fire_var.get():
+            args.append("--no-fire-sound")
         wan = self.sm_wan_var.get()
         if wan:
             args.append("--wan")
@@ -5085,7 +5187,7 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.21 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.22 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
@@ -6328,7 +6430,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.21 시작\n")
+        self.log("🚀 LoopMaker v11.22 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 
