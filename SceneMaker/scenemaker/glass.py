@@ -122,12 +122,33 @@ class GlassRain:
         # 뒤 풍경은 초점 밖처럼 흐리게 (초점은 유리 위 물방울)
         blur = cv2.GaussianBlur(bg, (0, 0), view_blur * res)
         self.base = bg * (1 - mask[..., None]) + blur * mask[..., None]
+        # 방울이 비추는 풍경: 창 영역의 색만 넓게 번지게 채우고(창틀·실내가 들어오지 않게) 살짝 흐리게 → 방울마다 창 모양이 똑같이 보이지 않음
+        wm = np.clip(mask, 0, 1)[..., None].astype(np.float32)
+        num = cv2.GaussianBlur(self.base * wm, (0, 0), 22 * res)
+        den = cv2.GaussianBlur(wm, (0, 0), 22 * res)[..., None] + 1e-4
+        fill = num / den
+        self.lens_src = cv2.GaussianBlur(self.base * wm + fill * (1 - wm), (0, 0), 2.2 * res)
 
         # 결로(김서림): 아래쪽일수록 살짝 뿌옇게 — 주변 색을 밝게 끌어올린 안개. 방울이 지나간 자리는 맑아짐
         y = np.linspace(0, 1, self.H, dtype=np.float32)[:, None]
         local = cv2.GaussianBlur(self.base, (0, 0), 45 * res)
         self.fog_col = np.clip(local * 1.7 + 0.04, 0, 1)
         self.fog = (np.clip((y - 0.30) / 0.70, 0, 1) ** 1.4 * 0.10 * min(1.5, amount) * mask).astype(np.float32)
+        # 결로를 균일한 띠가 아니라 얼룩덜룩한 '번진 김서림'으로 (폭우일수록 진하게)
+        patch_ = cv2.GaussianBlur(np.random.default_rng(seed + 55).normal(0, 1, (self.H // 8 + 2, self.W // 8 + 2)).astype(np.float32), (0, 0), 3.0)
+        patch_ = cv2.resize(patch_, (self.W, self.H), interpolation=cv2.INTER_CUBIC)
+        patch_ = np.clip(0.55 + 0.9 * (patch_ - patch_.mean()) / (patch_.std() + 1e-6) * 0.5, 0.05, 1.4)
+        self.fog = (self.fog * (1.0 + 0.9 * min(amount, 2.0)) * patch_).astype(np.float32)
+        # 유리 위를 천천히 흘러내리는 얇은 물막: 세로로 길쭉한 결이 루프 동안 정수 번 내려옴 (이음새 없음)
+        Pn = max(48, int(self.H * 0.5))
+        base_n = np.random.default_rng(seed + 77).normal(0, 1, (Pn, self.W // 3 + 2)).astype(np.float32)
+        t3 = cv2.GaussianBlur(np.tile(base_n, (3, 1)), (0, 0), sigmaX=1.4, sigmaY=26 * res)
+        sheet = t3[Pn:2 * Pn]
+        sheet = cv2.resize(sheet / (float(sheet.std()) + 1e-6), (self.W, Pn), interpolation=cv2.INTER_LINEAR)
+        self._sheet_P = Pn
+        self._sheet = np.tile(sheet, (self.H // Pn + 3, 1)).astype(np.float32)
+        self._sheet_k = max(1, int(round(0.10 * self.H * (N / float(fps)) / Pn)))      # 초당 화면 높이의 약 10% 속도
+        self._sheet_amt = 0.030 * min(amount, 2.0)
         self.clear = np.zeros((self.H, self.W), np.float32)         # 쓸려 내려간 자리 (정지)
         self._sweep = np.zeros((self.H, self.W), np.float32)        # 프레임마다 쓰는 임시 지도
 
@@ -166,24 +187,30 @@ class GlassRain:
         paths = sorted((self._make_path(rng, N, mask, res) for _ in range(n_slide)), key=lambda p: -p["rad"])   # 큰 방울이 먼저
         for i, sl in enumerate(paths):
             sl["start"] = int((i + float(rng.uniform(0, 0.8))) / n_slide * N) % N
+            sl["n_eff"] = len(sl["xs"])                  # 다른 방울에 합쳐져 사라지는 시점 (기본: 끝까지)
+            sl["merge_t"] = None                         # 다른 방울을 흡수해 커진 시점
             sl["beads"] = self._make_beads(sl, rng, res)
             self.sliders.append(sl)
+        self._find_merges(N, res)
+        for sl in self.sliders:
             self._clear_trail(sl)
 
     # ---------- 도우미 ----------
     def _put(self, layer, alpha, x, y, rad, stretch, cv2):
-        p = _lens(self.base, x, y, rad, stretch, cv2)
+        p = _lens(self.lens_src, x, y, rad, stretch, cv2)
         if p is None:
             return
         x0, y0, x1, y1, lens, a = p
+        a = a * self.mask[y0:y1, x0:x1]                                # 창 유리 밖(창틀·벽)에는 안 그림
         region = layer[y0:y1, x0:x1]
         region += (lens - region) * a[..., None]
         alpha[y0:y1, x0:x1] = np.maximum(alpha[y0:y1, x0:x1], a)
         if rad > 3.0 * self.res and ((int(x * 13) + int(y * 7)) % 9 == 0):          # 가끔 옆에 작은 방울이 붙어 합쳐진 모양
             ang = ((int(x) * 37 + int(y) * 11) % 628) / 100.0
-            q = _lens(self.base, x + np.cos(ang) * rad * 0.95, y + abs(np.sin(ang)) * rad * 0.9, rad * 0.62, stretch, cv2)
+            q = _lens(self.lens_src, x + np.cos(ang) * rad * 0.95, y + abs(np.sin(ang)) * rad * 0.9, rad * 0.62, stretch, cv2)
             if q:
                 qx0, qy0, qx1, qy1, ql, qa = q
+                qa = qa * self.mask[qy0:qy1, qx0:qx1]
                 rg = layer[qy0:qy1, qx0:qx1]
                 rg += (ql - rg) * qa[..., None]
                 alpha[qy0:qy1, qx0:qx1] = np.maximum(alpha[qy0:qy1, qx0:qx1], qa)
@@ -237,6 +264,39 @@ class GlassRain:
                     break
         return {"xs": np.array(xs), "ys": np.array(ys), "period": period, "rad": rad, "mass": mass}
 
+    def _find_merges(self, N, res):
+        """흐르는 방울끼리 만나면 작은 쪽이 큰 쪽에 합쳐진다: 작은 방울은 그 자리에서 사라지고 큰 방울은 잠깐 부풀었다가 더 커진 채 흐른다."""
+        S = len(self.sliders)
+        pos = np.full((S, N, 2), np.nan, np.float32)
+        for si, s in enumerate(self.sliders):
+            for f in range(N):
+                t = (f - s["start"]) % s["period"]
+                if t < s["n_eff"]:
+                    pos[si, f] = (s["xs"][t], s["ys"][t])
+        for a in range(S):
+            for b in range(a + 1, S):
+                if self.sliders[a]["n_eff"] <= 0 or self.sliders[b]["n_eff"] <= 0:
+                    continue
+                d = np.hypot(pos[a, :, 0] - pos[b, :, 0], pos[a, :, 1] - pos[b, :, 1])
+                reach = 0.9 * (self.sliders[a]["rad"] + self.sliders[b]["rad"])
+                hit = np.nonzero(d < reach)[0]
+                if not len(hit):
+                    continue
+                f = int(hit[0])
+                big, small = (a, b) if self.sliders[a]["rad"] >= self.sliders[b]["rad"] else (b, a)
+                sb, ss = self.sliders[big], self.sliders[small]
+                if ss["merge_t"] is not None or sb["merge_t"] is not None:
+                    continue
+                ss["n_eff"] = int((f - ss["start"]) % ss["period"])        # 작은 방울은 여기서 사라짐
+                sb["merge_t"] = int((f - sb["start"]) % sb["period"])
+                sb["gain"] = 1.0 + 0.35 * ss["rad"] / sb["rad"]
+                for si in (small,):
+                    pos[si, :, :] = np.nan
+                    for ff in range(N):
+                        t = (ff - ss["start"]) % ss["period"]
+                        if t < ss["n_eff"]:
+                            pos[si, ff] = (ss["xs"][t], ss["ys"][t])
+
     def _make_beads(self, sl, rng, res):
         """지나간 자리에 남는 작은 방울들: (경로 인덱스, 반지름). 머리가 지나간 뒤 서서히 사라진다."""
         beads, i = [], int(rng.integers(8, 30))
@@ -249,7 +309,7 @@ class GlassRain:
         """방울이 지나간 자리는 김서림이 쓸려 맑아진다 (정지 지도에 한 번 기록)."""
         cv2 = self.cv2
         w = max(2, int(sl["rad"] * 1.4))
-        for i in range(0, len(sl["xs"]), 2):
+        for i in range(0, int(sl.get("n_eff", len(sl["xs"]))), 2):
             cv2.circle(self.clear, (int(sl["xs"][i]), int(sl["ys"][i])), w, 1.0, -1)
 
     # ---------- 프레임 ----------
@@ -266,8 +326,8 @@ class GlassRain:
         fade = 6.0 * self.fps
         for s in self.sliders:
             t = (f - s["start"]) % s["period"]
-            n = len(s["xs"])
-            if t >= n + int(fade):
+            n = int(s.get("n_eff", len(s["xs"])))
+            if t >= n + int(fade) or n <= 0:
                 continue
             head = min(t, n - 1)
             w = max(3, int(s["rad"] * 1.7))
@@ -286,6 +346,9 @@ class GlassRain:
         fog = (self.fog * (1.0 - np.clip(self.clear * 1.2, 0, 1)))[..., None]
         out = out * (1 - m) + (self.base * 0.92 + out * 0.08) * m    # 창밖은 초점 밖: 흐린 배경 위주
         out = out + (self.fog_col - out) * fog                         # 결로 (지나간 자리는 맑음)
+        sh = int(round(self._sheet_k * self._sheet_P * (f % self.N) / self.N)) % self._sheet_P
+        sheet = self._sheet[self._sheet_P - sh:self._sheet_P - sh + self.H, :self.W]
+        out = out * (1.0 + (self._sheet_amt * sheet)[..., None] * m * (1.0 - np.clip(self.clear, 0, 1)[..., None] * 0.5))   # 얇은 물막이 흐르는 결
         sweep = self._sweep_map(f)
         for layer, alpha, ph in self.groups:
             a = (alpha * self._env(f, ph) * (1.0 - sweep))[..., None]
@@ -293,10 +356,11 @@ class GlassRain:
         for s in self.sliders:
             t = (f - s["start"]) % s["period"]
             n = len(s["xs"])
+            n_eff = s.get("n_eff", n)
             fade = 4.0 * self.fps
             if t >= n + int(fade):
                 continue
-            head = min(t, n - 1)
+            head = min(t, n_eff - 1) if n_eff > 0 else 0
             # 지나간 자리의 가는 물길 (3~4초에 걸쳐 옅어짐)
             for i in range(0, head, 2):
                 age = t - i
@@ -316,6 +380,7 @@ class GlassRain:
                 core = np.clip(1.0 - dxn / 0.45, 0, 1)
                 lens = self.base[y0:y1, x0:x1] * (1.0 - 0.16 * edge[..., None]) * (1.0 + 0.20 * core[..., None]) \
                     + (0.045 * core)[..., None]
+                mm = mm * self.mask[y0:y1, x0:x1]
                 region = out[y0:y1, x0:x1]
                 region += (lens - region) * mm[..., None]
             # 길에 남은 작은 방울들 (머리가 지나간 뒤 나타나 천천히 사라짐)
@@ -326,19 +391,25 @@ class GlassRain:
                 if age >= fade * 1.4:
                     continue
                 keep = 1.0 - _smoothstep(0.5, 1.0, age / (fade * 1.4))
-                p = _lens(self.base, s["xs"][bi] + bx, s["ys"][bi], brad, 1.2, cv2)
+                p = _lens(self.lens_src, s["xs"][bi] + bx, s["ys"][bi], brad, 1.2, cv2)
                 if p:
                     x0, y0, x1, y1, lens, a = p
                     region = out[y0:y1, x0:x1]
-                    region += (lens - region) * (a * keep)[..., None]
-            if t < n:                                       # 머리 방울: 움직일 때 위아래로 길쭉
+                    region += (lens - region) * (a * keep * self.mask[y0:y1, x0:x1])[..., None]
+            if t < n_eff:                                   # 머리 방울: 움직일 때 위아래로 길쭉
                 v = float(s["ys"][head] - s["ys"][max(0, head - 3)])
                 stretch = 1.25 + float(np.clip(v * 0.25, 0, 0.8))
-                p = _lens(self.base, s["xs"][head], s["ys"][head], s["rad"], stretch, cv2)
+                grow = 1.0 + 0.30 * head / max(n, 1)         # 흘러가며 물을 모아 점점 커짐
+                mt = s.get("merge_t")
+                if mt is not None and t >= mt:               # 다른 방울을 흡수: 잠깐 크게 부풀었다가 가라앉아 더 커진 채로
+                    pulse = 0.22 * max(0.0, 1.0 - (t - mt) / (0.5 * self.fps)) * s.get("gain", 1.0)
+                    grow *= s.get("gain", 1.0) + pulse
+                    stretch += 0.25 * max(0.0, 1.0 - (t - mt) / (0.5 * self.fps))
+                p = _lens(self.lens_src, s["xs"][head], s["ys"][head], s["rad"] * grow, stretch, cv2)
                 if p:
                     x0, y0, x1, y1, lens, a = p
                     region = out[y0:y1, x0:x1]
-                    region += (lens - region) * a[..., None]
+                    region += (lens - region) * (a * self.mask[y0:y1, x0:x1])[..., None]
         return out
 
 
