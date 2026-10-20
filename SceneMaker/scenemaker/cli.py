@@ -278,7 +278,7 @@ def _attach_interior(renderer, job, rs, args):
         arms = [p for p in marks if p.get("kind") == "tonearm"]
         arm_px = [(p["x0"] * Wp, p["y0"] * Hp, p["x1"] * Wp, p["y1"] * Hp) for p in arms]
         renderer.records = RecordSpin(recs, renderer.W, renderer.H, renderer.N, renderer.fps, exclude=arm_px, bg=renderer.bg)
-        if arms:
+        if arms and getattr(args, "tonearm_bob", False):               # 톤암 오르내림은 팔 모양이 번지거나 두 개로 보이기 쉬워 기본은 끔 (--tonearm-bob 으로 켬)
             rc = [((r["box"][0] + r["box"][2]) / 2.0, (r["box"][1] + r["box"][3]) / 2.0) for r in renderer.records.items]
             renderer.tonearm = TonearmBob(arms, renderer.W, renderer.H, renderer.N, renderer.fps, k=renderer.records.k, record_centers=rc)
             print(f"  톤암: {len(renderer.tonearm.items)}개가 레코드 한 바퀴마다 살짝 오르내림")
@@ -396,7 +396,8 @@ def _attach_wan_interior(cfg, renderer, job, bg, meta, args):
     renderer.wan_room = room
     renderer.pets = None                                     # 숨쉬기는 Wan 흐름이 담당
     if it is not None:
-        it.procedural = False                                # 불꽃·촛불 모양은 Wan 이 담당, 방 안 불빛 일렁임만 남김
+        it.procedural = False                                # 불꽃·촛불 모양은 Wan 이 담당
+        it.wan_mix = 0.7                                     # + Wan 이 거의 안 움직인 불꽃·촛불도 움직이도록 수식 일렁임을 70% 덧입힘
         cand = {}
         for j, c in enumerate(flames):
             s = room.signal(f"candle{j}")
@@ -493,6 +494,12 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
             from .glass import window_mask_boxes
             gm = window_mask_boxes(renderer.bg, gboxes)
             if gm is not None:
+                if wmask is not None:                                               # 자동으로 찾은 유리는 표시한 창 상자 근처만 인정 (턴테이블 투명 덮개 등 창 아닌 곳 제외)
+                    zone = np.zeros(wmask.shape, np.float32)
+                    pad = int(0.025 * renderer.W)
+                    for bx0, by0, bx1, by1 in gboxes:
+                        zone[max(0, int(by0) - pad):int(by1) + pad, max(0, int(bx0) - pad):int(bx1) + pad] = 1.0
+                    wmask = wmask * zone
                 wmask = gm if wmask is None else np.maximum(wmask, gm)
                 print(f"  창 유리: 표시한 창 {len(gboxes)}개를 합침")
         if wmask is None:
@@ -917,6 +924,7 @@ def _add_rain_args(p):
     g.add_argument("--no-details", action="store_true", help="깊이 기반 물 튀김·물결·물방울 끄기")
     g.add_argument("--no-motion", action="store_true", help="잎 흔들림·물 일렁임(배경 움직임) 끄기")
     g.add_argument("--no-wet", action="store_true", help="젖은 바위·흘러내리는 물줄기·수면 빗방울 끄기")
+    g.add_argument("--tonearm-bob", action="store_true", help="톤암(바늘 달린 팔) 오르내림 켜기 (기본 꺼짐)")
     g.add_argument("--no-interior", action="store_true", help="촛불·벽난로 불꽃·반려동물 숨쉬기(실내 효과) 끄기")
     g.add_argument("--pet", action="append", help="자는 반려동물·선풍기·레코드판 위치 'x0,y0,x1,y1[,dog|cat|fan|record]' (0~1 비율, 여러 번 지정 가능)")
     g.add_argument("--fire-sound", action="store_true", help="벽난로 타닥거리는 소리를 합성해 섞음 (벽난로 장면은 기본 켜짐)")

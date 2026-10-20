@@ -226,6 +226,7 @@ class Interior:
         self.strength = float(strength)
         self.fire_strength = float(fire_strength)
         self.procedural = True                     # False 면 불꽃·촛불 모양 움직임은 Wan 이 만들므로 방 안 불빛 일렁임만 담당
+        self.wan_mix = 0.0                         # >0 이면 Wan 이 만든 불꽃·촛불 위에 수식 일렁임을 이 비율만큼 덧입힘 (Wan 이 거의 안 움직인 불꽃·촛불도 살아 움직이게)
         rng = np.random.default_rng(seed + 811)
         self.rng = rng
         info = info if info is not None else find_lights(bg)
@@ -365,37 +366,39 @@ class Interior:
         f %= self.N
         st = self.strength
         # 1) 벽난로 불꽃 일렁임
-        if self.fx is not None and self.procedural:
+        if self.fx is not None and (self.procedural or self.wan_mix > 0):
             fx = self.fx
+            mix = 1.0 if self.procedural else self.wan_mix
             x0, y0, x1, y1 = fx["box"]
             P, k = self.fP, self.fk
             shift = int(round(k * P * f / self.N)) % P
             rows = slice(shift, shift + fx["bh"])                  # 무늬가 '위로' 올라감 (이전에는 아래로 흘러내려 불꽃이 부자연스러웠음)
             n1, n2, n3 = self.fn1[rows], self.fn2[rows], self.fn3[rows]
             fs = float(self.fire_sig[f])
-            ax = fx["ax"] * (1.0 + 0.12 * fs) * self.fire_strength
+            ax = fx["ax"] * (1.0 + 0.12 * fs) * self.fire_strength * mix
             dx = (0.70 * n1 + 0.30 * n2) * ax * fx["topw"]
             dy = 0.25 * n1 * ax * 0.4 * fx["topw"]                                              # 위아래는 아주 조금만
-            warped = cv2.remap(fx["src"], (fx["X"] + dx).astype(np.float32), (fx["Y"] + dy).astype(np.float32),
+            src = fx["src"] if self.procedural else np.ascontiguousarray(out[y0:y1, x0:x1])     # Wan 사용 시: Wan 이 만든 현재 화면을 흔듦
+            warped = cv2.remap(src, (fx["X"] + dx).astype(np.float32), (fx["Y"] + dy).astype(np.float32),
                                cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
             m = fx["mask"]
-            dg = (0.09 * n3[..., None] + 0.05 * fs) * self.fire_strength                      # 불꽃 밝기가 천천히 오르내림
+            dg = (0.09 * n3[..., None] + 0.05 * fs) * self.fire_strength * mix                      # 불꽃 밝기가 천천히 오르내림
             flame = np.clip(warped * (1.0 + dg * np.array([1.0, 0.80, 0.45], np.float32)), 0, 1)   # 밝아져도 푸르스름해지지 않게 따뜻한 색 쪽으로만
             reg = out[y0:y1, x0:x1]
             reg[...] = reg * (1 - m) + flame * m
             self._draw_embers(out, f)
         # 2) 촛불 불꽃 흔들림 + 번쩍임
-        for c in (self.flames if self.procedural else ()):
+        for c in (self.flames if (self.procedural or self.wan_mix > 0) else ()):
             x0, y0, x1, y1 = c["box"]
             reg = out[y0:y1, x0:x1]
             s = float(c["sway"][f])
-            dx = s * c["amp"] * c["above2"]
+            dx = s * c["amp"] * c["above2"] * (1.0 if self.procedural else self.wan_mix)
             warped = cv2.remap(reg, (c["xx"] + dx).astype(np.float32), c["yy"].astype(np.float32), cv2.INTER_LINEAR,
                                borderMode=cv2.BORDER_REPLICATE)
             w = c["win"][..., None]
             reg[...] = reg * (1 - w) + warped * w
             b = float(c["sig"][f])
-            reg += (c["core"][..., None] * (0.05 * b * st) + c["halo"][..., None] * (0.035 * b * st)) * WARM
+            reg += (c["core"][..., None] * (0.05 * b * st * (1.0 if self.procedural else self.wan_mix)) + c["halo"][..., None] * (0.035 * b * st * (1.0 if self.procedural else self.wan_mix))) * WARM
         # 3) 불빛이 방 안에 일렁이며 닿는 효과 (곱셈 → 질감은 그대로, 밝기만 변함)
         if self.light_maps is not None:
             lo = np.tensordot(self.light_sigs[:, f], self.light_maps, axes=(0, 0))
