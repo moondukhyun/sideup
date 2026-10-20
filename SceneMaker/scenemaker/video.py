@@ -169,7 +169,7 @@ def assemble(segment, out_path, duration, v, audio=None, extra=None):
                 labels.append(f"[a{i + 1}]")
             mix = f"amix=inputs={len(labels)}:duration=first" + (":normalize=0" if normalize else "")
             tail = "" if normalize else f",volume={len(labels)}"
-            cmd += ["-filter_complex", ";".join(parts) + ";" + "".join(labels) + mix + tail + "[am]",
+            cmd += ["-filter_complex", ";".join(parts) + ";" + "".join(labels) + mix + tail + ",alimiter=limit=0.97[am]",   # 합쳐서 커져도 찌그러지지 않게
                     "-map", "0:v", "-map", "[am]", "-c:a", "aac", "-b:a", v["audio_bitrate"], "-ar", "48000"]
         elif audio:
             cmd += ["-stream_loop", "-1", "-i", str(audio),

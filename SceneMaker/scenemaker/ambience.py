@@ -67,8 +67,8 @@ def fire_crackle(seconds=90.0, sr=SR, seed=5):
             burst = body * np.exp(-np.arange(ln) / tau) * r.uniform(1.2, 3.2)
             _place(pops, int(s), burst)
         ticks = _band(ticks, sr, 700, 5000, 1.5)                    # 지직거리는 고음 잡음처럼 들리지 않게 대역을 낮춤
-        ticks = ticks / (np.std(ticks) + 1e-9) * 0.17
-        pops = pops / (np.std(pops) + 1e-9) * 0.30
+        ticks = ticks / (np.std(ticks) + 1e-9) * 0.13
+        pops = pops / (np.std(pops) + 1e-9) * 0.16                    # 크게 '탁' 터지는 소리를 줄임 (빗소리 위에서 툭툭 튀어 들리지 않게)
         hiss = hiss / (np.std(hiss) + 1e-9) * 0.012 * _slow_noise(r, n, sr, 0.5, 0.4, 1.0)
         chans.append(roar + ticks + pops + hiss)
     return _norm(np.stack(chans, 1), -23.0)

@@ -346,6 +346,19 @@ def _attach_interior(renderer, job, rs, args):
         pass
 
 
+def _mean_volume_db(audio, seconds=120):
+    """녹음 파일 앞부분의 평균 소리 크기(dB, RMS 근처). 못 재면 None."""
+    import re
+    import subprocess
+    try:
+        out = subprocess.run([ffmpeg_bin(), "-hide_banner", "-t", str(seconds), "-i", str(audio), "-af", "volumedetect", "-f", "null", "-"],
+                             capture_output=True, text=True, timeout=300)
+        m = re.search(r"mean_volume:\s*(-?[\d.]+)\s*dB", out.stderr)
+        return float(m.group(1)) if m else None
+    except Exception:
+        return None
+
+
 def _ambience(job, rs, args, audio):
     """v11.22: 벽난로 타닥거리는 소리·레코드판 지직 소리를 합성해 녹음 파일 위에 섞는다 (둘 다 뒤에서 작게).
     반환: (주 오디오, [(추가 오디오, dB)])"""
@@ -356,20 +369,29 @@ def _ambience(job, rs, args, audio):
     from . import ambience
     job = Path(job)
     extras = []
+    rain_db = _mean_volume_db(audio) if audio else None          # 내 빗소리의 평균 크기에 맞춰 합성음 크기를 정함 (빗소리가 원본 그대로 주인공이 되게)
+    if rain_db is not None:
+        print(f"  빗소리 평균 크기 {rain_db:.1f}dB → 합성 소리를 그에 맞춰 작게 섞음")
     if want_fire:
         fire = job / "fire_crackle.wav"
         if not fire.exists():
             print("  벽난로 소리 합성 중 (90초, 끝과 처음이 이어지는 루프)")
             ambience.make(fire, "fire", 90.0, seed=rs.seed)
         db = getattr(args, "fire_db", None)
-        extras.append((fire, float(db) if db is not None else -12.0))      # 녹음한 빗소리 위: 빗소리가 주인공, 장작 소리는 뒤에서 작게
+        fdb = float(db) if db is not None else -12.0
+        if rain_db is not None:
+            fdb = rain_db + fdb + 19.0                                      # 합성 장작 소리(기준 -23dB)를 빗소리보다 약 16dB(보통) 작게
+        extras.append((fire, fdb))                                          # 녹음한 빗소리 위: 빗소리가 주인공, 장작 소리는 뒤에서 작게
     if want_vinyl:
         vin = job / "vinyl_crackle.wav"
         if not vin.exists():
             print("  레코드판 지직 소리 합성 중 (90초 루프)")
             ambience.make(vin, "vinyl", 90.0, seed=rs.seed)
         db = getattr(args, "vinyl_db", None)
-        extras.append((vin, float(db) if db is not None else -20.0))
+        vdb = float(db) if db is not None else -20.0
+        if rain_db is not None:
+            vdb = rain_db + vdb + 16.0                                      # 지직 소리(기준 -26dB)를 빗소리보다 약 30dB 작게
+        extras.append((vin, vdb))
     if audio:
         print("  합성 소리를 녹음 파일 위에 섞음: " + ", ".join(f"{p.stem} {d:+.0f}dB" for p, d in extras))
         return audio, extras
