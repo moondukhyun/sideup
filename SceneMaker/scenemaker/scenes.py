@@ -163,7 +163,7 @@ SCENES = {
             "hanok_eaves",
             "한옥 처마 끝 빗물",
             "close view under the eaves of a Korean hanok, rain dripping from dark giwa roof tile edges, "
-            "curved wooden rafters (seokkarae), wooden maru floor, flat stepping stone with white rubber shoes, "
+            "curved wooden rafters (seokkarae), wooden maru floor, a plain flat stepping stone at the edge of the veranda with nothing on it, "
             "green garden beyond, Joseon dynasty architecture",
             [
                 "soft grey rainy afternoon light",
