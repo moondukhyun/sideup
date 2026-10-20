@@ -35,6 +35,13 @@ INTERIOR_SCENES = {"candle_single", "candle_many", "cozy_parlor", "candle_rain_w
                    "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window",
                    "cabin_fireplace_window", "living_turntable_fireplace", "turntable_candles_windowless",
                    "turntable_window_rain"}
+# 반려견이 나오는 장면: 작고 예쁜 강아지 품종을 매번 다르게 (큰 개는 몸이 합쳐지거나 머리가 2개로 그려지는 오류가 더 잦음)
+PET_SCENES = {"living_fireplace_storm", "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
+              "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window", "cabin_fireplace_window",
+              "living_fireplace_candles", "hearth_dog_cat", "living_turntable_fireplace", "turntable_window_rain"}
+PET_BREEDS = ["a small fluffy white Maltese", "a tiny cute Pomeranian", "a small cream toy poodle puppy", "a small cute Shih Tzu",
+              "a small cute Pembroke corgi puppy", "a small tan Cavalier King Charles spaniel", "a small cute Bichon Frise"]
+
 INTERIOR_AXES = {
     "time": ["late at night", "deep midnight", "quiet night", "before dawn"],
     "mood": ["warm amber glow", "soft golden glow", "dim warm light with deep shadows", "gentle warm candlelit atmosphere"],
@@ -77,6 +84,8 @@ def diversify(scene_name, seed, rain_level=None):
         if axis == "rain" and rain_level:
             choice = RAIN_LEVELS[rain_level][0]
         picks[axis] = choice
+    if scene_name in PET_SCENES:
+        picks["pet"] = rng.choice(PET_BREEDS) + " dog sleeping peacefully"      # 작고 예쁜 강아지 품종을 매번 다르게
     text = ", ".join(picks.values())
     return text, picks
 

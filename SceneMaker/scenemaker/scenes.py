@@ -558,7 +558,7 @@ SCENES = {
         Scene(
             "living_fireplace_big_window",
             "아주 큰 통창 하나 + 벽난로 거실 · 폭우",
-            "a cozy living room at night with one huge floor-to-ceiling window taking up most of the wall with clean clear glass and a dark stormy night outside, a stone fireplace with a crackling wood fire, a sofa with knitted blankets, exactly one single dog with one head sleeping curled up peacefully with eyes closed on a soft rug, a few candles with bright steady flames, charming small decorations, warm firelight, empty room without people",
+            "a cozy living room at night with one huge floor-to-ceiling window taking up most of the wall with clean clear glass and a dark stormy night outside, a stone fireplace with a crackling wood fire, a sofa with knitted blankets, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a soft rug, a few candles with bright steady flames, charming small decorations, warm firelight, empty room without people",
             [
                 "wide view showing the whole window wall",
                 "view from the sofa toward the huge window and the fireplace",
@@ -570,7 +570,7 @@ SCENES = {
         Scene(
             "living_fireplace_two_windows",
             "큰 창 2개 + 벽난로 거실 · 폭우",
-            "a cozy living room at night with two large tall windows side by side with clean clear glass and a dark stormy night outside, a stone fireplace with a crackling wood fire between a sofa and an armchair, exactly one single dog with one head sleeping curled up peacefully with eyes closed on the rug, candles with bright steady flames on the mantel, charming small decorations, warm firelight, empty room without people",
+            "a cozy living room at night with two large tall windows side by side with clean clear glass and a dark stormy night outside, a stone fireplace with a crackling wood fire between a sofa and an armchair, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on the rug, candles with bright steady flames on the mantel, charming small decorations, warm firelight, empty room without people",
             [
                 "wide view of the room",
                 "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed on the armchair",
@@ -582,7 +582,7 @@ SCENES = {
         Scene(
             "living_one_window_rain",
             "창문 하나 있는 아늑한 방 · 폭우",
-            "a small cozy room at night with a single window with clean clear glass and a dark stormy night outside, a comfortable bed with soft blankets, a warm bedside lamp and a few candles with bright steady flames, exactly one single dog with one head sleeping curled up peacefully with eyes closed on the floor rug, charming small decorations, warm dim light, empty room without people",
+            "a small cozy room at night with a single window with clean clear glass and a dark stormy night outside, a comfortable bed with soft blankets, a warm bedside lamp and a few candles with bright steady flames, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on the floor rug, charming small decorations, warm dim light, empty room without people",
             [
                 "the window is above the bed",
                 "the window is large with a wide wooden sill",
@@ -594,7 +594,7 @@ SCENES = {
         Scene(
             "living_fireplace_panorama",
             "전면 통유리 창 + 벽난로 + 침대 · 폭우",
-            "a spacious modern cabin living room at night with an entire wall of floor-to-ceiling glass windows with clean clear glass and a dark stormy night outside, a stone fireplace with a crackling wood fire, a large bed with soft blankets near the glass wall, exactly one single dog with one head sleeping curled up peacefully with eyes closed on a rug, candles with bright steady flames, wooden ceiling beams, warm firelight, empty room without people",
+            "a spacious modern cabin living room at night with an entire wall of floor-to-ceiling glass windows with clean clear glass and a dark stormy night outside, a stone fireplace with a crackling wood fire, a large bed with soft blankets near the glass wall, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a rug, candles with bright steady flames, wooden ceiling beams, warm firelight, empty room without people",
             [
                 "wide view of the whole glass wall",
                 "view from the bed toward the fireplace and the glass wall",
@@ -610,7 +610,7 @@ SCENES = {
             [
                 "the window is wide with a wooden frame",
                 "two tall windows on either side of the bed",
-                "a dog is also sleeping on the floor rug",
+                "exactly one single small cute adorable dog with one head is also sleeping on the floor rug",
             ],
             {"intensity": 1.8, "brightness": 0.45, "window": True, "interior": 1.0, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST, animals=True,
@@ -630,7 +630,7 @@ SCENES = {
         Scene(
             "cabin_fireplace_window",
             "통나무집 벽난로 + 큰 창 · 폭우",
-            "a rustic log cabin interior at night with a large window with clean clear glass and a dark stormy night outside, a rough stone fireplace with a crackling wood fire, a wool blanket on a wooden bench, exactly one single dog with one head sleeping curled up peacefully with eyes closed on a sheepskin rug, a few candles with bright steady flames, warm firelight, empty room without people",
+            "a rustic log cabin interior at night with a large window with clean clear glass and a dark stormy night outside, a rough stone fireplace with a crackling wood fire, a wool blanket on a wooden bench, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a sheepskin rug, a few candles with bright steady flames, warm firelight, empty room without people",
             [
                 "wide view of the cabin room",
                 "the window is beside the fireplace",
@@ -646,7 +646,7 @@ SCENES = {
             "a black vinyl record on the platter with its colorful center label clearly visible and the tonearm resting on it, "
             "shelves of vinyl records and a pair of old speakers, a stone fireplace with a crackling wood fire, "
             "a large window with clean clear glass and a dark stormy night outside, a few candles with bright steady flames, "
-            "exactly one single dog with one head sleeping curled up peacefully with eyes closed on a rug, warm firelight, empty room without people, no cat",
+            "exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a rug, warm firelight, empty room without people, no cat",
             [
                 "wide view of the room with the turntable in the foreground",
                 "close view of the turntable and records with the fireplace glowing behind",
@@ -690,7 +690,7 @@ SCENES = {
             "벽난로 + 촛불 여러 개 거실 + 반려견",
             "a cozy living room at night lit by a crackling wood fire in a stone fireplace and many lit candles with bright steady flames "
             "on the mantel, side tables and shelves, a big window with clean clear glass and a dark night outside, "
-            "a sofa with knitted blankets, exactly one single dog with one head sleeping curled up peacefully with eyes closed on a soft rug in front of the fire, "
+            "a sofa with knitted blankets, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a soft rug in front of the fire, "
             "charming little decorations, warm golden light, empty room without people",
             [
                 "wide view of the room",
@@ -705,7 +705,7 @@ SCENES = {
         Scene(
             "hearth_dog_cat",
             "벽난로 앞에서 자는 반려견·반려묘",
-            "exactly one single dog with one head and exactly one single cat with one head sleeping peacefully curled up with eyes closed on a soft rug in front of a stone fireplace with a "
+            "exactly one single small cute adorable dog with one head and exactly one single cat with one head sleeping peacefully curled up with eyes closed on a soft rug in front of a stone fireplace with a "
             "crackling wood fire, warm firelight on their fur, a cozy dark living room around them, a few candles on the mantel, "
             "a window with clean clear glass and dark night outside, charming little decorations, empty room without people",
             [
