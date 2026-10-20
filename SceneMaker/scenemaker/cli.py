@@ -302,8 +302,9 @@ def _attach_interior(renderer, job, rs, args):
             arms = [a for a in arms if a.get("poly")]
         if arms:
             rc = [((r["box"][0] + r["box"][2]) / 2.0, (r["box"][1] + r["box"][3]) / 2.0) for r in renderer.records.items]
-            renderer.tonearm = TonearmBob(arms, renderer.W, renderer.H, renderer.N, renderer.fps, k=renderer.records.k, record_centers=rc)
-            print(f"  톤암: {len(renderer.tonearm.items)}개가 레코드 한 바퀴마다 살짝 오르내림")
+            ra = (renderer.records.items[0]["a"], renderer.records.items[0]["b"]) if renderer.records.items else None
+            renderer.tonearm = TonearmBob(arms, renderer.W, renderer.H, renderer.N, renderer.fps, k=renderer.records.k, record_centers=rc, record_axes=ra)
+            print(f"  톤암: {len(renderer.tonearm.items)}개가 레코드 한 바퀴마다 살짝 오르내림 (움직임이 큰 쪽 = 바늘 쪽, interior_mask.jpg 에 빨간 점으로 표시)")
         print(f"  턴테이블 레코드판 회전: {len(renderer.records.items)}장 ({renderer.records.rpm:.1f}회전/분, 루프당 {renderer.records.k}바퀴)")
     if fans:
         renderer.fans = FanSpin(fans, renderer.W, renderer.H, renderer.N, renderer.fps, seed=rs.seed)
@@ -336,6 +337,9 @@ def _attach_interior(renderer, job, rs, args):
             dr.rectangle(p["box"], outline=(255, 160, 0), width=4)
         for p in renderer.tonearm.items if renderer.tonearm else []:
             dr.rectangle(p["box"], outline=(160, 255, 0), width=4)
+        for pivot, tip in renderer.tonearm.ends if renderer.tonearm else []:                    # 톤암: 파란 점 = 뿌리(고정), 빨간 점 = 바늘 쪽(크게 움직임)
+            dr.ellipse((pivot[0] - 14, pivot[1] - 14, pivot[0] + 14, pivot[1] + 14), fill=(0, 120, 255))
+            dr.ellipse((tip[0] - 14, tip[1] - 14, tip[0] + 14, tip[1] + 14), fill=(255, 0, 0))
         pv.resize((1280, int(1280 * renderer.H / renderer.W))).save(Path(job) / "interior_mask.jpg")
         print("  적용 위치 확인: interior_mask.jpg (노란 원=촛불, 빨간 상자=벽난로 불, 하늘색 상자=반려동물, 보라 상자=선풍기, 주황 상자=레코드판)")
     except Exception:

@@ -463,17 +463,25 @@ class PetBreath:
             kind = p.get("kind", "dog")
             period = 4.2 if kind == "dog" else 3.0                    # 자는 개 ≈ 호흡 14/분, 고양이 ≈ 20/분
             cycles = max(1, int(round(sec / period)))
-            amp = (0.040 if kind == "dog" else 0.034) * float(p.get("amount", 1.0))      # 잠든 개·고양이의 갈비뼈·배가 눈에 보일 만큼 오르내림
+            amp = (0.024 if kind == "dog" else 0.020) * float(p.get("amount", 1.0))      # 잠든 개·고양이의 갈비뼈·배가 눈에 보일 만큼 오르내림
             yy, xx = np.mgrid[0:y1 - y0, 0:x1 - x0].astype(np.float32)
             bw, bh = x1 - x0, y1 - y0
             wx = _smooth(np.minimum(xx, bw - 1 - xx) / (0.20 * bw))
-            wy = _smooth(yy / (0.30 * bh))
+            edge = _smooth(np.minimum(yy, bh - 1 - yy) / (0.12 * bh))
             yb = bh - 1.0
-            wgt = (wx * wy).astype(np.float32)
-            if p.get("poly"):                                        # 직접 그린 윤곽 안쪽만 숨쉬게 (바닥·러그는 안 움직임)
-                wgt = wgt * poly_mask(p["poly"], (x0, y0, x1, y1), W, H, feather=max(2.0, 0.03 * bw))
+            pmask = poly_mask(p["poly"], (x0, y0, x1, y1), W, H, feather=max(2.0, 0.03 * bw)) if p.get("poly") else None
+            if pmask is not None and pmask.sum() > 50:                    # 몸 윤곽의 무게중심 = 배 위치
+                tot = float(pmask.sum())
+                cxb, cyb = float((pmask * xx).sum() / tot), float((pmask * yy).sum() / tot)
+            else:
+                cxb, cyb = bw * 0.5, bh * 0.58
+            # 배(몸통 가운데)만 부풀었다 가라앉는 국소 변형: 머리·다리·꼬리·바닥은 거의 안 움직임
+            g = np.exp(-(((xx - cxb) / (0.26 * bw)) ** 2 + ((yy - cyb) / (0.24 * bh)) ** 2))
+            wgt = (g * wx * edge).astype(np.float32)
+            if pmask is not None:                                          # 직접 그린 윤곽 안쪽만
+                wgt = wgt * pmask
             self.items.append({
-                "box": (x0, y0, x1, y1), "X": xx, "Y": yy, "w": wgt, "yb": yb, "xc": bw / 2.0,
+                "box": (x0, y0, x1, y1), "X": xx, "Y": yy, "w": wgt, "yb": yb, "bh": float(bh), "xc": cxb,
                 "cycles": cycles, "amp": amp, "ph": float(rng.random()), "kind": kind,
                 "deep": max(1, int(round(sec / 13.0))), "ph2": float(rng.random()),
             })
@@ -487,8 +495,8 @@ class PetBreath:
             reg = out[y0:y1, x0:x1]
             deep = 1.0 + 0.30 * np.sin(2 * np.pi * (it["deep"] * f / self.N + it["ph2"]))     # 가끔 한 번씩 더 깊게 숨을 쉼
             a = it["amp"] * b * deep
-            dy = (it["yb"] - it["Y"]) * a * it["w"]                   # 위쪽일수록 많이 움직임 (바닥 접촉면은 고정)
-            dx = (it["X"] - it["xc"]) * a * 0.55 * it["w"]
+            dy = a * it["bh"] * it["w"]                               # 배 부분이 위로 살짝 부풀어 오름
+            dx = (it["X"] - it["xc"]) * a * 0.45 * it["w"]            # 옆으로도 아주 조금 퍼짐
             warped = cv2.remap(reg, (it["X"] + dx).astype(np.float32), (it["Y"] + dy).astype(np.float32),
                                cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
             reg[...] = warped
@@ -689,13 +697,14 @@ class TonearmBob:
     레코드가 한 바퀴 돌 때마다 레코드판의 미세한 휘어짐·편심 때문에 바늘 쪽이 살짝 오르내린다 (축 쪽은 거의 고정, 바늘 쪽이 가장 크게).
     records(RecordSpin 항목)가 있으면 레코드 회전과 같은 주기(정수 바퀴)로, 축 위치는 레코드 중심에서 먼 쪽 끝으로 본다."""
 
-    def __init__(self, arms, W, H, N, fps, k=1, record_centers=None, amount=0.7):
+    def __init__(self, arms, W, H, N, fps, k=1, record_centers=None, amount=0.7, record_axes=None):
         import cv2
         self.cv2 = cv2
         self.N = N
         self.k = max(1, int(k))
         self.items = []
         rc = record_centers[0] if record_centers else None
+        self.ends = []                                  # [(뿌리 좌표, 바늘 좌표)] — 확인용 표시에 씀
         for p in arms:
             x0, y0 = int(max(0, min(1, p["x0"])) * W), int(max(0, min(1, p["y0"])) * H)
             x1, y1 = int(max(0, min(1, p["x1"])) * W), int(max(0, min(1, p["y1"])) * H)
@@ -706,11 +715,20 @@ class TonearmBob:
                 ends = [(q[0] * W, q[1] * H) for q in polyp]
             else:
                 ends = [(x0, y0), (x1, y1), (x0, y1), (x1, y0)]
-            if rc is not None:                      # 레코드 중심에서 가장 먼 모서리 = 축(피벗), 가장 가까운 모서리 = 바늘 쪽
-                d = [np.hypot(ex - rc[0], ey - rc[1]) for ex, ey in ends]
+            if polyp and len(ends) >= 3:             # 윤곽의 가장 긴 방향(주축)의 양 끝 = 뿌리·바늘 후보
+                P = np.array(ends, np.float64)
+                mu = P.mean(0)
+                vals, vecs = np.linalg.eigh(np.cov((P - mu).T))
+                ax_ = vecs[:, int(np.argmax(vals))]
+                pr = (P - mu) @ ax_
+                ends = [tuple(P[int(np.argmin(pr))]), tuple(P[int(np.argmax(pr))])]
+            if rc is not None:                      # 레코드 중심(타원 비율 반영)에서 가까운 끝 = 바늘 쪽, 먼 끝 = 뿌리(축)
+                ra, rb = (record_axes if record_axes else (1.0, 1.0))
+                d = [np.hypot((ex - rc[0]) / ra, (ey - rc[1]) / rb) for ex, ey in ends]
                 pivot, tip = ends[int(np.argmax(d))], ends[int(np.argmin(d))]
             else:
                 pivot, tip = ends[0], ends[1]
+            self.ends.append((pivot, tip))
             L = float(np.hypot(tip[0] - pivot[0], tip[1] - pivot[1]))
             yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
             ax, ay = (tip[0] - pivot[0]) / L, (tip[1] - pivot[1]) / L
