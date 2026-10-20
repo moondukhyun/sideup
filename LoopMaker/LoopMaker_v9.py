@@ -10,6 +10,8 @@ v11.22 신규 (2026-10-19): 🕯 아늑한 실내 장면 — 촛불·벽난로·
  - 🐾 반려동물 위치 지정: 배경 위에 마우스로 상자를 그리면 자는 강아지·고양이가 숨쉬듯 움직임
  - 🔥 벽난로 타닥거리는 소리·창가 빗소리를 자동 합성해서 영상에 섞음 (녹음한 빗소리가 있으면 그 위에 얹음)
  - 3면 창 폭우: 번개가 와도 실내는 번쩍이지 않고 창밖만 번쩍
+ - ⭐ 원클릭 자동 제작: 후보 그림 생성 → Claude 가 오류(머리 2개 개·앉은 고양이 등) 검사해 가장 좋은 한 장 선택 → 위치 자동 표시 → 영상 → 완성 영상 점검
+ - 🔍 AI 그림 오류 검사(⚠/✅ 표시) · 🤖 위치 자동 찾기 · 🗑 선택 삭제 · 장면별 보기 · 영상 저장 폴더 · 턴테이블(레코드판 회전·톤암) · 실내 Wan AI 움직임
 
 v11.21 신규 (2026-10-18): 🌧 AI 배경 — 빗물 흘러내림 확대 + 이미지에 빗줄기가 박히지 않게 (SceneMaker 수정본 필요)
  - 배경 이미지를 만들 때 '비' 단어를 모두 '젖은 흐린 날' 표현으로 바꿔 AI 가 빗줄기를 이미지에 그리지 않게 함 (영상에서 고정된 줄로 남던 문제)
@@ -4778,6 +4780,107 @@ def sm_quality(bg):
         return None
 
 
+def claude_check_video(video_path):
+    """완성 영상에서 장면 3컷을 뽑아 Claude 가 영상 효과의 눈에 띄는 오류를 점검 → {"ok","issues"} (정지 프레임이라 움직임 자체는 못 봄)."""
+    tmp = tempfile.mkdtemp()
+    try:
+        r = subprocess.run([FFPROBE, "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", video_path],
+                           capture_output=True, text=True, timeout=60, creationflags=CREATE_NO_WINDOW)
+        dur = float((r.stdout or "0").strip() or 0)
+        files = []
+        for i, frac in enumerate((0.05, 0.5, 0.93)):
+            fp = os.path.join(tmp, f"f{i}.png").replace("\\", "/")
+            subprocess.run([FFMPEG, "-y", "-loglevel", "error", "-ss", f"{max(0.0, dur * frac):.2f}", "-i", video_path,
+                            "-frames:v", "1", "-vf", "scale=1280:-2", fp], timeout=120, creationflags=CREATE_NO_WINDOW)
+            if os.path.isfile(fp):
+                files.append(fp)
+        if not files:
+            raise RuntimeError("영상에서 장면을 뽑지 못했어요")
+        prompt = ("Read 도구로 아래 이미지 파일들을 모두 열어서 보세요 (같은 영상의 서로 다른 시각 장면):\n" + "\n".join(files) + "\n\n"
+                  "이 영상은 AI 그림 위에 빗줄기·창 유리 물방울·벽난로 불꽃·촛불·반려동물 숨쉬기 효과를 입힌 것입니다. 눈에 띄는 오류만 찾아 주세요:\n"
+                  "- 물방울·빗줄기가 창 유리 밖(벽·창틀·가구)에 그려져 있음\n- 불꽃·촛불 주변이 네모나게 어색하거나 번져 있음, 색이 푸르스름함\n"
+                  "- 동물·물체가 심하게 일그러지거나 두 장면 사이에 위치가 크게 다름\n- 화면이 부분적으로 뭉개지거나 잔상이 보임\n"
+                  '출력은 JSON 한 덩어리만: {"ok":true,"issues":[]} — 오류가 없으면 ok true. issues 는 한국어로 짧게. 다른 글 금지.')
+        out = run_claude_text(prompt, timeout=240, allow_read=True, retries=1)
+        m = re.search(r"\{.*\}", out, re.S)
+        if not m:
+            raise RuntimeError("Claude 응답을 해석하지 못했어요")
+        d = json.loads(m.group(0))
+        return {"ok": bool(d.get("ok")), "issues": [str(x) for x in (d.get("issues") or [])][:8]}
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+class AutoMaker:
+    """원클릭 자동 제작 (v11.22): 후보 그림 여러 장 생성 → Claude 가 오류 검사 → 가장 좋은 한 장 선택(정상이 없으면 다시 생성)
+    → 반려동물·선풍기·레코드판 등 위치 자동 표시 → 영상 완성. 화면(tk)과 분리돼 있어 가짜 함수로 시험할 수 있다.
+    exec_fn(args, need_comfy) -> (rc, found, job) / check_fn(path) -> {"ok","score","issues"} / marks_fn(path) -> [상자...]"""
+
+    def __init__(self, exec_fn, check_fn, marks_fn, log, stopped=lambda: False, post_fn=None):
+        self.exec, self.check, self.marks, self.log, self.stopped = exec_fn, check_fn, marks_fn, log, stopped
+        self.post = post_fn
+
+    def run(self, image_args, video_args_fn, count=4, rounds=2, need_marks=False, save_marks=None):
+        best, tried = None, []
+        for rnd in range(1, rounds + 1):
+            self.log(f"\n⭐ [{rnd}/{rounds}] 후보 그림 {count}장 만드는 중…")
+            rc, found, _ = self.exec(["image"] + image_args + ["--count", str(count)], True)
+            imgs = [p for p in found if p.endswith("background.png")]
+            if self.stopped():
+                return {"status": "stopped"}
+            if rc != 0 or not imgs:
+                return {"status": "failed", "reason": "배경 이미지 생성에 실패했어요 (위 로그 확인)"}
+            scored = []
+            self.log(f"🔍 Claude 가 {len(imgs)}장의 오류를 검사하는 중… (장당 약 30초)")
+            for p in imgs:
+                if self.stopped():
+                    return {"status": "stopped"}
+                try:
+                    q = self.check(p)
+                except Exception as ex:                     # 로그인 만료 등 → 검사 없이 계속 (첫 그림 사용)
+                    self.log(f"⚠ 오류 검사를 못 했어요 ({str(ex)[:120]}) — 검사 없이 진행해요")
+                    q = {"ok": True, "score": 0, "issues": [], "unchecked": True}
+                scored.append((p, q))
+                name = os.path.basename(os.path.dirname(p))[-22:]
+                self.log(("✅ " if q.get("ok") else "⚠ ") + f"{name}: " + (" / ".join(q.get("issues") or []) or "오류 없음")
+                         + f" (점수 {q.get('score')}/10)")
+            tried += scored
+            good = [(p, q) for p, q in scored if q.get("ok")]
+            if good:
+                best = max(good, key=lambda t: t[1].get("score", 0))[0]
+                break
+            if rnd < rounds:
+                self.log("⚠ 정상 그림이 없어요 → 한 번 더 만들어요")
+        if best is None:                                     # 끝까지 정상이 없으면 그중 점수가 가장 높은 것
+            best = max(tried, key=lambda t: t[1].get("score", 0))[0]
+            self.log("⚠ 오류 없는 그림을 못 얻어서 가장 점수가 높은 그림으로 진행해요 (영상에서 어색할 수 있어요)")
+        self.log(f"👍 선택한 그림: {os.path.basename(os.path.dirname(best))}")
+        if need_marks:
+            self.log("🐾 반려동물·선풍기·레코드판·창 위치를 Claude 로 찾는 중… (약 30초)")
+            try:
+                marks = self.marks(best)
+                if save_marks:
+                    save_marks(best, marks)
+                self.log(f"   찾은 것 {len(marks)}개")
+            except Exception as ex:
+                self.log(f"⚠ 위치 자동 찾기 실패 — 위치 없이 진행해요 ({str(ex)[:120]})")
+        if self.stopped():
+            return {"status": "stopped", "image": best}
+        self.log("🎬 영상 만드는 중…")
+        rc, found, _ = self.exec(video_args_fn(best), True)
+        videos = [p for p in found if p.lower().endswith(".mp4")]
+        if rc != 0 or not videos:
+            return {"status": "failed", "image": best, "reason": "영상 만들기에 실패했어요 (위 로그 확인)"}
+        if self.post:
+            self.log("🔎 완성 영상 장면을 Claude 가 점검하는 중… (약 40초)")
+            try:
+                v = self.post(videos[-1])
+                self.log("✅ 영상 점검: 눈에 띄는 오류 없음" if v.get("ok") else "⚠ 영상 점검: " + " / ".join(v.get("issues") or ["문제 있음"]))
+            except Exception as ex:
+                self.log(f"   (영상 점검은 건너뛰었어요: {str(ex)[:100]})")
+        return {"status": "ok", "image": best, "video": videos[-1]}
+
+
 def sm_job_scene(bg):
     """이 배경을 만든 장면 이름 (meta.json 우선, 없으면 폴더 이름 '날짜_시간_장면_시드' 에서)."""
     job = os.path.dirname(bg)
@@ -4821,7 +4924,8 @@ class SceneTabMixin:
                    duration=self.sm_dur_var.get(), motion=self.sm_motion_var.get(),
                    details=self.sm_details_var.get(), wan=self.sm_wan_var.get(), wet=self.sm_wet_var.get(),
                    interior=self.sm_interior_var.get(), fire_sound=self.sm_fire_var.get(), out_dir=self.sm_outdir_var.get(),
-                   scene_only=self.sm_scene_only_var.get(), firedb=self.sm_firedb_var.get(), autoqc=self.sm_autoqc_var.get())
+                   scene_only=self.sm_scene_only_var.get(), firedb=self.sm_firedb_var.get(), autoqc=self.sm_autoqc_var.get(),
+                   auto_count=self.sm_auto_count_var.get(), auto_rounds=self.sm_auto_rounds_var.get())
         try:
             with open(SM_TAB_CFG, "w", encoding="utf-8") as f:
                 json.dump(cfg, f, ensure_ascii=False, indent=1)
@@ -4846,6 +4950,8 @@ class SceneTabMixin:
         self.sm_fire_var = tk.BooleanVar(value=cfg.get("fire_sound", True))      # v11.22: 벽난로 소리 자동 합성
         self.sm_outdir_var = tk.StringVar(value=cfg.get("out_dir", ""))      # v11.22: 완성 영상 저장 폴더 (비우면 배경 폴더)
         self.sm_firedb_var = tk.StringVar(value=cfg.get("firedb", SM_FIREDB[1][0]))          # v11.22: 장작 소리 크기
+        self.sm_auto_count_var = tk.StringVar(value=str(cfg.get("auto_count", 4)))             # 원클릭: 후보 그림 수
+        self.sm_auto_rounds_var = tk.StringVar(value=str(cfg.get("auto_rounds", 2)))           # 원클릭: 정상 그림 없을 때 다시 만드는 횟수
         self.sm_autoqc_var = tk.BooleanVar(value=cfg.get("autoqc", True))                      # v11.22: 배경 만든 뒤 AI 그림 오류 자동 검사
         self.sm_scene_only_var = tk.BooleanVar(value=cfg.get("scene_only", True))   # v11.22: 고른 장면의 배경만 보기
         self.sm_filter_var = tk.StringVar(value=SM_FILTERS[0])               # v11.22: 배경 목록 보기 필터
@@ -4873,6 +4979,19 @@ class SceneTabMixin:
         self.sm_comfy_btn = ttk.Button(top, text="ComfyUI 켜기", command=self.sm_start_comfy)
         self.sm_comfy_btn.pack(side="left", padx=8)
         ttk.Button(top, text="📂 결과 폴더", command=self.sm_open_out).pack(side="right")
+
+        oc = ttk.LabelFrame(tab, text=" ⭐ 원클릭 자동 제작 (추천) — 그림 생성 · 오류 검사 · 위치 표시 · 영상까지 알아서 ")
+        oc.pack(fill="x", padx=10, pady=(2, 4))
+        oc1 = ttk.Frame(oc); oc1.pack(fill="x", padx=8, pady=(4, 2))
+        ttk.Label(oc1, text="후보 그림").pack(side="left")
+        ttk.Spinbox(oc1, from_=1, to=8, width=3, textvariable=self.sm_auto_count_var).pack(side="left", padx=(2, 8))
+        ttk.Label(oc1, text="정상 그림이 없으면 다시 만들기 최대").pack(side="left")
+        ttk.Spinbox(oc1, from_=1, to=4, width=3, textvariable=self.sm_auto_rounds_var).pack(side="left", padx=(2, 2))
+        ttk.Label(oc1, text="번").pack(side="left")
+        self.sm_auto_btn = ttk.Button(oc1, text="🚀 한 번에 만들기", command=self.sm_auto_make)
+        self.sm_auto_btn.pack(side="left", padx=12)
+        ttk.Label(oc, text="위의 장면·비·모델과 아래 ③ 의 길이·소리·저장 폴더·AI 움직임 설정을 그대로 씁니다. 시간이 오래 걸려요 (그림 몇 분 + 영상).",
+                  foreground="#666666").pack(anchor="w", padx=8, pady=(0, 4))
 
         g = ttk.LabelFrame(tab, text=" ① AI 배경 이미지 만들기 ")
         g.pack(fill="x", padx=10, pady=(2, 0))
@@ -5277,6 +5396,145 @@ class SceneTabMixin:
             res = ex
         self.log_q.put(("__SM_PETS__", img, res))
 
+    def _sm_exec(self, args, need_comfy=False):
+        """SceneMaker 를 한 번 실행하고 끝날 때까지 기다린다 (원클릭 전용, 백그라운드 스레드에서 호출). → (rc, 찾은 파일 목록, 작업 폴더)"""
+        found, job, rc = [], None, -1
+        if need_comfy and not comfy_alive(0.5):
+            self.sm_start_comfy(quiet=True)
+            t0 = time.time()
+            while not comfy_alive(1.0):
+                if self.sm_stop_flag.is_set():
+                    return -1, found, job
+                if time.time() - t0 > 240:
+                    self.log("❌ ComfyUI 가 4분 안에 켜지지 않았어요")
+                    return -1, found, job
+                time.sleep(2)
+        env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
+        self.sm_proc = subprocess.Popen(sm_python() + ["-u", "-m", "scenemaker"] + args, cwd=SCENEMAKER_DIR, stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT, env=env, creationflags=CREATE_NO_WINDOW)
+        buf = b""
+        while True:
+            chunk = self.sm_proc.stdout.read1(4096)
+            if not chunk:
+                break
+            buf += chunk
+            parts = re.split(rb"[\r\n]", buf)
+            buf = parts.pop()
+            for raw in parts:
+                line = raw.decode("utf-8", "replace").rstrip()
+                if not line:
+                    continue
+                self.log("  " + line.strip())
+                m = re.search(r"->\s+(.+?background\.png)", line)
+                if m:
+                    found.append(os.path.normpath(os.path.join(SCENEMAKER_DIR, m.group(1).strip())))
+                m = re.search(r"미리보기:\s+(.+?)[\\/]preview\.png", line)
+                if m:
+                    job = os.path.normpath(os.path.join(SCENEMAKER_DIR, m.group(1).strip()))
+                m = re.search(r"영상 저장 위치:\s+(.+?\.mp4)\s*$", line)
+                if m:
+                    found.append(os.path.normpath(m.group(1).strip()))
+        rc = self.sm_proc.wait()
+        return rc, found, job
+
+    def _sm_video_args(self, img, scene, wan):
+        """영상 만들기 인자 (③ 의 설정 그대로). sm_make_video 와 같은 규칙, 확인 창은 없음."""
+        args = ["loop", img, "--duration", dict(SM_DURATIONS).get(self.sm_dur_var.get(), "3m")]
+        audio = self.sm_audio_var.get().strip()
+        if audio and os.path.isfile(audio):
+            args += ["--audio", audio]
+        if not os.path.isfile(os.path.join(os.path.dirname(img), "meta.json")) and scene:
+            args += ["--scene", scene]
+        if not self.sm_motion_var.get():
+            args.append("--no-motion")
+        if not self.sm_details_var.get():
+            args.append("--no-details")
+        if not self.sm_wet_var.get():
+            args.append("--no-wet")
+        outdir = self.sm_outdir_var.get().strip()
+        if outdir:
+            args += ["--out-dir", outdir]
+        if not self.sm_interior_var.get():
+            args.append("--no-interior")
+        if not self.sm_fire_var.get():
+            args.append("--no-fire-sound")
+        if wan:
+            args.append("--wan")
+        fdb = dict(SM_FIREDB).get(self.sm_firedb_var.get())
+        if fdb is not None:
+            args += ["--fire-db", str(fdb)]
+        return args
+
+    def sm_auto_make(self):
+        scene = self._sm_scene_name()
+        if not scene:
+            messagebox.showwarning("확인", "만들 장면을 골라주세요")
+            return
+        try:
+            count = max(1, min(8, int(self.sm_auto_count_var.get())))
+            rounds = max(1, min(4, int(self.sm_auto_rounds_var.get())))
+        except ValueError:
+            count, rounds = 4, 2
+        if self.sm_proc and self.sm_proc.poll() is None:
+            messagebox.showinfo("진행 중", "SceneMaker 작업이 아직 진행 중이에요")
+            return
+        interior = scene in SM_INTERIOR_SCENES and self.sm_interior_var.get()
+        wan = self.sm_wan_var.get()
+        if interior and not wan:
+            ans = messagebox.askyesnocancel("AI 움직임 (Wan 2.2)",
+                                            "벽난로 불꽃·촛불·숨쉬기를 AI 영상(Wan 2.2)으로 만들면 훨씬 자연스러워요 (영상 1개당 약 15~25분 추가).\n\n"
+                                            "예 = AI 움직임으로 만들기\n아니오 = 빠른 방식\n취소 = 돌아가기")
+            if ans is None:
+                return
+            wan = bool(ans)
+            self.sm_wan_var.set(wan)
+        audio = self.sm_audio_var.get().strip()
+        synth = any(k in scene for k in ("fireplace", "hearth")) or scene in SM_TURNTABLE_SCENES
+        if not audio and not synth and not messagebox.askyesno("소리 없음", "빗소리 파일 없이 화면만 만들까요?"):
+            return
+        img_args = ["--scene", scene]
+        rain = dict(SM_RAIN).get(self.sm_rain_var.get(), "")
+        model = dict(SM_MODELS).get(self.sm_model_var.get(), "")
+        if rain:
+            img_args += ["--rain", rain]
+        if model:
+            img_args += ["--model", model]
+        extra = self.sm_extra_var.get().strip()
+        if extra:
+            img_args += ["--extra", extra]
+        self._sm_save_cfg()
+        self.sm_stop_flag.clear()
+        self._sm_buttons(True)
+        self.log(f"\n⭐ 원클릭 자동 제작 시작: {scene} (후보 {count}장, 최대 {rounds}번)")
+
+        def marks_save(best, marks):
+            pj = os.path.join(os.path.dirname(best), "pets.json")
+            if marks:
+                with open(pj, "w", encoding="utf-8") as f:
+                    json.dump(marks, f, ensure_ascii=False, indent=1)
+
+        def work():
+            res = {"status": "failed", "reason": "알 수 없는 오류"}
+            try:
+                maker = AutoMaker(self._sm_exec, self._sm_check_and_save, claude_find_pets_fans, self.log, self.sm_stop_flag.is_set,
+                                  post_fn=claude_check_video)
+                res = maker.run(img_args, lambda img: self._sm_video_args(img, scene, wan), count, rounds,
+                                need_marks=interior and scene in SM_MARK_SCENES, save_marks=marks_save)
+            except Exception as ex:
+                res = {"status": "failed", "reason": f"{ex}"}
+            finally:
+                self.log_q.put(("__SM_AUTO_DONE__", res))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _sm_check_and_save(self, path):
+        q = claude_check_image(path)
+        try:
+            with open(os.path.join(os.path.dirname(path), "quality.json"), "w", encoding="utf-8") as f:
+                json.dump(q, f, ensure_ascii=False, indent=1)
+        except OSError:
+            pass
+        return q
+
     def sm_pick_outdir(self):
         cur = self.sm_outdir_var.get().strip()
         p = filedialog.askdirectory(initialdir=cur if cur and os.path.isdir(cur) else None,
@@ -5303,6 +5561,8 @@ class SceneTabMixin:
         st = "disabled" if running else "normal"
         self.sm_img_btn.configure(state=st)
         self.sm_vid_btn.configure(state=st)
+        if hasattr(self, "sm_auto_btn"):
+            self.sm_auto_btn.configure(state=st)
         self.sm_stop_btn.configure(state="normal" if running else "disabled")
 
     def _sm_scene_name(self):
@@ -5491,6 +5751,21 @@ class SceneTabMixin:
             self.sm_comfy_var.set("🟢 ComfyUI 켜짐 (배경 만들기 가능)" if msg[1]
                                   else "⚪ ComfyUI 꺼짐 — 배경 만들기를 누르면 자동으로 켜요")
             self.sm_comfy_btn.configure(state="disabled" if msg[1] else "normal")
+        elif tag == "__SM_AUTO_DONE__":
+            res = msg[1]
+            self._sm_buttons(False)
+            self.sm_refresh_list(select=res.get("image"))
+            if res.get("status") == "ok":
+                main = res["video"]
+                self.pkg_video_var.set(main)
+                self.narr_video_var.set(main)
+                self._reset_claude_scene_data()
+                self.last_output = main
+                self.log(f"\n🎉 원클릭 완성: {main}\n   → [📦 유튜브 패키지] 탭에 입력했어요")
+            elif res.get("status") == "stopped":
+                self.log("⏹ 원클릭 제작을 멈췄어요")
+            else:
+                self.log(f"\n❌ 원클릭 제작 실패: {res.get('reason', '')}")
         elif tag == "__SM_QC__":
             for p, q, err in msg[1]:
                 name = os.path.basename(os.path.dirname(p))[-26:]
