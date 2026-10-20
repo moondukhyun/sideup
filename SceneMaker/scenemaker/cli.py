@@ -114,13 +114,13 @@ def generate_images(cfg, scene_name, count, seed=None, extra="", cli_loras=None,
     # 우선순위: config < 씬 설정 < 명령줄(--checkpoint)
     c = {**cfg["comfy"], **scene.comfy, **cfg.get("comfy_cli", {})}
     c["upscale_to"] = (cfg["output"]["width"], cfg["output"]["height"])
-    if not c["checkpoint"]:
+    if not c["checkpoint"] and c.get("family") not in ("zimage", "qwen"):
         raise SystemExit("config.toml 의 [comfy] checkpoint 를 설정하세요. (`python -m scenemaker check` 로 목록 확인)")
     client = ComfyClient(c["url"], max(c["timeout"], 1800) if c.get("upscale_model") else c["timeout"])
     family = c.get("family", "sdxl")
-    if family == "zimage" and (scene.lora or cli_loras or c.get("loras")):
+    if family in ("zimage", "qwen") and (scene.lora or cli_loras or c.get("loras")):
         print("  (Z-Image: SDXL 용 LoRA 는 호환되지 않아 적용하지 않음)")
-    loras = [] if family == "zimage" else _resolve_loras(client, cfg, scene, cli_loras)
+    loras = [] if family in ("zimage", "qwen") else _resolve_loras(client, cfg, scene, cli_loras)
     triggers = ", ".join(dict.fromkeys(lora_trigger(n) for n, _ in loras))
     if loras:
         print(f"LoRA 적용: {', '.join(f'{n}({w})' for n, w in loras)}")
@@ -141,7 +141,12 @@ def generate_images(cfg, scene_name, count, seed=None, extra="", cli_loras=None,
             positive = f"{triggers}, {positive}"
         print(f"[{scene.name}] 이미지 생성 {i + 1}/{count} (seed={s}) ...")
         t0 = time.time()
-        if family == "zimage":
+        if family == "qwen":
+            from .qwenimage import build_qwen
+            wf, how = build_qwen(c, positive, negative, s, prefix=f"scenemaker/{scene.name}")
+            print(f"  Qwen-Image 2.1: {how}")
+            img = client.generate(wf)[0]
+        elif family == "zimage":
             img = client.generate(build_zimage(c, positive, negative, s, prefix=f"scenemaker/{scene.name}"))[0]
         else:
             img = client.generate(build_txt2img(c, positive, negative, s, prefix=f"scenemaker/{scene.name}",
@@ -154,7 +159,7 @@ def generate_images(cfg, scene_name, count, seed=None, extra="", cli_loras=None,
         variety.warn_similar(img, "이 배경은")
         _write_meta(job, variety=picks, rain_override=rain_override)
         _write_meta(job, scene=scene.name, title=scene.title, seed=s, prompt=positive,
-                    negative=negative, checkpoint=c["checkpoint"] if family != "zimage" else "z-image-turbo",
+                    negative=negative, checkpoint=c["checkpoint"] if family not in ("zimage", "qwen") else ("qwen-image-2.1" if family == "qwen" else "z-image-turbo"),
                     loras=[list(l) for l in loras],
                     size=[W, H])
         print(f"  -> {job / 'background.png'} ({time.time() - t0:.0f}s)"
@@ -950,7 +955,7 @@ def _add_image_args(p):
     p.add_argument("--checkpoint", help="사용할 SD 체크포인트 파일명 (config 덮어쓰기)")
     p.add_argument("--lora", action="append", help="추가 LoRA '파일명[:강도]' (여러 번 지정 가능)")
     p.add_argument("--no-diversify", action="store_true", help="시간대·계절·구도 자동 다양화 끄기")
-    p.add_argument("--model", choices=["sdxl", "zimage"], help="이미지 모델 계열 (기본 sdxl, 씬 설정 따름)")
+    p.add_argument("--model", choices=["sdxl", "zimage", "qwen"], help="이미지 모델 계열 (기본 sdxl, 씬 설정 따름 / qwen = Qwen-Image 2.1)")
     p.add_argument("--rain", choices=["light", "steady", "heavy"],
                    help="녹음한 빗소리 세기에 화면 비를 맞춤 (가랑비/보통/폭우)")
 

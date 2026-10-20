@@ -4650,7 +4650,7 @@ SM_DURATIONS = [("3분 (테스트)", "3m"), ("1시간", "1h"), ("3시간", "3h")
                 ("8시간", "8h"), ("10시간", "10h"), ("3분 + 10시간", "3m,10h"),
                 ("전부 (3분·1·3·5·8·10시간)", "all")]
 SM_RAIN = [("자동 (씬 기본값)", ""), ("가랑비", "light"), ("보통 비", "steady"), ("폭우", "heavy")]
-SM_MODELS = [("자동 (씬 기본값)", ""), ("Z-Image Turbo (사실적)", "zimage"), ("SDXL (+한국 풍경 LoRA)", "sdxl")]
+SM_MODELS = [("자동 (씬 기본값)", ""), ("Z-Image Turbo (사실적)", "zimage"), ("Qwen-Image 2.1 (정확도 높음·느림)", "qwen"), ("SDXL (+한국 풍경 LoRA)", "sdxl")]
 SM_IMG_EXT = (".png", ".jpg", ".jpeg", ".webp")
 SM_FILTERS = ["전체 보기", "🎬 영상 만든 것만", "영상 아직 안 만든 것만"]
 SM_FIREDB = [("작게 (-18dB)", -18), ("보통 (-12dB)", -12), ("크게 (-6dB)", -6)]
