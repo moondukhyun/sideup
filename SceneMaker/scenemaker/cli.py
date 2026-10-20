@@ -290,7 +290,7 @@ def _attach_interior(renderer, job, rs, args):
         zone = _mark_zone([fpoly], ("fire",), Wp, Hp).astype(np.float32)
         info["fire"]["mask"] = info["fire"]["mask"] * cv2.GaussianBlur(zone, (0, 0), 3.0)           # 창밖 불빛은 촛불이 아님 / Claude 가 알려준 불·촛불 위치가 있으면 활용
     it = Interior(renderer.bg, renderer.N, renderer.fps, strength=rs.interior, fire_strength=rs.fire,
-                  seed=rs.seed, info=info, fire_speed=float(getattr(args, "fire_speed", None) or 0.45))
+                  seed=rs.seed, info=info, fire_speed=float(getattr(args, "fire_speed", None) or 0.65))
     pets = [p for p in marks if p.get("kind", "dog") in ("dog", "cat")]
     fans = [p for p in marks if p.get("kind") == "fan"]
     recs = [p for p in marks if p.get("kind") == "record"]
@@ -313,6 +313,9 @@ def _attach_interior(renderer, job, rs, args):
     else:
         print("  촛불·벽난로 불꽃을 찾지 못함: 그림에 밝게 켜진 불꽃이 또렷하지 않아요 (다른 배경을 쓰거나 '추가 묘사'에 lit candle flame 을 넣어 다시 생성)")
     if pets:
+        amt = getattr(args, "pet_amount", None)
+        for p in pets:
+            p.setdefault("amount", float(amt) if amt is not None else 0.6)           # 숨쉬는 크기 (너무 크다는 의견 반영: 기본 0.6배)
         renderer.pets = PetBreath(pets, renderer.W, renderer.H, renderer.N, renderer.fps, seed=rs.seed)
         print(f"  반려동물 숨쉬기: {len(renderer.pets.items)}마리 ({', '.join(p.get('kind', 'dog') for p in pets)})")
     try:
@@ -960,6 +963,7 @@ def _add_video_args(p):
     p.add_argument("--wan-force", action="store_true", help="물이 없는 장면에서도 Wan 을 강제로 실행")
     p.add_argument("--wan-prompt", default="", help="Wan 움직임 묘사 추가 (영어)")
     p.add_argument("--wan-seed", type=int, help="Wan 시드 (기본: 배경 시드)")
+    p.add_argument("--pet-amount", type=float, help="반려동물 숨쉬는 크기 배율 (기본 0.6, 클수록 크게)")
     p.add_argument("--fire-speed", type=float, help="불꽃·촛불 움직임 속도 (낮을수록 느림. 수식 기본 0.45, Wan 기본 0.6 → 보통 0.5배속)")
     p.add_argument("--wan-clips", type=int, default=2, help="실내 장면 Wan 클립 개수 (기본 2, 많을수록 움직임 반복이 길어지고 시간이 늘어남)")
     p.add_argument("--wan-period", type=float, help="Wan 움직임 한 바퀴 길이(초, 기본: 원래 속도 5초), 루프를 나누도록 조정됨")
