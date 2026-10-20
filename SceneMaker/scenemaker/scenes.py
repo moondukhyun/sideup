@@ -201,7 +201,7 @@ SCENES = {
                 "onggi earthenware jars beside the house",
                 "view from the narrow wooden veranda under the straw eaves",
                 "a big old tree beside the house, overcast",
-                "rice paddy in front of the house",
+                "a rice paddy in front of the house: rice plants growing in neat evenly spaced rows, each plant a clump of thin arching green leaf blades, shallow water between the rows",
             ],
             {"intensity": 1.0, "angle": 4.0, "fog": 0.1},
             negative=HANOK_NEGATIVE,
@@ -228,15 +228,20 @@ SCENES = {
         Scene(
             "country_house",
             "여름 시골집 마루",
-            "old Korean countryside house in summer rain, view from a worn wooden maru floor, "
-            "slate or tin roof edge dripping, vegetable garden and green hills, electric fan and floor cushion, "
-            "nostalgic rural Korea",
+            "old Korean countryside house in summer, view from a worn wooden maru floor, sharp focus and crisp fine detail, "
+            "weathered wood grain, cracked clay plaster walls, corrugated tin or slate roof edge, vegetable garden and green hills, "
+            "a small round Korean wooden table (soban) and an old electric fan, nostalgic rural Korea, "
+            "real documentary photograph with natural uneven details",
             [
-                "lush green rice paddies in the distance, overcast",
-                "late afternoon, soft light, cicada summer mood",
+                "a rice paddy in front of the house: rice plants growing in neat evenly spaced rows, each plant a clump of thin arching "
+                "green leaf blades, shallow water between the rows reflecting the overcast sky, overcast",
+                "late afternoon, soft light, cicada summer mood, a rice paddy with rows of individual rice plants in the distance",
+                "a traditional Korean flat square floor cushion (bangseok) of quilted cotton fabric with a plain muted pattern lying flat on the wooden floor",
+                "a bamboo hand fan and sliced watermelon on a small round wooden table (soban) on the maru floor",
             ],
             {"intensity": 1.0, "angle": 5.0, "fog": 0.1},
-            negative=HANOK_NEGATIVE,
+            negative=HANOK_NEGATIVE + ", western sofa cushion, decorative throw pillow, plush pillow, blurry house, soft focus, painted look",
+            comfy={"family": "zimage"},   # v11.22: SDXL 은 집이 흐리고 논이 AI 같음 → Z-Image
         ),
         Scene(
             "cafe_window",
