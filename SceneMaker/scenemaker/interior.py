@@ -648,24 +648,31 @@ class RecordSpin:
         lum = crop.mean(-1)
         yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
         r = np.sqrt(((xx - cx) / a) ** 2 + ((yy - cy) / b) ** 2)
-        m = ((sat > 0.14) & (lum > 0.10) & (r < 0.7)).astype(np.uint8)                 # 라벨은 빨강·노랑처럼 여러 색 → 색 있는 조각을 모두 합침
-        m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
-        n, lab, st, cen = cv2.connectedComponentsWithStats(m, connectivity=8)
-        keep = np.zeros(m.shape, bool)
-        for i in range(1, n):
-            ccx, ccy = cen[i][0] + x0, cen[i][1] + y0
-            if st[i][4] >= 8 and np.hypot((ccx - cx) / a, (ccy - cy) / b) < 0.5:
-                keep |= (lab == i)
-        if keep.sum() < 30:
-            return None
-        ys, xs = np.nonzero(keep)
-        lx0, lx1 = np.percentile(xs, [0.5, 99.5]) + x0
-        ly0, ly1 = np.percentile(ys, [0.5, 99.5]) + y0
-        la, lb = (lx1 - lx0) / 2.0 + 1.0, (ly1 - ly0) / 2.0 + 1.0
-        if la > 0.5 * a or la < 0.07 * a:
-            return None
-        lb = float(np.clip(lb, 0.6 * la * b / a, 1.5 * la * b / a))                # 비스듬히 본 정도는 판 전체와 같아야 함
-        return ((lx0 + lx1) / 2.0, (ly0 + ly1) / 2.0, float(la), float(lb))
+        for th in (0.30, 0.22, 0.16):                                                  # 진한 색부터 시도: 옅은 색까지 한꺼번에 잡으면 주변(톤암·나무)이 섞여 라벨이 실제보다 크게 잡힘
+            m = ((sat > th) & (lum > 0.10) & (r < 0.7)).astype(np.uint8)
+            m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
+            n, lab, st, cen = cv2.connectedComponentsWithStats(m, connectivity=8)
+            keep = np.zeros(m.shape, bool)
+            cands = [i for i in range(1, n) if st[i][4] >= 8 and np.hypot((cen[i][0] + x0 - cx) / a, (cen[i][1] + y0 - cy) / b) < 0.5]
+            if not cands:
+                continue
+            main = max(cands, key=lambda i: st[i][4])                                  # 가장 큰 색 덩어리 = 라벨 (톤암·나무 같은 옆 조각은 따로 떨어져 있어 제외)
+            mx, my, mw, mh = st[main][:4]
+            for i in cands:                                                            # 가운데 축에 갈라진 라벨 반쪽만 합침: 큰 덩어리 주변(25% 확장) 안에 있는 조각
+                x_, y_, w_, h_ = st[i][:4]
+                if x_ >= mx - 0.25 * mw and y_ >= my - 0.25 * mh and x_ + w_ <= mx + 1.25 * mw and y_ + h_ <= my + 1.25 * mh:
+                    keep |= (lab == i)
+            if keep.sum() < 30:
+                continue
+            ys, xs = np.nonzero(keep)
+            lx0, lx1 = np.percentile(xs, [0.5, 99.5]) + x0
+            ly0, ly1 = np.percentile(ys, [3.0, 97.0]) + y0                          # 세로는 위아래 튀는 조각(톤암 그림자 등)을 덜 받도록 안쪽 백분위
+            la, lb = (lx1 - lx0) / 2.0 + 1.0, (ly1 - ly0) / 2.0 * 1.05 + 1.0
+            if la > 0.5 * a or la < 0.07 * a:
+                continue
+            lb = float(np.clip(lb, 0.30 * la * b / a, 0.85 * la * b / a))                # 비스듬히 본 정도는 판 전체와 같아야 함 (상자 비율보다 둥글 수 없음)
+            return ((lx0 + lx1) / 2.0, (ly0 + ly1) / 2.0, float(la) * 1.08, float(lb) * 1.08)   # 색이 옅은 라벨 가장자리까지 돌리도록 8% 크게
+        return None
 
     def apply(self, out, f):
         cv2 = self.cv2
@@ -696,7 +703,7 @@ def _groove_pattern(us, vs, off):
     spiral = np.cos(r * 38.0 - ang * 3.0 + off) * 0.55                                  # 나선: 판이 돌면 가닥이 눈에 띄게 돎
     fan = np.cos(3 * ang + off) * 0.45 + np.cos(7 * ang + 2.1 * off) * 0.25
     spec = (np.sin(ang * 41 + off * 3.0) * np.sin(r * 53 + off) > 0.90).astype(np.float32) * 1.0   # 먼지 점
-    return (spiral + fan + spec) * 0.10
+    return (spiral + fan + spec) * 0.17
 
 
 # ---------------------------------------------------------------- 톤암(바늘 달린 팔) 오르내림
