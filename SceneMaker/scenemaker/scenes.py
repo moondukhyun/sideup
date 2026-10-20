@@ -275,13 +275,14 @@ SCENES = {
             "city_night",
             "도심 밤거리 빗소리",
             "quiet city street at night in the rain, wet asphalt reflecting colorful lights, "
-            "small shops with warm lights, shop signs far away and out of focus as soft bokeh, parked cars, no people",
+            "small shops with warm lit windows and plain fabric awnings, softly glowing colored light strips and round lamps, "
+            "no signboards and no writing anywhere, every storefront and wall is smooth and blank, parked cars, no people",
             [
-                "narrow alley, shallow depth of field",
+                "narrow alley, shallow depth of field, distant lights as soft bokeh",
                 "view from a high window, city lights blurred by rain",
             ],
             {"intensity": 1.0, "angle": 5.0, "brightness": 0.6, "fog": 0.08, "darken": 0.04},
-            negative="readable text, letters, hangul, kanji, chinese characters, typography, signage text",
+            negative="readable text, letters, hangul, kanji, chinese characters, typography, signage text, signboard, billboard, banner, neon sign with letters, logo, poster with text",
         ),
         Scene(
             "bamboo_garden",
