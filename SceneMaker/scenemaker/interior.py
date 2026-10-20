@@ -564,6 +564,13 @@ class RecordSpin:
             else:
                 lab = self._find_label(bg, (rx0, ry0, rx1, ry1), (cx, cy, a, b))
             self.labels.append(lab)
+            if lab is not None:                                                           # 판의 타원을 상자 크기가 아니라 '라벨 중심 + 라벨의 원근 비율'로 다시 계산 (상자가 커도 판 밖이 번지지 않게)
+                lcx0, lcy0, la0, lb0 = lab
+                a2 = max(0.93 * min(lcx0 - x0, x1 - lcx0), la0 * 1.5)
+                b2 = a2 * min(max(1.7 * lb0 / la0, 0.15), b / a)               # 라벨은 가장자리가 깎여 더 납작하게 측정되므로 2배 보정 (상자 비율보다는 크지 않게)
+                cx, cy, a, b = lcx0, lcy0, a2, b2
+                u, v = (xx - cx) / a, (yy - cy) / b
+                r = np.sqrt(u * u + v * v)
             if lab is not None:
                 lcx, lcy, la, lb = lab
                 lu, lv = (xx - lcx) / la, (yy - lcy) / lb
