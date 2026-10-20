@@ -430,6 +430,17 @@ class Interior:
 
 
 # ---------------------------------------------------------------- 반려동물 숨쉬기
+def poly_mask(poly, box, W, H, feather=2.0):
+    """다각형(0~1 비율 점들)을 box(픽셀 x0,y0,x1,y1) 크기의 0~1 마스크로. 가장자리는 feather 픽셀만큼 부드럽게."""
+    import cv2
+    x0, y0, x1, y1 = box
+    m = np.zeros((y1 - y0, x1 - x0), np.uint8)
+    pts = np.array([[p[0] * W - x0, p[1] * H - y0] for p in poly], np.int32)
+    cv2.fillPoly(m, [pts], 1)
+    m = m.astype(np.float32)
+    return cv2.GaussianBlur(m, (0, 0), feather) if feather > 0 else m
+
+
 class PetBreath:
     """pets: [{"x0","y0","x1","y1" (0~1 비율), "kind": "dog"|"cat"}].
     상자 안의 몸을 '바닥 쪽을 고정하고 위로 아주 조금 늘렸다 줄이는' 방식으로 숨쉬게 한다.
@@ -458,8 +469,11 @@ class PetBreath:
             wx = _smooth(np.minimum(xx, bw - 1 - xx) / (0.20 * bw))
             wy = _smooth(yy / (0.30 * bh))
             yb = bh - 1.0
+            wgt = (wx * wy).astype(np.float32)
+            if p.get("poly"):                                        # 직접 그린 윤곽 안쪽만 숨쉬게 (바닥·러그는 안 움직임)
+                wgt = wgt * poly_mask(p["poly"], (x0, y0, x1, y1), W, H, feather=max(2.0, 0.03 * bw))
             self.items.append({
-                "box": (x0, y0, x1, y1), "X": xx, "Y": yy, "w": (wx * wy).astype(np.float32), "yb": yb, "xc": bw / 2.0,
+                "box": (x0, y0, x1, y1), "X": xx, "Y": yy, "w": wgt, "yb": yb, "xc": bw / 2.0,
                 "cycles": cycles, "amp": amp, "ph": float(rng.random()), "kind": kind,
                 "deep": max(1, int(round(sec / 13.0))), "ph2": float(rng.random()),
             })
@@ -506,6 +520,8 @@ class FanSpin:
             u, v = (xx - cx) / a, (yy - cy) / b
             r = np.sqrt(u * u + v * v)
             w = _smooth((1.02 - r) / 0.22) * _smooth((r - 0.05) / 0.08)    # 바깥 가장자리·가운데 몸통에서는 변형 0
+            if p.get("poly"):
+                w = w * poly_mask(p["poly"], (rx0, ry0, rx1, ry1), W, H, feather=2.0)
             self.items.append({"box": (rx0, ry0, rx1, ry1), "u": u, "v": v, "cx": cx, "cy": cy, "a": a, "b": b,
                                "w": w[..., None].astype(np.float32), "xx": xx, "yy": yy})
 
@@ -593,6 +609,8 @@ class RecordSpin:
             keep = np.ones(r.shape, np.float32)
             for ex0, ey0, ex1, ey1 in exclude:                                          # 톤암 등은 돌리지 않음
                 keep[max(0, int(ey0) - ry0):max(0, int(ey1) - ry0), max(0, int(ex0) - rx0):max(0, int(ex1) - rx0)] = 0
+            if p.get("poly"):                                                           # 직접 그린 판 윤곽 밖은 건드리지 않음
+                keep = keep * poly_mask(p["poly"], (rx0, ry0, rx1, ry1), W, H, feather=0)
             keep = cv2.GaussianBlur(keep, (0, 0), 2.5)
             w = w * keep
             grv = grv * keep

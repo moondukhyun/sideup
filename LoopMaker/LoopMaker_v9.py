@@ -5337,8 +5337,8 @@ class SceneTabMixin:
             cv.delete("drag")
             if len(pts) < 3:
                 return
-            if kind.get() not in ("glass", "block"):
-                messagebox.showinfo("다각형", "다각형은 '창 유리'와 '창 가림'에만 쓸 수 있어요. 위에서 그 종류를 먼저 고르세요", parent=win)
+            if kind.get() == "candle":
+                messagebox.showinfo("다각형", "촛불은 점 하나만 필요해서 다각형을 쓰지 않아요", parent=win)
                 return
             xs, ys = [p[0] for p in pts], [p[1] for p in pts]
             boxes.append({"x0": min(xs) / cw, "y0": min(ys) / ch, "x1": max(xs) / cw, "y1": max(ys) / ch, "kind": kind.get(),
@@ -5450,7 +5450,7 @@ class SceneTabMixin:
         mbar = ttk.Frame(win); mbar.pack(fill="x", padx=8, pady=(0, 2))
         ttk.Label(mbar, text="동작:").pack(side="left")
         for txt, val in (("그리기(드래그)", "draw"), ("옮기기(상자를 끌기)", "move"), ("지우기(상자 클릭)", "delete"),
-                         ("다각형(점 클릭 · 더블클릭으로 완료 · 창 유리/창 가림)", "poly")):
+                         ("다각형(점 클릭 · 더블클릭으로 완료)", "poly")):
             ttk.Radiobutton(mbar, text=txt, variable=mode, value=val).pack(side="left", padx=4)
         ttk.Label(mbar, text="※ 오른쪽 클릭 = 그 상자 삭제", foreground="#666666").pack(side="left", padx=6)
         bar = ttk.Frame(win); bar.pack(fill="x", padx=8, pady=(0, 8))

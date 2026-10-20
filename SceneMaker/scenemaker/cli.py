@@ -283,7 +283,12 @@ def _attach_interior(renderer, job, rs, args):
     fbox = next(((m["x0"] * Wp, m["y0"] * Hp, m["x1"] * Wp, m["y1"] * Hp) for m in marks if m.get("kind") == "fire"), None)
     cpts = [((m["x0"] + m["x1"]) / 2 * Wp, (m["y0"] + m["y1"]) / 2 * Hp) for m in marks if m.get("kind") == "candle"]
     info = find_lights(renderer.bg, exclude=renderer.glass.mask if renderer.glass is not None else None,
-                       fire_box=fbox, candle_pts=cpts or None)           # 창밖 불빛은 촛불이 아님 / Claude 가 알려준 불·촛불 위치가 있으면 활용
+                       fire_box=fbox, candle_pts=cpts or None)
+    fpoly = next((m for m in marks if m.get("kind") == "fire" and m.get("poly")), None)
+    if fpoly is not None and info.get("fire") is not None:                       # 직접 그린 불 윤곽 안쪽만 타오르게
+        import cv2
+        zone = _mark_zone([fpoly], ("fire",), Wp, Hp).astype(np.float32)
+        info["fire"]["mask"] = info["fire"]["mask"] * cv2.GaussianBlur(zone, (0, 0), 3.0)           # 창밖 불빛은 촛불이 아님 / Claude 가 알려준 불·촛불 위치가 있으면 활용
     it = Interior(renderer.bg, renderer.N, renderer.fps, strength=rs.interior, fire_strength=rs.fire,
                   seed=rs.seed, info=info, fire_speed=float(getattr(args, "fire_speed", None) or 0.45))
     pets = [p for p in marks if p.get("kind", "dog") in ("dog", "cat")]
