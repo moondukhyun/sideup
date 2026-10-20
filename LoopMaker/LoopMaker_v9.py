@@ -5809,14 +5809,11 @@ class SceneTabMixin:
         interior = img_scene in SM_INTERIOR_SCENES and self.sm_interior_var.get()
         if (interior and img_scene in SM_MARK_SCENES and not getattr(self, "_sm_skip_pets", False)
                 and not os.path.isfile(os.path.join(os.path.dirname(img), "pets.json"))):
-            ans = messagebox.askyesnocancel("반려동물·선풍기 위치",
-                                            "자는 강아지·고양이, 천장 선풍기, 턴테이블 레코드판 위치가 아직 없어요 (없으면 숨쉬기·선풍기·레코드판이 안 움직여요).\n\n"
-                                            "Claude 로 사진을 보고 자동으로 찾을까요? (약 30초, 영상 만들기가 이어서 시작돼요)\n\n"
-                                            "예 = 자동으로 찾기\n아니오 = 위치 없이 진행\n취소 = 돌아가기")
+            ans = True                                          # v11.23: 위치가 없으면 묻지 않고 자동으로 찾음 (위치 없이 진행하면 숨쉬기·레코드 회전이 빠져 영상이 엉망이 됨)
             if ans is None:
                 return
             if ans:
-                self.log("🐾 사진 속 반려동물·선풍기 위치를 Claude 로 찾는 중… (약 30초)")
+                self.log("🐾 이 그림은 위치 표시가 없어서 Claude 로 자동으로 찾아요 (확인까지 1~2분) — 끝나면 영상 만들기가 이어서 시작돼요")
                 self._sm_buttons(True)
                 threading.Thread(target=self._sm_find_pets_thread, args=(img,), daemon=True).start()
                 return
