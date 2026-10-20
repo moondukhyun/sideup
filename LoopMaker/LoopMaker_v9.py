@@ -5006,7 +5006,7 @@ class SceneTabMixin:
                    model=self.sm_model_var.get(), audio=self.sm_audio_var.get(),
                    duration=self.sm_dur_var.get(), motion=self.sm_motion_var.get(),
                    details=self.sm_details_var.get(), wan=self.sm_wan_var.get(), wet=self.sm_wet_var.get(),
-                   interior=self.sm_interior_var.get(), fire_sound=self.sm_fire_var.get(), out_dir=self.sm_outdir_var.get(),
+                   interior=self.sm_interior_var.get(), fire_sound_v2=self.sm_fire_var.get(), vinyl_sound_v2=self.sm_vinyl_var.get(), out_dir=self.sm_outdir_var.get(),
                    scene_only=self.sm_scene_only_var.get(), firedb=self.sm_firedb_var.get(), firespeed=self.sm_firespeed_var.get(), breath=self.sm_breath_var.get(), autoqc=self.sm_autoqc_var.get(),
                    auto_count=self.sm_auto_count_var.get(), auto_rounds=self.sm_auto_rounds_var.get())
         try:
@@ -5030,8 +5030,9 @@ class SceneTabMixin:
         self.sm_wan_var = tk.BooleanVar(value=cfg.get("wan", False))
         self.sm_wet_var = tk.BooleanVar(value=cfg.get("wet", True))      # v11.19: 젖은 바위·물줄기·수면 빗방울
         self.sm_interior_var = tk.BooleanVar(value=cfg.get("interior", True))   # v11.22: 촛불·벽난로 불꽃·반려동물 숨쉬기
-        self.sm_fire_var = tk.BooleanVar(value=cfg.get("fire_sound", True))      # v11.22: 벽난로 소리 자동 합성
+        self.sm_fire_var = tk.BooleanVar(value=cfg.get("fire_sound_v2", False))      # v11.22: 벽난로 소리 자동 합성
         self.sm_outdir_var = tk.StringVar(value=cfg.get("out_dir", ""))      # v11.22: 완성 영상 저장 폴더 (비우면 배경 폴더)
+        self.sm_vinyl_var = tk.BooleanVar(value=cfg.get("vinyl_sound_v2", False))        # v11.23: 레코드 지직 소리 (기본 끔: 빗소리만)
         self.sm_firedb_var = tk.StringVar(value=cfg.get("firedb", SM_FIREDB[1][0]))          # v11.22: 장작 소리 크기
         self.sm_firespeed_var = tk.StringVar(value=cfg.get("firespeed", SM_FIRESPEED[1][0]))   # v11.23: 불꽃 속도
         self.sm_breath_var = tk.StringVar(value=cfg.get("breath", SM_BREATH[1][0]))            # v11.23: 숨쉬는 크기
@@ -5160,6 +5161,7 @@ class SceneTabMixin:
         v3c = ttk.Frame(v); v3c.pack(fill="x", padx=8, pady=2)
         ttk.Checkbutton(v3c, text="🕯 촛불·벽난로 불꽃 일렁임·🐾 반려동물 숨쉬기", variable=self.sm_interior_var).pack(side="left")
         ttk.Checkbutton(v3c, text="🔥 장작 소리", variable=self.sm_fire_var).pack(side="left", padx=10)
+        ttk.Checkbutton(v3c, text="🎵 레코드 지직 소리", variable=self.sm_vinyl_var).pack(side="left", padx=4)
         ttk.Combobox(v3c, textvariable=self.sm_firedb_var, width=12, state="readonly", values=[n for n, _ in SM_FIREDB]).pack(side="left")
         v3d = ttk.Frame(v); v3d.pack(fill="x", padx=8, pady=2)
         ttk.Label(v3d, text="🔥 불꽃 속도").pack(side="left")
@@ -5659,6 +5661,8 @@ class SceneTabMixin:
             args.append("--no-interior")
         if not self.sm_fire_var.get():
             args.append("--no-fire-sound")
+        if not self.sm_vinyl_var.get():
+            args.append("--no-vinyl-sound")
         if wan:
             args.append("--wan")
         fdb = dict(SM_FIREDB).get(self.sm_firedb_var.get())
@@ -5696,7 +5700,7 @@ class SceneTabMixin:
             wan = bool(ans)
             self.sm_wan_var.set(wan)
         audio = self.sm_audio_var.get().strip()
-        synth = any(k in scene for k in ("fireplace", "hearth")) or scene in SM_TURNTABLE_SCENES
+        synth = (self.sm_fire_var.get() and any(k in scene for k in ("fireplace", "hearth"))) or (self.sm_vinyl_var.get() and scene in SM_TURNTABLE_SCENES)
         if not audio and not synth and not messagebox.askyesno("소리 없음", "빗소리 파일 없이 화면만 만들까요?"):
             return
         img_args = ["--scene", scene]
@@ -5805,7 +5809,7 @@ class SceneTabMixin:
                 img_scene = json.load(f).get("scene") or img_scene
         except (OSError, ValueError):
             pass
-        fire_auto = (self.sm_fire_var.get() and any(k in img_scene for k in ("fireplace", "hearth"))) or img_scene in SM_TURNTABLE_SCENES
+        fire_auto = (self.sm_fire_var.get() and any(k in img_scene for k in ("fireplace", "hearth"))) or (self.sm_vinyl_var.get() and img_scene in SM_TURNTABLE_SCENES)
         interior = img_scene in SM_INTERIOR_SCENES and self.sm_interior_var.get()
         if (interior and img_scene in SM_MARK_SCENES and not getattr(self, "_sm_skip_pets", False)
                 and not os.path.isfile(os.path.join(os.path.dirname(img), "pets.json"))):
@@ -5851,6 +5855,8 @@ class SceneTabMixin:
             args.append("--no-interior")
         if not self.sm_fire_var.get():
             args.append("--no-fire-sound")
+        if not self.sm_vinyl_var.get():
+            args.append("--no-vinyl-sound")
         wan = self.sm_wan_var.get()
         if interior and not wan and not getattr(self, "_sm_wan_asked", False):
             self._sm_wan_asked = True
