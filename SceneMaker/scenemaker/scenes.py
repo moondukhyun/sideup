@@ -310,19 +310,24 @@ SCENES = {
         Scene(
             "rain_leaves",
             "나뭇잎에 내리는 비",
-            "branches of a leafy tree in a backyard on a rainy day, photographed from a few meters away, "
-            "many small and medium green leaves at different angles and depths, natural leaf texture, "
-            "a few leaves with tiny holes, wet but without large water droplets, background softly out of focus",
+            "branches of a leafy tree in a backyard on a rainy day, photographed with a telephoto lens from several meters away, "
+            "dense foliage with hundreds of small leaves, each leaf only about the size of a thumb, leaves of many different sizes, "
+            "shades of green and slight yellowing at the edges, at different angles and depths, overlapping each other with soft shadows, "
+            "fine natural leaf texture with visible veins, some leaves with small insect holes, brown spots and torn edges, "
+            "wet but without large water droplets, distant leaves softly out of focus, "
+            "real documentary photograph, not a close-up of a single leaf",
             [
                 "zelkova tree branches, small serrated leaves",
                 "cherry tree branches with small green leaves",
-                "maple branches in summer, fresh green",
-                "grape vine on an old wooden trellis",
-                "dense shrubs and tree branches along a stone wall",
+                "a hornbeam or oak tree with many small oval leaves",
+                "grape vine on an old wooden trellis, leaves partly hidden behind the wooden slats",
+                "dense shrubs and small-leaved tree branches along a stone wall",
             ],
             {"intensity": 0.9, "angle": 3.0, "brightness": 0.45, "fog": 0.0, "splashes": False,
              "darken": 0.04},
-            negative="fruit, berries, flowers",
+            negative="fruit, berries, flowers, macro close-up, one huge leaf filling the frame, giant leaves, maple leaves, "
+                     "all leaves identical, perfectly uniform leaves, plastic looking leaves, painted look",
+            comfy={"family": "zimage"},   # v11.22: SDXL 은 잎이 크고 매끈해 AI 티 → Z-Image
         ),
         Scene(
             "autumn_forest_path",
