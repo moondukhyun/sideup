@@ -560,7 +560,7 @@ class RecordSpin:
     - exclude: 톤암 등 돌리면 안 되는 상자(픽셀) 목록 — 그 부분은 그대로 둔다
     한 루프에 정수 바퀴 → 이음새 없음. 가운데 축(스핀들)은 고정."""
 
-    def __init__(self, records, W, H, N, fps, rpm=33.33, label=None, exclude=(), seed=3, bg=None):
+    def __init__(self, records, W, H, N, fps, rpm=33.33, label=None, exclude=(), seed=3, bg=None, exclude_marks=()):
         import cv2
         self.cv2 = cv2
         self.N = N
@@ -581,6 +581,15 @@ class RecordSpin:
             yy, xx = np.mgrid[ry0:ry1, rx0:rx1].astype(np.float32)
             u, v = (xx - cx) / a, (yy - cy) / b
             r = np.sqrt(u * u + v * v)
+            exm = np.zeros((ry1 - ry0, rx1 - rx0), np.uint8)                              # 돌리면 안 되는 곳(톤암 등) 마스크: 상자 + 직접 그린 윤곽
+            for ex0, ey0, ex1, ey1 in exclude:
+                exm[max(0, int(ey0) - ry0):max(0, int(ey1) - ry0), max(0, int(ex0) - rx0):max(0, int(ex1) - rx0)] = 1
+            for em in exclude_marks:
+                if em.get("poly"):
+                    cv2.fillPoly(exm, [np.array([[q[0] * W - rx0, q[1] * H - ry0] for q in em["poly"]], np.int32)], 1)
+                else:
+                    exm[max(0, int(em["y0"] * H) - ry0):max(0, int(em["y1"] * H) - ry0), max(0, int(em["x0"] * W) - rx0):max(0, int(em["x1"] * W) - rx0)] = 1
+            exm = cv2.dilate(exm, np.ones((7, 7), np.uint8))
             if bg is None:
                 lab = None
             elif label:
@@ -609,14 +618,13 @@ class RecordSpin:
                 med = np.median(cs[ring], axis=0) if ring.any() else cs.reshape(-1, 3).mean(0)
                 near = (np.abs(lu) < 0.13) & (lv > -1.7) & (lv < 0.45)                          # 가운데 축(작은 막대): 중심 바로 위아래의 라벨과 색이 다른 부분
                 pegm = (near & (np.abs(cs - med).max(-1) > 0.10)).astype(np.uint8)
-                pegm = cv2.dilate(pegm, np.ones((5, 5), np.uint8))
+                pegm = np.maximum(cv2.dilate(pegm, np.ones((5, 5), np.uint8)), exm)               # 톤암이 라벨 위에 걸쳐 있으면 그 부분도 라벨 색으로 메운 그림을 돌림 (회전하면서 톤암이 복사되어 2개로 보이지 않게)
                 w = w * (1.0 - cv2.GaussianBlur(pegm.astype(np.float32), (0, 0), 1.5))        # 축 자리는 돌리지 않고, 돌리는 그림에서는 라벨 색으로 메움
-                lsrc = cv2.inpaint((np.clip(cs, 0, 1) * 255).astype(np.uint8), pegm, 3, cv2.INPAINT_TELEA).astype(np.float32) / 255.0
+                lsrc = cv2.inpaint((np.clip(cs, 0, 1) * 255).astype(np.uint8), pegm, 5, cv2.INPAINT_TELEA).astype(np.float32) / 255.0
             labr = float(la / a) if lab is not None else 0.0
             grv = _smooth((r - labr - 0.03) / 0.05) * _smooth((0.96 - r) / 0.04)          # 바깥 홈 고리
             keep = np.ones(r.shape, np.float32)
-            for ex0, ey0, ex1, ey1 in exclude:                                          # 톤암 등은 돌리지 않음
-                keep[max(0, int(ey0) - ry0):max(0, int(ey1) - ry0), max(0, int(ex0) - rx0):max(0, int(ex1) - rx0)] = 0
+            keep[exm > 0] = 0                                                           # 톤암 등은 돌리지 않음
             if p.get("poly"):                                                           # 직접 그린 판 윤곽 밖은 건드리지 않음
                 keep = keep * poly_mask(p["poly"], (rx0, ry0, rx1, ry1), W, H, feather=0)
             keep = cv2.GaussianBlur(keep, (0, 0), 2.5)

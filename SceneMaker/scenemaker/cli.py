@@ -297,7 +297,7 @@ def _attach_interior(renderer, job, rs, args):
     if recs:
         arms = [p for p in marks if p.get("kind") == "tonearm"]
         arm_px = [(p["x0"] * Wp, p["y0"] * Hp, p["x1"] * Wp, p["y1"] * Hp) for p in arms]
-        renderer.records = RecordSpin(recs, renderer.W, renderer.H, renderer.N, renderer.fps, exclude=arm_px, bg=renderer.bg)
+        renderer.records = RecordSpin(recs, renderer.W, renderer.H, renderer.N, renderer.fps, exclude=arm_px, bg=renderer.bg, exclude_marks=arms)
         if not getattr(args, "tonearm_bob", False):                    # 톤암 오르내림: 윤곽(다각형)을 그린 경우에만 켬 — 네모 상자만으로는 팔이 번지거나 두 개로 보이기 쉬움
             arms = [a for a in arms if a.get("poly")]
         if arms:
