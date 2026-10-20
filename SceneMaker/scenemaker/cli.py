@@ -258,6 +258,21 @@ def _load_pets(job, args):
     return []
 
 
+def _mark_zone(marks, kinds, W, H, pad=0):
+    """표시한 것(상자 또는 다각형)을 한 장의 마스크(0/1, H×W)로. kinds 에 든 종류만. pad = 상자일 때 사방 여유 픽셀."""
+    import cv2
+    z = np.zeros((H, W), np.uint8)
+    for m in marks:
+        if m.get("kind", "dog") not in kinds:
+            continue
+        if m.get("poly"):
+            pts = np.array([[p[0] * W, p[1] * H] for p in m["poly"]], np.int32)
+            cv2.fillPoly(z, [pts], 1)
+        else:
+            z[max(0, int(m["y0"] * H) - pad):int(m["y1"] * H) + pad, max(0, int(m["x0"] * W) - pad):int(m["x1"] * W) + pad] = 1
+    return z
+
+
 def _attach_interior(renderer, job, rs, args):
     """v11.22: 촛불·벽난로 불꽃·방 안 불빛 일렁임·반려동물 숨쉬기."""
     if rs.interior <= 0 or getattr(args, "no_interior", False):
@@ -488,18 +503,18 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
     if want_window:
         from .glass import GlassRain, window_mask, window_mask_cool
         wmask = window_mask_cool(renderer.bg, dfull if real else None) if rs.interior > 0 else None     # 실내: 색으로 창 유리만 찾음
-        gboxes = [(m["x0"] * renderer.W, m["y0"] * renderer.H, m["x1"] * renderer.W, m["y1"] * renderer.H)
-                  for m in _load_pets(job, args) if m.get("kind") == "glass"]
-        if gboxes:                                                                  # 표시한 창 유리 상자로 빠진 칸 보정
+        gmarks = [m for m in _load_pets(job, args) if m.get("kind") == "glass"]
+        gboxes = [(m["x0"] * renderer.W, m["y0"] * renderer.H, m["x1"] * renderer.W, m["y1"] * renderer.H) for m in gmarks]
+        if gboxes:                                                                  # 표시한 창 유리(상자 또는 다각형)로 빠진 칸 보정
             from .glass import window_mask_boxes
             gm = window_mask_boxes(renderer.bg, gboxes)
+            gzone = _mark_zone(gmarks, ("glass",), renderer.W, renderer.H).astype(np.float32)
             if gm is not None:
-                if wmask is not None:                                               # 자동으로 찾은 유리는 표시한 창 상자 근처만 인정 (턴테이블 투명 덮개 등 창 아닌 곳 제외)
-                    zone = np.zeros(wmask.shape, np.float32)
-                    pad = int(0.025 * renderer.W)
-                    for bx0, by0, bx1, by1 in gboxes:
-                        zone[max(0, int(by0) - pad):int(by1) + pad, max(0, int(bx0) - pad):int(bx1) + pad] = 1.0
-                    wmask = wmask * zone
+                gm = gm * gzone                                                       # 다각형을 그렸으면 그 윤곽 안쪽만
+                if wmask is not None:                                               # 자동으로 찾은 유리는 표시한 창 근처만 인정 (턴테이블 투명 덮개 등 창 아닌 곳 제외)
+                    import cv2
+                    near = cv2.dilate(gzone, np.ones((int(0.05 * renderer.W) | 1, int(0.05 * renderer.W) | 1), np.uint8))
+                    wmask = wmask * near
                 wmask = gm if wmask is None else np.maximum(wmask, gm)
                 print(f"  창 유리: 표시한 창 {len(gboxes)}개를 합침")
         if wmask is None:
@@ -508,12 +523,10 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
             wmask = window_mask(dfull, renderer.bg)
         if rs.interior > 0:                                                         # 턴테이블·톤암·동물·선풍기·불은 유리가 아님 → 물방울 제외
             import cv2
-            ex = np.zeros(wmask.shape, np.uint8)
-            for m in _load_pets(job, args):
-                if m.get("kind", "dog") in ("record", "tonearm", "dog", "cat", "fan", "fire", "candle", "block"):
-                    px = 0 if m.get("kind", "dog") in ("candle", "block") else int(0.02 * renderer.W)
-                    ex[max(0, int(m["y0"] * renderer.H) - px):int(m["y1"] * renderer.H) + px,
-                       max(0, int(m["x0"] * renderer.W) - px):int(m["x1"] * renderer.W) + px] = 1
+            marks_all = _load_pets(job, args)
+            ex = _mark_zone([m for m in marks_all if m.get("kind", "dog") not in ("candle", "block")],
+                            ("record", "tonearm", "dog", "cat", "fan", "fire"), renderer.W, renderer.H, pad=int(0.02 * renderer.W))
+            ex = np.maximum(ex, _mark_zone(marks_all, ("candle", "block"), renderer.W, renderer.H, pad=0))
             if ex.any():
                 wmask = wmask * (1 - cv2.GaussianBlur(ex.astype(np.float32), (0, 0), 3.0))
         renderer.glass = GlassRain(renderer.bg, wmask, renderer.N, renderer.fps, amount=rs.intensity, seed=rs.seed,

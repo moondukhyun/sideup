@@ -5293,27 +5293,103 @@ class SceneTabMixin:
         cv.create_image(0, 0, image=photo, anchor="nw")
         cv.image = photo
         kind = tk.StringVar(value="dog")
-        state = {"start": None, "cur": None}
+        mode = tk.StringVar(value="draw")                   # draw 그리기 / move 옮기기 / delete 지우기 / poly 다각형
+        state = {"start": None, "cur": None, "pts": [], "drag": None}
+        COLORS = {"cat": "#ffcc00", "fan": "#ff66ff", "record": "#ff9900", "fire": "#ff3300", "glass": "#33aaff",
+                  "candle": "#ffee00", "tonearm": "#99ff00", "block": "#ffffff"}
+        NAMES = {"cat": "고양이", "fan": "선풍기", "record": "레코드판", "fire": "벽난로 불", "glass": "창 유리",
+                 "candle": "촛불", "tonearm": "톤암", "block": "창 가림"}
+        ONE_ONLY = ("record", "tonearm", "fire")            # 하나만 있어야 하는 종류: 새로 그리면 이전 것을 대체
 
         def redraw():
             cv.delete("box")
             for b in boxes:
-                col = {"cat": "#ffcc00", "fan": "#ff66ff", "record": "#ff9900", "fire": "#ff3300", "glass": "#33aaff",
-                       "candle": "#ffee00", "tonearm": "#99ff00", "block": "#ffffff"}.get(b.get("kind"), "#00ddff")
-                cv.create_rectangle(b["x0"] * cw, b["y0"] * ch, b["x1"] * cw, b["y1"] * ch, outline=col, width=3, tags="box")
+                col = COLORS.get(b.get("kind"), "#00ddff")
+                if b.get("poly"):
+                    pts = [c for p in b["poly"] for c in (p[0] * cw, p[1] * ch)]
+                    cv.create_polygon(*pts, outline=col, fill="", width=3, tags="box")
+                else:
+                    cv.create_rectangle(b["x0"] * cw, b["y0"] * ch, b["x1"] * cw, b["y1"] * ch, outline=col, width=3, tags="box")
                 cv.create_text(b["x0"] * cw + 4, b["y0"] * ch + 4, anchor="nw", fill=col, tags="box",
-                               text={"cat": "고양이", "fan": "선풍기", "record": "레코드판", "fire": "벽난로 불", "glass": "창 유리",
-                                     "candle": "촛불", "tonearm": "톤암", "block": "창 가림"}.get(b.get("kind"), "강아지"))
+                               text=NAMES.get(b.get("kind"), "강아지"))
+
+        def hit(x, y):
+            """점 (x,y) 를 포함하는 가장 위(마지막)에 그려진 상자 번호 (없으면 -1). 다각형이면 윤곽 안쪽."""
+            for i in range(len(boxes) - 1, -1, -1):
+                b = boxes[i]
+                if not (b["x0"] * cw <= x <= b["x1"] * cw and b["y0"] * ch <= y <= b["y1"] * ch):
+                    continue
+                if b.get("poly"):
+                    pts = [(p[0] * cw, p[1] * ch) for p in b["poly"]]
+                    inside = False
+                    for k in range(len(pts)):
+                        (xa, ya), (xb, yb) = pts[k], pts[(k + 1) % len(pts)]
+                        if (ya > y) != (yb > y) and x < (xb - xa) * (y - ya) / (yb - ya + 1e-9) + xa:
+                            inside = not inside
+                    if not inside:
+                        continue
+                return i
+            return -1
+
+        def poly_finish():
+            pts = state["pts"]
+            state["pts"] = []
+            cv.delete("drag")
+            if len(pts) < 3:
+                return
+            if kind.get() not in ("glass", "block"):
+                messagebox.showinfo("다각형", "다각형은 '창 유리'와 '창 가림'에만 쓸 수 있어요. 위에서 그 종류를 먼저 고르세요", parent=win)
+                return
+            xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+            boxes.append({"x0": min(xs) / cw, "y0": min(ys) / ch, "x1": max(xs) / cw, "y1": max(ys) / ch, "kind": kind.get(),
+                          "poly": [[round(p[0] / cw, 4), round(p[1] / ch, 4)] for p in pts]})
+            redraw()
 
         def down(e):
+            m = mode.get()
+            if m == "poly":
+                state["pts"].append((min(max(e.x, 0), cw), min(max(e.y, 0), ch)))
+                cv.delete("drag")
+                pts = state["pts"]
+                for k in range(len(pts) - 1):
+                    cv.create_line(*pts[k], *pts[k + 1], fill="#ffffff", width=2, tags="drag")
+                for p in pts:
+                    cv.create_oval(p[0] - 3, p[1] - 3, p[0] + 3, p[1] + 3, outline="#ffffff", fill="#ff0000", tags="drag")
+                return
+            if m == "delete":
+                i = hit(e.x, e.y)
+                if i >= 0:
+                    boxes.pop(i)
+                    redraw()
+                return
+            if m == "move":
+                i = hit(e.x, e.y)
+                state["drag"] = (i, e.x, e.y) if i >= 0 else None
+                return
             state["start"] = (e.x, e.y)
 
         def move(e):
-            if state["start"]:
+            m = mode.get()
+            if m == "move" and state["drag"]:
+                i, lx, ly = state["drag"]
+                dx, dy = (e.x - lx) / cw, (e.y - ly) / ch
+                b = boxes[i]
+                dx = max(-b["x0"], min(1 - b["x1"], dx))
+                dy = max(-b["y0"], min(1 - b["y1"], dy))
+                b["x0"] += dx; b["x1"] += dx; b["y0"] += dy; b["y1"] += dy
+                if b.get("poly"):
+                    b["poly"] = [[p[0] + dx, p[1] + dy] for p in b["poly"]]
+                state["drag"] = (i, e.x, e.y)
+                redraw()
+                return
+            if m == "draw" and state["start"]:
                 cv.delete("drag")
                 cv.create_rectangle(*state["start"], e.x, e.y, outline="#ffffff", dash=(4, 3), tags="drag")
 
         def up(e):
+            state["drag"] = None
+            if mode.get() != "draw":
+                return
             s = state["start"]
             state["start"] = None
             cv.delete("drag")
@@ -5321,14 +5397,37 @@ class SceneTabMixin:
                 return
             x0, x1 = sorted((s[0], e.x))
             y0, y1 = sorted((s[1], e.y))
+            if kind.get() in ONE_ONLY:                         # 레코드판·톤암·불은 하나만 → 이전 것을 지우고 새로 그린 것으로 대체
+                boxes[:] = [b for b in boxes if b.get("kind") != kind.get()]
             boxes.append({"x0": max(0, x0) / cw, "y0": max(0, y0) / ch, "x1": min(cw, x1) / cw, "y1": min(ch, y1) / ch,
                           "kind": kind.get()})
             redraw()
 
+        def right_click(e):
+            if state["pts"]:                                   # 다각형 그리는 중이면 취소
+                state["pts"] = []
+                cv.delete("drag")
+                return
+            i = hit(e.x, e.y)                                  # 오른쪽 클릭 = 그 위치의 상자 삭제
+            if i >= 0:
+                boxes.pop(i)
+                redraw()
+
         def undo():
-            if boxes:
+            if state["pts"]:
+                state["pts"].pop()
+                down_pts_redraw()
+            elif boxes:
                 boxes.pop()
                 redraw()
+
+        def down_pts_redraw():
+            cv.delete("drag")
+            pts = state["pts"]
+            for k in range(len(pts) - 1):
+                cv.create_line(*pts[k], *pts[k + 1], fill="#ffffff", width=2, tags="drag")
+            for p in pts:
+                cv.create_oval(p[0] - 3, p[1] - 3, p[0] + 3, p[1] + 3, outline="#ffffff", fill="#ff0000", tags="drag")
 
         def save():
             try:
@@ -5346,6 +5445,14 @@ class SceneTabMixin:
         cv.bind("<ButtonPress-1>", down)
         cv.bind("<B1-Motion>", move)
         cv.bind("<ButtonRelease-1>", up)
+        cv.bind("<Button-3>", right_click)
+        cv.bind("<Double-Button-1>", lambda e: poly_finish() if mode.get() == "poly" else None)
+        mbar = ttk.Frame(win); mbar.pack(fill="x", padx=8, pady=(0, 2))
+        ttk.Label(mbar, text="동작:").pack(side="left")
+        for txt, val in (("그리기(드래그)", "draw"), ("옮기기(상자를 끌기)", "move"), ("지우기(상자 클릭)", "delete"),
+                         ("다각형(점 클릭 · 더블클릭으로 완료 · 창 유리/창 가림)", "poly")):
+            ttk.Radiobutton(mbar, text=txt, variable=mode, value=val).pack(side="left", padx=4)
+        ttk.Label(mbar, text="※ 오른쪽 클릭 = 그 상자 삭제", foreground="#666666").pack(side="left", padx=6)
         bar = ttk.Frame(win); bar.pack(fill="x", padx=8, pady=(0, 8))
         ttk.Radiobutton(bar, text="강아지", variable=kind, value="dog").pack(side="left")
         ttk.Radiobutton(bar, text="고양이", variable=kind, value="cat").pack(side="left", padx=6)
@@ -5380,7 +5487,7 @@ class SceneTabMixin:
                 if isinstance(r, Exception):
                     messagebox.showwarning("자동 찾기 실패", str(r)[:300], parent=win)
                 else:
-                    boxes[:] = r
+                    boxes[:] = [b for b in boxes if b.get("poly")] + r      # 직접 그린 다각형은 자동 찾기로 지우지 않음
                     redraw()
             win.after(500, poll)
         auto_btn.configure(command=auto)
