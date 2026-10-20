@@ -73,7 +73,34 @@ def fill_template(wf, positive, negative, seed, width, height, prefix):
                 inp["text"] = positive; done["positive"] += 1
             elif str(nid) in neg_ids:
                 inp["text"] = negative; done["negative"] += 1
+    if not done["positive"]:                                          # 샘플러가 positive/negative 로 연결하지 않는 구성(가이더 사용 등): 글자 칸 중 가장 긴 것 = 긍정 프롬프트
+        cands = []
+        for nid, node in wf.items():
+            inp = node.get("inputs") if isinstance(node, dict) else None
+            if not isinstance(inp, dict):
+                continue
+            for k in ("text", "prompt", "positive", "positive_prompt", "negative", "negative_prompt"):
+                v = inp.get(k)
+                if isinstance(v, str):
+                    cands.append((len(v), nid, k))
+        if cands:
+            cands.sort(reverse=True)
+            _, nid, k = cands[0]
+            wf[nid]["inputs"][k] = positive; done["positive"] += 1
+            for _, nid2, k2 in cands[1:]:
+                if "neg" in k2 or not wf[nid2]["inputs"][k2].strip() or wf[nid2]["inputs"][k2] == "":
+                    wf[nid2]["inputs"][k2] = negative; done["negative"] += 1
     return wf, done
+
+
+def describe(wf):
+    """로그용: 노드 종류와 값이 글자인 입력 칸 이름 (프롬프트 칸을 못 찾았을 때 원인 확인용)."""
+    out = []
+    for nid, node in list(wf.items())[:60]:
+        if isinstance(node, dict):
+            keys = [k for k, v in (node.get("inputs") or {}).items() if isinstance(v, str)]
+            out.append(f"{nid}:{node.get('class_type')}:{','.join(keys)}")
+    return "; ".join(out)
 
 
 def k_text(inp):
@@ -114,5 +141,5 @@ def build_qwen(c, positive, negative, seed, prefix="scenemaker/qwen", width=1536
         raise SystemExit(f"{p.name} 는 '저장'으로 만든 일반 파일입니다. ComfyUI 메뉴 ☰ → 내보내기 → 'API' 로 다시 저장하세요.")
     wf, done = fill_template(wf, positive, negative, seed, width, height, prefix)
     if not done["positive"]:
-        raise SystemExit(f"{p.name} 에서 프롬프트 칸을 찾지 못했습니다. ComfyUI 에서 '내보내기(API)' 로 저장했는지 확인하세요.")
+        raise SystemExit(f"{p.name} 에서 프롬프트 칸을 찾지 못했습니다. ComfyUI 에서 '내보내기(API)' 로 저장했는지 확인하세요.\n  (파일 구조: {describe(wf)[:900]})")
     return wf, f"{p.name} (프롬프트 {done['positive']} · 시드 {done['seed']} · 크기 {done['size']})"
