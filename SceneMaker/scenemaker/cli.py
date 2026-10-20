@@ -270,8 +270,9 @@ def _attach_interior(renderer, job, rs, args):
     fans = [p for p in marks if p.get("kind") == "fan"]
     recs = [p for p in marks if p.get("kind") == "record"]
     if recs:
-        renderer.records = RecordSpin(recs, renderer.W, renderer.H, renderer.N, renderer.fps)
         arms = [p for p in marks if p.get("kind") == "tonearm"]
+        arm_px = [(p["x0"] * Wp, p["y0"] * Hp, p["x1"] * Wp, p["y1"] * Hp) for p in arms]
+        renderer.records = RecordSpin(recs, renderer.W, renderer.H, renderer.N, renderer.fps, exclude=arm_px, bg=renderer.bg)
         if arms:
             rc = [((r["box"][0] + r["box"][2]) / 2.0, (r["box"][1] + r["box"][3]) / 2.0) for r in renderer.records.items]
             renderer.tonearm = TonearmBob(arms, renderer.W, renderer.H, renderer.N, renderer.fps, k=renderer.records.k, record_centers=rc)
@@ -493,6 +494,16 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
             if not real:
                 return
             wmask = window_mask(dfull, renderer.bg)
+        if rs.interior > 0:                                                         # 턴테이블·톤암·동물·선풍기·불은 유리가 아님 → 물방울 제외
+            import cv2
+            ex = np.zeros(wmask.shape, np.uint8)
+            for m in _load_pets(job, args):
+                if m.get("kind", "dog") in ("record", "tonearm", "dog", "cat", "fan", "fire", "candle"):
+                    px = int(0.02 * renderer.W) if m.get("kind", "dog") != "candle" else 0
+                    ex[max(0, int(m["y0"] * renderer.H) - px):int(m["y1"] * renderer.H) + px,
+                       max(0, int(m["x0"] * renderer.W) - px):int(m["x1"] * renderer.W) + px] = 1
+            if ex.any():
+                wmask = wmask * (1 - cv2.GaussianBlur(ex.astype(np.float32), (0, 0), 3.0))
         renderer.glass = GlassRain(renderer.bg, wmask, renderer.N, renderer.fps, amount=rs.intensity, seed=rs.seed,
                                    view_blur=4.0 if rs.interior > 0 else 9.0,
                                    cover=0.4 if rs.interior > 0 else 1.0,                  # 실내(폭우): 맺힌 방울은 적게

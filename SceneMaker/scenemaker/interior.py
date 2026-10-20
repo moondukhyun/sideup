@@ -86,7 +86,8 @@ def find_lights(bg, max_candles=24, exclude=None, fire_box=None, candle_pts=None
         sel = np.maximum(sel, (lab == pick).astype(np.uint8))
         ys, xs = np.nonzero(sel)
         fire_zone = cv2.dilate(sel, np.ones((25, 25), np.uint8))
-        hotness = np.clip((lum - 0.48) / 0.32, 0, 1) * np.clip((g - 0.30) / 0.25, 0, 1)      # 밝고 노란 불꽃 부분만 (뒷벽·장작·벽돌은 제외)
+        # 불꽃 = 밝은 주황·노랑. 어둡게 이글거리는 옆 불꽃까지 포함하되(너무 높은 기준이면 그 불꽃만 고정돼 보임), 어두운 뒷벽·장작은 가중치가 낮아 거의 안 움직임
+        hotness = np.clip((lum - 0.27) / 0.30, 0, 1) * np.clip((g - 0.16) / 0.22, 0, 1) * np.clip((r - b - 0.10) / 0.22, 0, 1)
         m = np.clip(cv2.GaussianBlur((cv2.dilate(sel, np.ones((5, 5), np.uint8)) * hotness).astype(np.float32), (0, 0), 1.6) * 1.1, 0, 1)
         fire_info = {
             "mask": np.clip(cv2.resize(m, (W, H), interpolation=cv2.INTER_LINEAR), 0, 1),
@@ -521,11 +522,13 @@ class FanSpin:
 
 # ---------------------------------------------------------------- 턴테이블 레코드판 회전
 class RecordSpin:
-    """records: [{"x0","y0","x1","y1" (0~1 비율), "kind": "record"}]. 상자에 꼭 맞는 타원(비스듬히 본 LP)의 '가운데 라벨'을
-    33⅓ 회전/분으로 돌린다. 실제 LP 는 홈 위 반사광이 제자리에 있고 라벨 무늬만 도는 것처럼 보이므로 바깥 홈 부분은 그대로 둔다.
+    """records: [{"x0","y0","x1","y1" (0~1 비율), "kind": "record"}]. 상자에 꼭 맞는 타원(비스듬히 본 LP)을 33⅓ 회전/분으로 돌린다.
+    - 가운데 라벨: 실제 라벨 크기를 그림에서 찾아(색이 다른 동그라미) 그 부분만 회전 (못 찾으면 작게)
+    - 바깥 홈 부분: 검은 판은 돌려도 변화가 없으므로, 판과 함께 도는 아주 옅은 홈 결·먼지 점을 얹어 '돌고 있다'는 게 보이게 함 (반사광은 제자리)
+    - exclude: 톤암 등 돌리면 안 되는 상자(픽셀) 목록 — 그 부분은 그대로 둔다
     한 루프에 정수 바퀴 → 이음새 없음. 가운데 축(스핀들)은 고정."""
 
-    def __init__(self, records, W, H, N, fps, rpm=33.33, label=0.36):
+    def __init__(self, records, W, H, N, fps, rpm=33.33, label=None, exclude=(), seed=3, bg=None):
         import cv2
         self.cv2 = cv2
         self.N = N
@@ -533,6 +536,8 @@ class RecordSpin:
         self.k = max(1, int(round(rpm / 60.0 * sec)))
         self.rpm = self.k * 60.0 / sec
         self.items = []
+        self.labels = []
+        rng = np.random.default_rng(seed)
         for p in records:
             x0, y0 = int(max(0, min(1, p["x0"])) * W), int(max(0, min(1, p["y0"])) * H)
             x1, y1 = int(max(0, min(1, p["x1"])) * W), int(max(0, min(1, p["y1"])) * H)
@@ -544,9 +549,44 @@ class RecordSpin:
             yy, xx = np.mgrid[ry0:ry1, rx0:rx1].astype(np.float32)
             u, v = (xx - cx) / a, (yy - cy) / b
             r = np.sqrt(u * u + v * v)
-            w = _smooth((label - r) / 0.06) * _smooth((r - 0.045) / 0.035)             # 라벨 안쪽만, 가운데 축은 제외
+            lab = label if label else self._find_label(bg, (rx0, ry0, rx1, ry1), r)
+            self.labels.append(lab)
+            w = _smooth((lab - r) / 0.05) * _smooth((r - 0.05) / 0.03)                  # 라벨 안쪽만, 가운데 축은 제외
+            grv = _smooth((r - lab - 0.03) / 0.05) * _smooth((0.96 - r) / 0.04)          # 바깥 홈 고리
+            keep = np.ones(r.shape, np.float32)
+            for ex0, ey0, ex1, ey1 in exclude:                                          # 톤암 등은 돌리지 않음
+                keep[max(0, int(ey0) - ry0):max(0, int(ey1) - ry0), max(0, int(ex0) - rx0):max(0, int(ex1) - rx0)] = 0
+            keep = cv2.GaussianBlur(keep, (0, 0), 2.5)
+            w = w * keep
+            grv = grv * keep
             self.items.append({"box": (rx0, ry0, rx1, ry1), "u": u, "v": v, "cx": cx, "cy": cy, "a": a, "b": b,
-                               "w": w[..., None].astype(np.float32)})
+                               "w": w[..., None].astype(np.float32), "g": grv.astype(np.float32),
+                               "off": float(rng.uniform(0, 6.28))})
+
+    def _find_label(self, bg, box, r):
+        """상자 안 타원에서 반지름별 색(채도) 변화를 보고 라벨 가장자리를 찾는다 (0~1, 판 반지름 대비)."""
+        if bg is None:
+            return 0.30
+        x0, y0, x1, y1 = box
+        crop = np.asarray(bg[y0:y1, x0:x1], dtype=np.float32)
+        sat = crop.max(-1) - crop.min(-1)
+        lum = crop.mean(-1)
+        prof = []
+        edges = np.linspace(0.06, 0.62, 29)
+        for lo, hi in zip(edges[:-1], edges[1:]):
+            m = (r >= lo) & (r < hi)
+            prof.append((float(sat[m].mean()), float(lum[m].mean())) if m.sum() > 20 else (0.0, 0.0))
+        prof = np.array(prof)
+        base_s, base_l = prof[-6:, 0].mean(), prof[-6:, 1].mean()          # 바깥쪽 = 검은 판
+        diff = np.abs(prof[:, 0] - base_s) * 2.0 + np.abs(prof[:, 1] - base_l)
+        inner = diff[:3].mean()
+        if inner < 0.05:
+            return 0.30
+        thr = max(0.04, inner * 0.55)
+        for i in range(2, len(diff)):                                      # 안쪽에서 바깥으로 가다 값이 확 떨어지는 곳
+            if diff[i] < thr:
+                return float(np.clip(edges[i], 0.14, 0.32))
+        return 0.30
 
     def apply(self, out, f):
         cv2 = self.cv2
@@ -561,7 +601,19 @@ class RecordSpin:
                                (it["cy"] + it["b"] * vs - y0).astype(np.float32), cv2.INTER_LINEAR,
                                borderMode=cv2.BORDER_REPLICATE)
             reg[...] = reg * (1 - it["w"]) + warped * it["w"]
+            t = _groove_pattern(us, vs, it["off"])                                     # 판과 함께 도는 홈 결
+            reg[...] = reg * (1 + (it["g"] * t)[..., None])
         return out
+
+
+def _groove_pattern(us, vs, off):
+    """회전한 판 좌표(us,vs)에서 본 홈 결: 방사형 부채꼴 광택 + 먼지 점. -1~1 근처 값 × 진폭."""
+    r = np.sqrt(us * us + vs * vs)
+    ang = np.arctan2(vs, us)
+    fan = np.cos(3 * ang + off) * 0.5 + np.cos(7 * ang + 2.1 * off) * 0.3                # 판 위의 부채꼴 광택 (판과 함께 돎)
+    ring = np.sin(r * 90.0 + off) * 0.15
+    spec = (np.sin(ang * 41 + off * 3.0) * np.sin(r * 53 + off) > 0.93).astype(np.float32) * 0.8   # 먼지 점
+    return (fan + ring + spec) * 0.06
 
 
 # ---------------------------------------------------------------- 톤암(바늘 달린 팔) 오르내림
