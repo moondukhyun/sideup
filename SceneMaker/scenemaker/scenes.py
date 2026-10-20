@@ -37,7 +37,7 @@ NEGATIVE = (
 # v11.22: 아늑한 실내 (촛불·벽난로·창밖 폭우·반려동물). 실내 불빛이 비 오는 날 색보정으로 차갑게 변하지 않게 grade 를 낮춘다
 INTERIOR_STYLE = (
     "cozy interior photograph, warm low-key lighting, soft golden glow, deep soft shadows, realistic, "
-    "natural fine detail, shallow depth of field, film grain, 35mm, all objects plain with no writing, labels or logos, every window has perfectly dry, smooth, crystal clear glass, calm still air outside the window"
+    "natural fine detail, shallow depth of field, film grain, 35mm, all objects plain with no writing, labels or logos, sharp focus, highly detailed, crisp, every window has perfectly dry, smooth, crystal clear glass, calm still air outside the window"
 )
 INTERIOR_NEGATIVE = (
     "bright daylight, overexposed, harsh flash, cold fluorescent light, messy clutter, cartoon, illustration, 3d render, "
@@ -748,7 +748,8 @@ SCENES = {
             "one large window on the far back wall with clean clear glass and a dark stormy night outside, a few candles with bright steady flames, "
             "exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a rug, warm firelight, empty room without people, no cat",
             [
-                "wide view of the room with the turntable in the foreground, the tonearm clearly visible lying across the playing record",
+                "medium shot: the turntable stands large in the left foreground filling about a third of the frame, the tonearm clearly visible lying across the playing record, while the window, the fireplace, the lit candles and the sleeping dog are all visible in the room behind it, whole scene in sharp focus",
+                "medium shot from a slightly higher angle: the turntable large in the foreground with the tonearm over the record and the red label sharp, the fireplace fire, the window and the sleeping dog on the rug clearly visible behind, whole scene in sharp focus",
                 "close view of the turntable and records with the fireplace glowing behind",
                 "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed on an armchair, not sitting",
             ],
