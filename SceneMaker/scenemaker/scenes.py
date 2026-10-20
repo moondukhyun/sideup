@@ -194,8 +194,9 @@ SCENES = {
             "thatched_house",
             "초가집 빗소리",
             "old Korean thatched roof farmhouse in the summer rain, thick rounded rice straw roof with no tiles, "
-            "clay walls, "
-            "wooden doors, dirt yard with puddles, brushwood fence, green hills behind",
+            "the straw is made of countless individual weathered bundles with visible straw strands and darker aged patches, "
+            "rough mud and clay walls with fine cracks and uneven plaster, weathered wooden door frames with visible wood grain, "
+            "dirt yard with puddles, brushwood fence, green hills behind, natural uneven realistic details like a real documentary photograph",
             [
                 "onggi earthenware jars beside the house",
                 "view from the narrow wooden veranda under the straw eaves",
@@ -205,13 +206,15 @@ SCENES = {
             {"intensity": 1.0, "angle": 4.0, "fog": 0.1},
             negative=HANOK_NEGATIVE,
             lora=KOREA_LORA,
-            comfy={"checkpoint": HANOK_BASE},
+            comfy={"checkpoint": HANOK_BASE, "family": "zimage"},   # v11.22: SDXL 은 짚·벽 질감이 번져 AI 티가 남 → 한옥 장면처럼 Z-Image
         ),
         Scene(
             "jangdokdae",
             "장독대 빗소리",
             "many Korean onggi earthenware jars on a stone platform in the rain, wet glossy dark brown jars, "
-            "raindrops on the lids, stone wall topped with roof tiles behind, green garden",
+            "raindrops on the lids, stone wall topped with roof tiles behind, green garden, "
+            "each jar has its own slightly different shape, size and glaze with natural scratches and uneven color, "
+            "real documentary photograph with natural fine texture",
             [
                 "hanok eaves visible at the top",
                 "green ivy on the stone wall behind the jars",
@@ -220,7 +223,7 @@ SCENES = {
             {"intensity": 0.9, "angle": 3.0, "fog": 0.05},
             negative=HANOK_NEGATIVE,
             lora=KOREA_LORA,
-            comfy={"checkpoint": HANOK_BASE},
+            comfy={"checkpoint": HANOK_BASE, "family": "zimage"},   # v11.22: Z-Image (한옥 장면과 동일)
         ),
         Scene(
             "country_house",
