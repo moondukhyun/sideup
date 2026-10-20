@@ -4646,7 +4646,7 @@ SCENEMAKER_OUT = os.path.join(SCENEMAKER_DIR, "output")
 COMFY_START_BAT = os.path.join(SCENEMAKER_DIR, "scripts", "start_comfyui.bat")
 COMFY_URL = "http://127.0.0.1:8188"
 SM_TAB_CFG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scenemaker_tab.json")
-SM_DURATIONS = [("3분 (테스트)", "3m"), ("1시간", "1h"), ("3시간", "3h"), ("5시간", "5h"),
+SM_DURATIONS = [("1분 (빠른 테스트)", "1m"), ("3분 (테스트)", "3m"), ("1시간", "1h"), ("3시간", "3h"), ("5시간", "5h"),
                 ("8시간", "8h"), ("10시간", "10h"), ("3분 + 10시간", "3m,10h"),
                 ("전부 (3분·1·3·5·8·10시간)", "all")]
 SM_RAIN = [("자동 (씬 기본값)", ""), ("가랑비", "light"), ("보통 비", "steady"), ("폭우", "heavy")]
@@ -6207,7 +6207,7 @@ class App(SceneTabMixin, tk.Tk):
         nb.add(tab4, text="  🌙 스토리 내레이션  ")
 
         nfrm = ttk.Frame(tab4); nfrm.pack(fill="x", **pad)
-        ttk.Label(nfrm, text="🎬 루프 완성 영상  (처음엔 [루프 영상 제작] 탭에서 '3분 (테스트)'로 만들어 시험해보세요)",
+        ttk.Label(nfrm, text="🎬 루프 완성 영상  (처음엔 [루프 영상 제작] 탭에서 '1분 (빠른 테스트)'로 만들어 시험해보세요)",
                   wraplength=620, justify="left").grid(row=0, column=0, columnspan=2, sticky="w")
         ttk.Entry(nfrm, textvariable=self.narr_video_var, width=58).grid(row=1, column=0, sticky="w")
         ttk.Button(nfrm, text="찾기", command=self.pick_narr_video).grid(row=1, column=1, padx=6)
@@ -6624,7 +6624,7 @@ class App(SceneTabMixin, tk.Tk):
         video = self.narr_video_var.get().strip()
         if not video or not os.path.exists(video):
             messagebox.showwarning("확인", "내레이션을 넣을 루프 영상을 선택해주세요\n"
-                                         "(먼저 [루프 영상 제작] 탭에서 '3분 (테스트)'로 만들어 보세요)")
+                                         "(먼저 [루프 영상 제작] 탭에서 '1분 (빠른 테스트)'로 만들어 보세요)")
             return
         try:
             start_sec = float(self.narr_start_var.get())
