@@ -298,7 +298,9 @@ def _attach_interior(renderer, job, rs, args):
         arms = [p for p in marks if p.get("kind") == "tonearm"]
         arm_px = [(p["x0"] * Wp, p["y0"] * Hp, p["x1"] * Wp, p["y1"] * Hp) for p in arms]
         renderer.records = RecordSpin(recs, renderer.W, renderer.H, renderer.N, renderer.fps, exclude=arm_px, bg=renderer.bg)
-        if arms and getattr(args, "tonearm_bob", False):               # 톤암 오르내림은 팔 모양이 번지거나 두 개로 보이기 쉬워 기본은 끔 (--tonearm-bob 으로 켬)
+        if not getattr(args, "tonearm_bob", False):                    # 톤암 오르내림: 윤곽(다각형)을 그린 경우에만 켬 — 네모 상자만으로는 팔이 번지거나 두 개로 보이기 쉬움
+            arms = [a for a in arms if a.get("poly")]
+        if arms:
             rc = [((r["box"][0] + r["box"][2]) / 2.0, (r["box"][1] + r["box"][3]) / 2.0) for r in renderer.records.items]
             renderer.tonearm = TonearmBob(arms, renderer.W, renderer.H, renderer.N, renderer.fps, k=renderer.records.k, record_centers=rc)
             print(f"  톤암: {len(renderer.tonearm.items)}개가 레코드 한 바퀴마다 살짝 오르내림")

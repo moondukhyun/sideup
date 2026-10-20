@@ -689,7 +689,7 @@ class TonearmBob:
     레코드가 한 바퀴 돌 때마다 레코드판의 미세한 휘어짐·편심 때문에 바늘 쪽이 살짝 오르내린다 (축 쪽은 거의 고정, 바늘 쪽이 가장 크게).
     records(RecordSpin 항목)가 있으면 레코드 회전과 같은 주기(정수 바퀴)로, 축 위치는 레코드 중심에서 먼 쪽 끝으로 본다."""
 
-    def __init__(self, arms, W, H, N, fps, k=1, record_centers=None, amount=1.0):
+    def __init__(self, arms, W, H, N, fps, k=1, record_centers=None, amount=0.7):
         import cv2
         self.cv2 = cv2
         self.N = N
@@ -701,7 +701,11 @@ class TonearmBob:
             x1, y1 = int(max(0, min(1, p["x1"])) * W), int(max(0, min(1, p["y1"])) * H)
             if x1 - x0 < 12 or y1 - y0 < 4:
                 continue
-            ends = [(x0, y0), (x1, y1), (x0, y1), (x1, y0)]
+            polyp = p.get("poly")
+            if polyp:                               # 직접 그린 톤암 윤곽: 꼭짓점 중 레코드 중심에서 가장 먼 것 = 축, 가장 가까운 것 = 바늘 쪽
+                ends = [(q[0] * W, q[1] * H) for q in polyp]
+            else:
+                ends = [(x0, y0), (x1, y1), (x0, y1), (x1, y0)]
             if rc is not None:                      # 레코드 중심에서 가장 먼 모서리 = 축(피벗), 가장 가까운 모서리 = 바늘 쪽
                 d = [np.hypot(ex - rc[0], ey - rc[1]) for ex, ey in ends]
                 pivot, tip = ends[int(np.argmax(d))], ends[int(np.argmin(d))]
@@ -714,8 +718,12 @@ class TonearmBob:
             dist = np.abs((xx - pivot[0]) * (-ay) + (yy - pivot[1]) * ax)                  # 팔 선에서 떨어진 거리
             half = max(6.0, 0.05 * L)                                                                    # 팔 선 가까이만 (뒤 책장 등은 움직이지 않게)
             w = _smooth(1 - dist / half) * _smooth(np.minimum(xx - x0, x1 - 1 - xx) / 6.0 + 0.0) * _smooth(np.minimum(yy - y0, y1 - 1 - yy) / 6.0 + 0.0)
+            if polyp:                                                                                    # 윤곽을 그렸으면 팔 모양 그대로(약간 여유) 안쪽만: 팔이 통째로 같이 움직여 두 개로 보이지 않음
+                pm = poly_mask(polyp, (x0, y0, x1, y1), W, H, feather=0)
+                pm = cv2.GaussianBlur(cv2.dilate(pm, np.ones((5, 5), np.uint8)), (0, 0), 1.6)
+                w = np.clip(pm * 1.0, 0, 1)
             self.items.append({"box": (x0, y0, x1, y1), "t": t.astype(np.float32), "w": w.astype(np.float32),
-                               "X": xx - x0, "Y": yy - y0, "amp": max(1.2, 0.007 * L) * float(amount) * H / 1080.0})
+                               "X": xx - x0, "Y": yy - y0, "amp": max(1.4, (0.010 if polyp else 0.007) * L) * float(amount) * H / 1080.0})
 
     def apply(self, out, f):
         cv2 = self.cv2
