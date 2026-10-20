@@ -37,7 +37,7 @@ NEGATIVE = (
 # v11.22: 아늑한 실내 (촛불·벽난로·창밖 폭우·반려동물). 실내 불빛이 비 오는 날 색보정으로 차갑게 변하지 않게 grade 를 낮춘다
 INTERIOR_STYLE = (
     "cozy interior photograph, warm low-key lighting, soft golden glow, deep soft shadows, realistic, "
-    "natural fine detail, shallow depth of field, film grain, 35mm"
+    "natural fine detail, shallow depth of field, film grain, 35mm, all objects plain with no writing, labels or logos, window glass perfectly clean and dry"
 )
 INTERIOR_NEGATIVE = (
     "bright daylight, overexposed, harsh flash, cold fluorescent light, messy clutter, cartoon, illustration, 3d render, "
@@ -742,7 +742,7 @@ SCENES = {
             "living_turntable_fireplace",
             "클래식 턴테이블 + 벽난로 거실 · 폭우",
             "a cozy living room at night with a classic vintage wooden record player turntable on a low wooden cabinet, "
-            "a black vinyl record on the platter with its colorful center label clearly visible and the tonearm resting on it, "
+            "a black vinyl record on the platter with its colorful center label clearly visible and the tonearm resting on it, the turntable body and clear dust cover completely plain and smooth with no lettering, no brand name and no logo, "
             "shelves of vinyl records and a pair of old speakers, a stone fireplace with a crackling wood fire, "
             "a large window with clean clear glass and a dark stormy night outside, a few candles with bright steady flames, "
             "exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a rug, warm firelight, empty room without people, no cat",
