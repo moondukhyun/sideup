@@ -5048,7 +5048,7 @@ class SceneTabMixin:
 
     def _sm_count(self):
         try:
-            return max(1, min(8, int(self.sm_count_var.get())))
+            return max(1, min(12, int(self.sm_count_var.get())))
         except (ValueError, tk.TclError):
             return 2
 
@@ -5069,7 +5069,7 @@ class SceneTabMixin:
         oc.pack(fill="x", padx=10, pady=(2, 4))
         oc1 = ttk.Frame(oc); oc1.pack(fill="x", padx=8, pady=(4, 2))
         ttk.Label(oc1, text="후보 그림").pack(side="left")
-        ttk.Spinbox(oc1, from_=1, to=8, width=3, textvariable=self.sm_auto_count_var).pack(side="left", padx=(2, 8))
+        ttk.Spinbox(oc1, from_=1, to=12, width=3, textvariable=self.sm_auto_count_var).pack(side="left", padx=(2, 8))
         ttk.Label(oc1, text="정상 그림이 없으면 다시 만들기 최대").pack(side="left")
         ttk.Spinbox(oc1, from_=1, to=4, width=3, textvariable=self.sm_auto_rounds_var).pack(side="left", padx=(2, 2))
         ttk.Label(oc1, text="번").pack(side="left")
@@ -5086,7 +5086,7 @@ class SceneTabMixin:
         self.sm_scene_cb.pack(side="left", padx=4)
         self.sm_scene_cb.bind("<<ComboboxSelected>>", lambda e: self.sm_refresh_list())
         ttk.Label(r1, text="장수:").pack(side="left", padx=(10, 0))
-        ttk.Spinbox(r1, from_=1, to=8, width=4, textvariable=self.sm_count_var).pack(side="left", padx=4)
+        ttk.Spinbox(r1, from_=1, to=12, width=4, textvariable=self.sm_count_var).pack(side="left", padx=4)
         r2 = ttk.Frame(g); r2.pack(fill="x", padx=8, pady=2)
         ttk.Label(r2, text="비:").pack(side="left")
         ttk.Combobox(r2, textvariable=self.sm_rain_var, width=16, state="readonly",
@@ -5678,7 +5678,7 @@ class SceneTabMixin:
             messagebox.showwarning("확인", "만들 장면을 골라주세요")
             return
         try:
-            count = max(1, min(8, int(self.sm_auto_count_var.get())))
+            count = max(1, min(12, int(self.sm_auto_count_var.get())))
             rounds = max(1, min(4, int(self.sm_auto_rounds_var.get())))
         except ValueError:
             count, rounds = 4, 2
