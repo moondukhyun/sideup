@@ -510,8 +510,8 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
             import cv2
             ex = np.zeros(wmask.shape, np.uint8)
             for m in _load_pets(job, args):
-                if m.get("kind", "dog") in ("record", "tonearm", "dog", "cat", "fan", "fire", "candle"):
-                    px = int(0.02 * renderer.W) if m.get("kind", "dog") != "candle" else 0
+                if m.get("kind", "dog") in ("record", "tonearm", "dog", "cat", "fan", "fire", "candle", "block"):
+                    px = 0 if m.get("kind", "dog") in ("candle", "block") else int(0.02 * renderer.W)
                     ex[max(0, int(m["y0"] * renderer.H) - px):int(m["y1"] * renderer.H) + px,
                        max(0, int(m["x0"] * renderer.W) - px):int(m["x1"] * renderer.W) + px] = 1
             if ex.any():
