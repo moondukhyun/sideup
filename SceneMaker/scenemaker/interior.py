@@ -73,8 +73,8 @@ def find_lights(bg, max_candles=24, exclude=None, fire_box=None, candle_pts=None
             best, pick = score, i
     if pick is not None:
         x, y, w, h, a = stats[pick]
-        bx0, bx1 = max(0, int(x - 0.35 * w)), min(sw, int(x + w + 0.35 * w))
-        by0, by1 = max(0, int(y - 0.35 * h)), min(sh, int(y + h + 0.08 * h))
+        bx0, bx1 = max(0, int(x - 0.6 * w)), min(sw, int(x + w + 0.6 * w))
+        by0, by1 = max(0, int(y - 0.45 * h)), min(sh, int(y + h + 0.12 * h))
         orange = ((r > 0.45) & ((r - b) > 0.18) & (lum > 0.28)).astype(np.uint8)
         box = np.zeros_like(orange)
         box[by0:by1, bx0:bx1] = 1
@@ -84,6 +84,11 @@ def find_lights(bg, max_candles=24, exclude=None, fire_box=None, candle_pts=None
         core_lab = set(np.unique(lab2[lab == pick]).tolist()) - {0}
         sel = np.isin(lab2, list(core_lab)).astype(np.uint8) if core_lab else (lab == pick).astype(np.uint8)
         sel = np.maximum(sel, (lab == pick).astype(np.uint8))
+        near = cv2.dilate(sel, np.ones((int(0.3 * w) | 1, int(0.3 * h) | 1), np.uint8))          # 옆에서 따로 타는 작은 불꽃도 포함 (떨어져 있어 고정돼 보이던 불꽃)
+        for i2 in range(1, n2):                                                                    # 단 불빛 받은 돌벽·벽은 불꽃만큼 밝지 않으므로 제외
+            mi2 = (lab2 == i2)
+            if st2[i2][4] > 12 and near[mi2].any() and float(np.percentile(lum[mi2], 90)) > 0.72:
+                sel = np.maximum(sel, mi2.astype(np.uint8))
         ys, xs = np.nonzero(sel)
         fire_zone = cv2.dilate(sel, np.ones((25, 25), np.uint8))
         # 불꽃 = 밝은 주황·노랑. 어둡게 이글거리는 옆 불꽃까지 포함하되(너무 높은 기준이면 그 불꽃만 고정돼 보임), 어두운 뒷벽·장작은 가중치가 낮아 거의 안 움직임
@@ -549,10 +554,29 @@ class RecordSpin:
             yy, xx = np.mgrid[ry0:ry1, rx0:rx1].astype(np.float32)
             u, v = (xx - cx) / a, (yy - cy) / b
             r = np.sqrt(u * u + v * v)
-            lab = label if label else self._find_label(bg, (rx0, ry0, rx1, ry1), r)
+            if bg is None:
+                lab = None
+            elif label:
+                lab = (cx, cy, label * a, label * b)
+            else:
+                lab = self._find_label(bg, (rx0, ry0, rx1, ry1), (cx, cy, a, b))
             self.labels.append(lab)
-            w = _smooth((lab - r) / 0.05) * _smooth((r - 0.05) / 0.03)                  # 라벨 안쪽만, 가운데 축은 제외
-            grv = _smooth((r - lab - 0.03) / 0.05) * _smooth((0.96 - r) / 0.04)          # 바깥 홈 고리
+            if lab is not None:
+                lcx, lcy, la, lb = lab
+                lu, lv = (xx - lcx) / la, (yy - lcy) / lb
+                lr = np.sqrt(lu * lu + lv * lv)
+            else:
+                lu = lv = lr = lsrc = None
+                lcx = lcy = la = lb = 1.0
+            w = (_smooth((1.0 - lr) / 0.10) * _smooth((lr - 0.10) / 0.06)) if lr is not None else np.zeros_like(r)   # 라벨 안쪽만, 가운데 축은 제외
+            if lr is not None:                                                         # 가운데 축(검은 막대)은 색이 없으므로 돌리지 않음
+                cs = np.asarray(bg[ry0:ry1, rx0:rx1], np.float32)
+                w = w * _smooth((cs.max(-1) - cs.min(-1) - 0.06) / 0.10)
+                pegm = ((cs.max(-1) - cs.min(-1) < 0.10) & (lr < 1.0)).astype(np.uint8)       # 가운데 축 자리는 주변 라벨 색으로 메운 그림을 돌림 (축이 같이 돌아 두 개로 보이지 않게)
+                pegm = cv2.dilate(pegm, np.ones((5, 5), np.uint8))
+                lsrc = cv2.inpaint((np.clip(cs, 0, 1) * 255).astype(np.uint8), pegm, 3, cv2.INPAINT_TELEA).astype(np.float32) / 255.0
+            labr = float(la / a) if lab is not None else 0.0
+            grv = _smooth((r - labr - 0.03) / 0.05) * _smooth((0.96 - r) / 0.04)          # 바깥 홈 고리
             keep = np.ones(r.shape, np.float32)
             for ex0, ey0, ex1, ey1 in exclude:                                          # 톤암 등은 돌리지 않음
                 keep[max(0, int(ey0) - ry0):max(0, int(ey1) - ry0), max(0, int(ex0) - rx0):max(0, int(ex1) - rx0)] = 0
@@ -560,33 +584,41 @@ class RecordSpin:
             w = w * keep
             grv = grv * keep
             self.items.append({"box": (rx0, ry0, rx1, ry1), "u": u, "v": v, "cx": cx, "cy": cy, "a": a, "b": b,
+                               "lu": lu, "lv": lv, "lc": (lcx, lcy, la, lb), "lsrc": lsrc,
                                "w": w[..., None].astype(np.float32), "g": grv.astype(np.float32),
                                "off": float(rng.uniform(0, 6.28))})
 
-    def _find_label(self, bg, box, r):
-        """상자 안 타원에서 반지름별 색(채도) 변화를 보고 라벨 가장자리를 찾는다 (0~1, 판 반지름 대비)."""
+    def _find_label(self, bg, box, disc):
+        """상자 안에서 '색이 있는 동그란 덩어리'(= 라벨)를 찾아 (중심x, 중심y, 가로반지름, 세로반지름) 로. 검은 판은 색이 없으므로 구분됨.
+        못 찾으면 None → 라벨은 돌리지 않고 홈 결만 돌림 (엉뚱한 곳을 돌려 '작은 원반'이 생기는 것보다 안전)."""
+        import cv2
         if bg is None:
-            return 0.30
+            return None
         x0, y0, x1, y1 = box
+        cx, cy, a, b = disc
         crop = np.asarray(bg[y0:y1, x0:x1], dtype=np.float32)
         sat = crop.max(-1) - crop.min(-1)
         lum = crop.mean(-1)
-        prof = []
-        edges = np.linspace(0.06, 0.62, 29)
-        for lo, hi in zip(edges[:-1], edges[1:]):
-            m = (r >= lo) & (r < hi)
-            prof.append((float(sat[m].mean()), float(lum[m].mean())) if m.sum() > 20 else (0.0, 0.0))
-        prof = np.array(prof)
-        base_s, base_l = prof[-6:, 0].mean(), prof[-6:, 1].mean()          # 바깥쪽 = 검은 판
-        diff = np.abs(prof[:, 0] - base_s) * 2.0 + np.abs(prof[:, 1] - base_l)
-        inner = diff[:3].mean()
-        if inner < 0.05:
-            return 0.30
-        thr = max(0.04, inner * 0.55)
-        for i in range(2, len(diff)):                                      # 안쪽에서 바깥으로 가다 값이 확 떨어지는 곳
-            if diff[i] < thr:
-                return float(np.clip(edges[i], 0.14, 0.32))
-        return 0.30
+        yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
+        r = np.sqrt(((xx - cx) / a) ** 2 + ((yy - cy) / b) ** 2)
+        m = ((sat > 0.14) & (lum > 0.10) & (r < 0.7)).astype(np.uint8)                 # 라벨은 빨강·노랑처럼 여러 색 → 색 있는 조각을 모두 합침
+        m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
+        n, lab, st, cen = cv2.connectedComponentsWithStats(m, connectivity=8)
+        keep = np.zeros(m.shape, bool)
+        for i in range(1, n):
+            ccx, ccy = cen[i][0] + x0, cen[i][1] + y0
+            if st[i][4] >= 8 and np.hypot((ccx - cx) / a, (ccy - cy) / b) < 0.5:
+                keep |= (lab == i)
+        if keep.sum() < 30:
+            return None
+        ys, xs = np.nonzero(keep)
+        lx0, lx1 = np.percentile(xs, [0.5, 99.5]) + x0
+        ly0, ly1 = np.percentile(ys, [0.5, 99.5]) + y0
+        la, lb = (lx1 - lx0) / 2.0 + 1.0, (ly1 - ly0) / 2.0 + 1.0
+        if la > 0.5 * a or la < 0.07 * a:
+            return None
+        lb = float(np.clip(lb, 0.6 * la * b / a, 1.5 * la * b / a))                # 비스듬히 본 정도는 판 전체와 같아야 함
+        return ((lx0 + lx1) / 2.0, (ly0 + ly1) / 2.0, float(la), float(lb))
 
     def apply(self, out, f):
         cv2 = self.cv2
@@ -597,10 +629,14 @@ class RecordSpin:
             reg = out[y0:y1, x0:x1]
             us = it["u"] * c + it["v"] * s
             vs = -it["u"] * s + it["v"] * c
-            warped = cv2.remap(reg, (it["cx"] + it["a"] * us - x0).astype(np.float32),
-                               (it["cy"] + it["b"] * vs - y0).astype(np.float32), cv2.INTER_LINEAR,
-                               borderMode=cv2.BORDER_REPLICATE)
-            reg[...] = reg * (1 - it["w"]) + warped * it["w"]
+            if it["lu"] is not None:
+                lcx, lcy, la, lb = it["lc"]
+                lus = it["lu"] * c + it["lv"] * s
+                lvs = -it["lu"] * s + it["lv"] * c
+                warped = cv2.remap(it["lsrc"], (lcx + la * lus - x0).astype(np.float32),
+                                   (lcy + lb * lvs - y0).astype(np.float32), cv2.INTER_LINEAR,
+                                   borderMode=cv2.BORDER_REPLICATE)
+                reg[...] = reg * (1 - it["w"]) + warped * it["w"]
             t = _groove_pattern(us, vs, it["off"])                                     # 판과 함께 도는 홈 결
             reg[...] = reg * (1 + (it["g"] * t)[..., None])
         return out
