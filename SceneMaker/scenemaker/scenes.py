@@ -424,11 +424,78 @@ SCENES = {
             [
                 "dusk, lantern glowing warmly under the tarp",
                 "daytime, grey rainy light, light mist on the mountain",
-                "view from inside the tent through the open door",
+                "view from inside the tent through the open door at the forested mountain slope",
+                "tent seen from the side with a wooden deck and a camping chair, ordinary Korean forest behind",
+                "wide view of the whole campground with several tents, wet gravel paths, forested hills behind",
             ],
             {"intensity": 1.0, "brightness": 0.45, "darken": 0.08, "fog": 0.1},
             negative=FOREST_NEGATIVE + ", glamping, fairy lights, bonfire",
+            comfy={"family": "zimage"},   # v11.22
         ),
+        Scene(
+            "tent_view_mountains",
+            "텐트 안에서 보는 비 오는 산",
+            "view from inside a dome tent looking out through the open tent door at a rainy Korean mountain landscape, "
+            "the dark tent fabric frames the opening, a sleeping bag and a small lantern at the edge of the frame, wet wooden camping deck outside, "
+            "real documentary photograph, ordinary Korean mountain scenery: rounded ridges covered with dense mixed oak, pine and other deciduous trees, individual tree crowns of different heights, shapes, greens and textures, ridgelines layered one behind another fading into mist and low clouds, natural irregular details, no fantasy, no alpine peaks",
+            [
+                "grey rainy afternoon, soft diffused light, low clouds on the ridges",
+                "early morning, pale light, thick mist between the ridges",
+                "late afternoon, soft light, the nearest slope with slender pines in front",
+                "dusk, lantern glowing warmly inside the tent, dark blue mist outside",
+                "wide opening of the tent with the whole valley and layered ridges visible",
+            ],
+            {"intensity": 1.0, "brightness": 0.45, "darken": 0.06, "fog": 0.12},
+            negative=FOREST_NEGATIVE + ", glamping, fairy lights, bonfire, people, snowy peaks, canada, norway",
+        ),
+        Scene(
+            "tent_view_stream",
+            "텐트 안에서 보는 개울",
+            "view from inside a dome tent looking out through the open tent door at a small mountain stream just below the camp, "
+            "dark wet grey granite rocks and clear water flowing between them, green trees on the bank and forested hills beyond, "
+            "the tent fabric frames the opening, a sleeping bag at the edge of the frame, "
+            "real documentary photograph, ordinary Korean mountain scenery: rounded ridges covered with dense mixed oak, pine and other deciduous trees, individual tree crowns of different heights, shapes, greens and textures, ridgelines layered one behind another fading into mist and low clouds, natural irregular details, no fantasy, no alpine peaks",
+            [
+                "grey rainy afternoon, the stream runs through rounded boulders",
+                "early morning, pale light, mist rising from the stream",
+                "a small cascade over the rocks, the sound of running water, overcast",
+                "wide shallow stream with pebbles and a gravel bank, a few camping chairs under a tarp at the side",
+                "dusk, a lantern glowing inside the tent, the stream faintly reflecting the grey sky",
+            ],
+            {"intensity": 0.9, "angle": 4.0, "fog": 0.1, "splashes": False, "wet": 1.0, "water_rain": 1.0},
+            negative=FOREST_NEGATIVE + ", glamping, fairy lights, bonfire, people, dry rocks, sunlit rocks, bright sunlight, blue sky, canada, norway",
+        ),
+        Scene(
+            "tent_view_valley",
+            "텐트 안에서 보는 계곡 숲",
+            "view from inside a tent through the open door at a wide Korean mountain valley in the rain, a river winding through the valley floor, "
+            "forested slopes on both sides, the tent fabric frames the opening, wet grass and gravel just outside, "
+            "real documentary photograph, ordinary Korean mountain scenery: rounded ridges covered with dense mixed oak, pine and other deciduous trees, individual tree crowns of different heights, shapes, greens and textures, ridgelines layered one behind another fading into mist and low clouds, natural irregular details, no fantasy, no alpine peaks",
+            [
+                "grey rainy afternoon, the river visible far below between the trees",
+                "early morning, mist filling the valley",
+                "summer, fresh green forest, soft light, the river reflecting the grey sky",
+                "dusk, blue mist in the valley, a small lantern glowing at the tent entrance",
+            ],
+            {"intensity": 1.0, "brightness": 0.45, "darken": 0.06, "fog": 0.14, "splashes": False, "water_rain": 0.6},
+            negative=FOREST_NEGATIVE + ", glamping, fairy lights, bonfire, people, snowy peaks, canada, norway",
+        ),
+        Scene(
+            "tent_by_stream",
+            "개울가 캠핑장 텐트",
+            "a dome tent pitched on a gravel bank beside a clear mountain stream at a Korean campground on a rainy day, "
+            "a tarp stretched in front of the tent, a camping chair and a small lantern, dark wet rocks in the stream, "
+            "real documentary photograph, ordinary Korean mountain scenery: rounded ridges covered with dense mixed oak, pine and other deciduous trees, individual tree crowns of different heights, shapes, greens and textures, ridgelines layered one behind another fading into mist and low clouds, natural irregular details, no fantasy, no alpine peaks",
+            [
+                "grey rainy afternoon, view of the tent from across the stream",
+                "early morning mist over the stream and the tent",
+                "dusk, lantern glowing warmly under the tarp",
+                "close view of the tent door and tarp with the stream behind",
+            ],
+            {"intensity": 1.0, "brightness": 0.45, "darken": 0.07, "fog": 0.12, "splashes": False, "wet": 1.0, "water_rain": 0.8},
+            negative=FOREST_NEGATIVE + ", glamping, fairy lights, bonfire, people, canada, norway",
+        ),
+
         Scene(
             "forest_lake",
             "산속 저수지의 비",
@@ -744,7 +811,8 @@ SCENES = {
 # 자연스러운 사진 톤을 쓰는 씬 (숲·시골·나뭇잎)
 NATURAL_SCENES = ["cafe_window", "hanok_courtyard", "hanok_eaves", "hanok_cafe", "thatched_house", "jangdokdae",
                   "rain_leaves", "country_house", "forest_night", "forest_path", "cabin_window",
-                  "tent", "forest_lake", "valley_stream", "temple_path", "thunder_forest"]
+                  "tent", "forest_lake", "valley_stream", "temple_path", "thunder_forest",
+                  "tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_by_stream"]
 for _name in NATURAL_SCENES:
     _s = SCENES[_name]
     _s.style = NATURAL_STYLE
@@ -752,10 +820,14 @@ for _name in NATURAL_SCENES:
     _s.post = {**NATURAL_POST, **_s.post}
     _s.negative = ", ".join(x for x in (_s.negative, NATURAL_NEGATIVE) if x)
 
+# v11.22: 사실적인 질감이 필요한 산·숲·개울 장면은 Z-Image (SDXL 은 나무·산이 AI 같고 흐림)
+for _name in ("tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_by_stream"):
+    SCENES[_name].comfy = {**SCENES[_name].comfy, "family": "zimage"}
+
 
 # v11.20: 물·안개가 거의 없는 씬은 Wan(AI 물 움직임)을 기본으로 건너뜀 (실행해도 '움직임 없음'이라 시간만 2~15분 낭비)
 for _name in ("forest_path", "autumn_forest_path", "autumn_temple", "rain_leaves", "cafe_window", "cabin_window",
-              "hanok_cafe", "city_night", "night_park", "temple_path", "tent", "country_house"):
+              "hanok_cafe", "city_night", "night_park", "temple_path", "tent", "country_house", "tent_view_mountains"):
     SCENES[_name].rain["wan_ok"] = False
 
 
