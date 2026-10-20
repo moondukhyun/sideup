@@ -518,7 +518,7 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
                 wmask = wmask * (1 - cv2.GaussianBlur(ex.astype(np.float32), (0, 0), 3.0))
         renderer.glass = GlassRain(renderer.bg, wmask, renderer.N, renderer.fps, amount=rs.intensity, seed=rs.seed,
                                    view_blur=4.0 if rs.interior > 0 else 9.0,
-                                   cover=0.4 if rs.interior > 0 else 1.0,                  # 실내(폭우): 맺힌 방울은 적게
+                                   cover=0.2 if rs.interior > 0 else 1.0,                  # 실내(폭우): 맺힌 방울은 적게 (AI 그림에 이미 빗방울이 그려져 있는 경우가 많아 덧붙이는 정지 방울은 최소로, 흘러내리는 방울이 움직임을 담당)
                                    n_sliders=int(np.clip(round(14 * rs.intensity), 14, 34)) if rs.interior > 0 else None)   # 흘러내리는 방울·물줄기는 많이      # 실내 장면: 창밖 풍경·창틀 격자가 덜 뭉개지게
         g = renderer.glass
         tint = (np.clip(renderer.bg, 0, 1) * 255).astype(np.float32)
