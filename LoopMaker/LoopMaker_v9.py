@@ -4700,6 +4700,9 @@ def sm_job_label(bg):
     label = f"{m.group(2)}-{m.group(3)} {m.group(4)}:{m.group(5)}  {m.group(6)}" if m else name
     if sm_has_video(bg):
         label += "  🎬"
+    q = sm_quality(bg)
+    if q is not None:
+        label += "  ⚠" if not q.get("ok") else "  ✅"
     return label
 
 
@@ -4713,6 +4716,10 @@ def claude_find_pets_fans(img_path):
               "- cat: 자고 있는 고양이 (몸 전체)\n"
               "- fan: 천장 선풍기의 날개 전체 (몸통 램프가 아니라 날개가 퍼진 범위)\n"
               "- record: 턴테이블 위 LP 레코드판 전체 원 (비스듬히 보이는 타원 전체, 가운데 라벨 포함)\n"
+              "- tonearm: 턴테이블의 톤암(바늘 달린 긴 팔) 전체\n"
+              "- fire: 벽난로 안에서 타오르는 불꽃 영역 (장작과 불꽃이 보이는 안쪽 사각형)\n"
+              "- glass: 창 유리 전체 (창틀 안쪽 전부, 창살 포함, 창마다 상자 하나씩)\n"
+              "- candle: 켜져 있는 촛불 '불꽃'의 중심 한 점 — 상자 대신 x,y 만 (예: {\"kind\":\"candle\",\"x\":0.52,\"y\":0.60})\n"
               "상자는 대상을 빈틈없이 감싸되 사방으로 약 5% 만 여유를 두세요. 사진에 없는 대상은 빼세요.\n"
               '출력은 JSON 한 덩어리만: {"items":[{"kind":"dog","x0":0.35,"y0":0.80,"x1":0.52,"y1":0.99}]} — 다른 글은 쓰지 마세요.')
     out = run_claude_text(prompt, timeout=240, allow_read=True, retries=1)
@@ -4723,13 +4730,51 @@ def claude_find_pets_fans(img_path):
     for it in items:
         try:
             k = str(it.get("kind", "")).lower()
+            if k == "candle":                                   # 점 → 작은 상자
+                cx, cy = min(max(float(it["x"]), 0.0), 1.0), min(max(float(it["y"]), 0.0), 1.0)
+                res.append({"kind": "candle", "x0": max(0.0, cx - 0.008), "y0": max(0.0, cy - 0.012),
+                            "x1": min(1.0, cx + 0.008), "y1": min(1.0, cy + 0.012)})
+                continue
             x0, y0, x1, y1 = (min(max(float(it[c]), 0.0), 1.0) for c in ("x0", "y0", "x1", "y1"))
         except (KeyError, TypeError, ValueError):
             continue
         area = (x1 - x0) * (y1 - y0)
-        if k in ("dog", "cat", "fan", "record") and x1 - x0 > 0.01 and y1 - y0 > 0.005 and 0.0003 < area < (0.12 if k in ("fan", "record") else 0.35):
+        if k in ("dog", "cat", "fan", "record", "fire", "glass", "tonearm") and x1 - x0 > 0.01 and y1 - y0 > 0.004 \
+                and 0.0002 < area < (0.12 if k in ("fan", "record", "fire") else 0.06 if k == "tonearm" else 0.5 if k == "glass" else 0.35):
             res.append({"kind": k, "x0": x0, "y0": y0, "x1": x1, "y1": y1})
     return res
+
+
+def claude_check_image(img_path):
+    """Claude 가 AI 그림을 보고 오류(머리 2개인 개, 앉아 있는 고양이, 뒤틀린 물체 등)를 검사 → {"ok","score","issues"}.
+    영상 효과로는 고칠 수 없는 '그림 자체의 오류'를 영상 만들기 전에 걸러내기 위한 것."""
+    path = os.path.abspath(img_path).replace("\\", "/")
+    prompt = (f"Read 도구로 이 이미지 파일을 열어서 보세요: {path}\n\n"
+              "이 그림은 AI 가 만든 '잠자리용 아늑한 실내' 사진입니다. 영상으로 만들기 전에 AI 그림 특유의 오류를 엄격하게 검사해 주세요:\n"
+              "1) 개·고양이: 머리가 2개 이상이거나, 몸이 합쳐졌거나, 다리·꼬리 개수가 이상하거나, 얼굴이 뭉개짐\n"
+              "2) 고양이·개가 '자고 있지 않고' 앉아 있거나 서 있거나 깨어 있음\n"
+              "3) 사람·손·얼굴이 보임\n"
+              "4) 촛불이 꺼져 있거나 불꽃 모양이 비정상, 벽난로에 불이 없음\n"
+              "5) 창 유리에 이미 빗줄기·물방울이 그려져 있음 (영상 효과와 겹침)\n"
+              "6) 턴테이블·가구·창틀·선풍기 같은 물체가 심하게 뒤틀리거나 합쳐짐, 글자·로고가 보임\n"
+              '출력은 JSON 한 덩어리만: {"ok":true,"score":8,"issues":[]} — ok 는 위 오류가 하나도 없을 때만 true, score 는 1~10(10=완벽), '
+              "issues 에는 발견한 문제를 한국어로 짧게 (예: \"강아지 몸 하나에 머리 2개\"). 다른 글은 쓰지 마세요.")
+    out = run_claude_text(prompt, timeout=240, allow_read=True, retries=1)
+    m = re.search(r"\{.*\}", out, re.S)
+    if not m:
+        raise RuntimeError("Claude 응답을 해석하지 못했어요: " + out[:120])
+    d = json.loads(m.group(0))
+    return {"ok": bool(d.get("ok")), "score": int(d.get("score", 0) or 0),
+            "issues": [str(x) for x in (d.get("issues") or [])][:8]}
+
+
+def sm_quality(bg):
+    """배경 폴더의 quality.json → 없으면 None."""
+    try:
+        with open(os.path.join(os.path.dirname(bg), "quality.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
 
 
 def sm_job_scene(bg):
@@ -4775,7 +4820,7 @@ class SceneTabMixin:
                    duration=self.sm_dur_var.get(), motion=self.sm_motion_var.get(),
                    details=self.sm_details_var.get(), wan=self.sm_wan_var.get(), wet=self.sm_wet_var.get(),
                    interior=self.sm_interior_var.get(), fire_sound=self.sm_fire_var.get(), out_dir=self.sm_outdir_var.get(),
-                   scene_only=self.sm_scene_only_var.get(), firedb=self.sm_firedb_var.get())
+                   scene_only=self.sm_scene_only_var.get(), firedb=self.sm_firedb_var.get(), autoqc=self.sm_autoqc_var.get())
         try:
             with open(SM_TAB_CFG, "w", encoding="utf-8") as f:
                 json.dump(cfg, f, ensure_ascii=False, indent=1)
@@ -4800,6 +4845,7 @@ class SceneTabMixin:
         self.sm_fire_var = tk.BooleanVar(value=cfg.get("fire_sound", True))      # v11.22: 벽난로 소리 자동 합성
         self.sm_outdir_var = tk.StringVar(value=cfg.get("out_dir", ""))      # v11.22: 완성 영상 저장 폴더 (비우면 배경 폴더)
         self.sm_firedb_var = tk.StringVar(value=cfg.get("firedb", SM_FIREDB[1][0]))          # v11.22: 장작 소리 크기
+        self.sm_autoqc_var = tk.BooleanVar(value=cfg.get("autoqc", True))                      # v11.22: 배경 만든 뒤 AI 그림 오류 자동 검사
         self.sm_scene_only_var = tk.BooleanVar(value=cfg.get("scene_only", True))   # v11.22: 고른 장면의 배경만 보기
         self.sm_filter_var = tk.StringVar(value=SM_FILTERS[0])               # v11.22: 배경 목록 보기 필터
         self.sm_comfy_var = tk.StringVar(value="ComfyUI 확인 중…")
@@ -4877,6 +4923,11 @@ class SceneTabMixin:
         ttk.Button(sbtn, text="🔍 크게 보기", command=self.sm_open_image).pack(side="left")
         ttk.Button(sbtn, text="🐾 반려동물·선풍기·레코드판 위치 지정", command=self.sm_pick_pets).pack(side="left", padx=6)
         ttk.Button(sbtn, text="🗑 선택 삭제", command=self.sm_delete_selected).pack(side="left")
+        sbtn2 = ttk.Frame(s); sbtn2.pack(fill="x", padx=8, pady=(0, 6))
+        ttk.Button(sbtn2, text="🔍 AI 그림 오류 검사", command=self.sm_qc_selected).pack(side="left")
+        ttk.Button(sbtn2, text="⚠ 문제 있는 것 고르기", command=self.sm_select_flagged).pack(side="left", padx=6)
+        ttk.Checkbutton(sbtn2, text="배경 만든 뒤 자동 검사", variable=self.sm_autoqc_var).pack(side="left")
+        ttk.Label(sbtn2, text="(머리 2개 개·앉은 고양이 등을 Claude 가 찾아 ⚠ 표시)", foreground="#666666").pack(side="left", padx=6)
 
         v = ttk.LabelFrame(tab, text=" ③ 빗소리 루프 영상 만들기 ")
         v.pack(fill="x", padx=10, pady=(4, 0))
@@ -5044,10 +5095,12 @@ class SceneTabMixin:
         def redraw():
             cv.delete("box")
             for b in boxes:
-                col = {"cat": "#ffcc00", "fan": "#ff66ff", "record": "#ff9900"}.get(b.get("kind"), "#00ddff")
+                col = {"cat": "#ffcc00", "fan": "#ff66ff", "record": "#ff9900", "fire": "#ff3300", "glass": "#33aaff",
+                       "candle": "#ffee00", "tonearm": "#99ff00"}.get(b.get("kind"), "#00ddff")
                 cv.create_rectangle(b["x0"] * cw, b["y0"] * ch, b["x1"] * cw, b["y1"] * ch, outline=col, width=3, tags="box")
                 cv.create_text(b["x0"] * cw + 4, b["y0"] * ch + 4, anchor="nw", fill=col, tags="box",
-                               text={"cat": "고양이", "fan": "선풍기", "record": "레코드판"}.get(b.get("kind"), "강아지"))
+                               text={"cat": "고양이", "fan": "선풍기", "record": "레코드판", "fire": "벽난로 불", "glass": "창 유리",
+                                     "candle": "촛불", "tonearm": "톤암"}.get(b.get("kind"), "강아지"))
 
         def down(e):
             state["start"] = (e.x, e.y)
@@ -5095,6 +5148,9 @@ class SceneTabMixin:
         ttk.Radiobutton(bar, text="고양이", variable=kind, value="cat").pack(side="left", padx=6)
         ttk.Radiobutton(bar, text="천장 선풍기(날개 전체)", variable=kind, value="fan").pack(side="left")
         ttk.Radiobutton(bar, text="레코드판(원 전체)", variable=kind, value="record").pack(side="left", padx=6)
+        ttk.Radiobutton(bar, text="창 유리(창 전체)", variable=kind, value="glass").pack(side="left")
+        ttk.Radiobutton(bar, text="벽난로 불", variable=kind, value="fire").pack(side="left", padx=6)
+        ttk.Radiobutton(bar, text="톤암", variable=kind, value="tonearm").pack(side="left")
         ttk.Label(bar, text="상자는 동물보다 살짝 크게", foreground="#666666").pack(side="left", padx=10)
         auto_btn = ttk.Button(bar, text="🤖 자동 찾기")
         auto_btn.pack(side="right", padx=(6, 0))
@@ -5174,6 +5230,44 @@ class SceneTabMixin:
             self.sm_preview.image = None
         self.sm_refresh_list()
         self.log(f"🗑 배경 {removed}개 삭제" + (f", 사진 {len(photos)}장 목록에서 제외" if photos else ""))
+
+    def sm_qc_selected(self):
+        """고른 배경(없으면 목록에서 아직 검사 안 한 것 전부)을 Claude 로 검사."""
+        sel = [self.sm_items[i] for i in self.sm_list.curselection()]
+        if not sel:
+            sel = [p for p in self.sm_items if p.startswith(SCENEMAKER_OUT) and sm_quality(p) is None]
+        if not sel:
+            messagebox.showinfo("확인", "검사할 배경이 없어요 (목록에서 골라 누르면 다시 검사해요)")
+            return
+        self._sm_qc_start(sel)
+
+    def _sm_qc_start(self, paths):
+        self.log(f"🔍 AI 그림 오류 검사 {len(paths)}장 시작 (장당 약 30초, 백그라운드)")
+        threading.Thread(target=self._sm_qc_thread, args=(list(paths),), daemon=True).start()
+
+    def _sm_qc_thread(self, paths):
+        res = []
+        for p in paths:
+            try:
+                q = claude_check_image(p)
+                with open(os.path.join(os.path.dirname(p), "quality.json"), "w", encoding="utf-8") as f:
+                    json.dump(q, f, ensure_ascii=False, indent=1)
+                res.append((p, q, None))
+            except Exception as ex:
+                res.append((p, None, str(ex)[:160]))
+                if isinstance(ex, (ClaudeFatalError, FileNotFoundError)):
+                    break
+        self.log_q.put(("__SM_QC__", res))
+
+    def sm_select_flagged(self):
+        self.sm_list.selection_clear(0, "end")
+        n = 0
+        for i, p in enumerate(self.sm_items):
+            q = sm_quality(p)
+            if q is not None and not q.get("ok"):
+                self.sm_list.selection_set(i)
+                n += 1
+        self.log(f"⚠ 문제 있는 그림 {n}장을 골랐어요 — [🗑 선택 삭제] 로 지울 수 있어요" if n else "문제 있다고 표시된 그림이 없어요")
 
     def _sm_find_pets_thread(self, img):
         try:
@@ -5396,6 +5490,16 @@ class SceneTabMixin:
             self.sm_comfy_var.set("🟢 ComfyUI 켜짐 (배경 만들기 가능)" if msg[1]
                                   else "⚪ ComfyUI 꺼짐 — 배경 만들기를 누르면 자동으로 켜요")
             self.sm_comfy_btn.configure(state="disabled" if msg[1] else "normal")
+        elif tag == "__SM_QC__":
+            for p, q, err in msg[1]:
+                name = os.path.basename(os.path.dirname(p))[-26:]
+                if err:
+                    self.log(f"⚠ 검사 실패 ({name}): {err}")
+                elif q.get("ok"):
+                    self.log(f"✅ {name}: 오류 없음 (점수 {q.get('score')}/10)")
+                else:
+                    self.log(f"⚠ {name}: " + " / ".join(q.get("issues") or ["문제 있음"]) + f"  (점수 {q.get('score')}/10)")
+            self.sm_refresh_list()
         elif tag == "__SM_PETS__":
             _, img, res = msg
             self._sm_buttons(False)
@@ -5408,7 +5512,7 @@ class SceneTabMixin:
                             json.dump(res, f, ensure_ascii=False, indent=1)
                     except OSError as ex:
                         self.log(f"⚠ pets.json 저장 실패: {ex}")
-                names = {"dog": "강아지", "cat": "고양이", "fan": "선풍기", "record": "레코드판"}
+                names = {"dog": "강아지", "cat": "고양이", "fan": "선풍기", "record": "레코드판", "fire": "벽난로 불", "glass": "창 유리", "candle": "촛불", "tonearm": "톤암"}
                 self.log("🐾 찾은 것: " + (", ".join(names.get(r["kind"], r["kind"]) for r in res) if res else "없음")
                          + "  (위치가 어긋났으면 [🐾 위치 지정] 에서 고칠 수 있어요)")
             self._sm_skip_pets = True
@@ -5421,6 +5525,8 @@ class SceneTabMixin:
             elif rc != 0:
                 self.log(f"❌ SceneMaker 가 오류로 끝났어요 (코드 {rc}) — 위 로그를 확인해주세요")
             if kind == "image" and found:
+                if self.sm_autoqc_var.get() and rc == 0:
+                    self._sm_qc_start(found)
                 self.sm_refresh_list(select=found[0])
                 self.log(f"✅ 배경 {len(found)}장 완성 — ② 목록에서 골라 ③ 영상 만들기")
             elif kind == "video":

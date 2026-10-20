@@ -132,6 +132,7 @@ class RainRenderer:
         self.wet = None              # wetrock.WetRocks (젖은 표면 반짝임 + 흘러내리는 빗물, v11.19)
         self.interior = None         # interior.Interior (촛불·벽난로 불꽃·불빛 일렁임, v11.22)
         self.wan_room = None         # wanroom.WanRoom (Wan 이 만든 불꽃·촛불·숨쉬기 움직임, v11.22)
+        self.tonearm = None          # interior.TonearmBob (톤암 오르내림, v11.22)
         self.records = None          # interior.RecordSpin (턴테이블 레코드판 회전, v11.22)
         self.fans = None             # interior.FanSpin (천장 선풍기 회전, v11.22)
         self.pets = None             # interior.PetBreath (반려동물 숨쉬기, v11.22)
@@ -334,6 +335,8 @@ class RainRenderer:
             out = self.wan_room.apply(out, f)                # AI 가 만든 불꽃·촛불·숨쉬기 (v11.22)
         if self.pets is not None:
             out = self.pets.apply(out, f)                    # 자는 반려동물 숨쉬기 (v11.22)
+        if self.tonearm is not None:
+            out = self.tonearm.apply(out, f)                 # 톤암 오르내림 (v11.22)
         if self.records is not None:
             out = self.records.apply(out, f)                 # 턴테이블 레코드판 (v11.22)
         if self.fans is not None:

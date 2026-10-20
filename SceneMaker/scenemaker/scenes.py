@@ -535,8 +535,8 @@ SCENES = {
             [
                 "wide view of the whole room",
                 "a small cat is also sleeping curled up on the bed",
-                "a cat is also sleeping on an armchair near the fireplace",
-                "a cat is also sleeping on the rug next to the dog",
+                "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed on an armchair near the fireplace",
+                "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed on the rug next to the dog",
                 "view from the bed toward the fireplace and the three windows",
             ],
             {"intensity": 1.9, "brightness": 0.45, "window": True, "interior": 1.0, "fire": 1.0, "fire_sound": True,
@@ -562,7 +562,7 @@ SCENES = {
             [
                 "wide view showing the whole window wall",
                 "view from the sofa toward the huge window and the fireplace",
-                "a cat is also sleeping on the sofa",
+                "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed on the sofa",
             ],
             {"intensity": 2.0, "brightness": 0.45, "window": True, "interior": 1.0, "fire": 1.0, "fire_sound": True, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST, animals=True,
@@ -573,7 +573,7 @@ SCENES = {
             "a cozy living room at night with two large tall windows side by side with clean clear glass and a dark stormy night outside, a stone fireplace with a crackling wood fire between a sofa and an armchair, exactly one single dog with one head sleeping curled up peacefully with eyes closed on the rug, candles with bright steady flames on the mantel, charming small decorations, warm firelight, empty room without people",
             [
                 "wide view of the room",
-                "a cat is also sleeping on the armchair",
+                "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed on the armchair",
                 "close view of the fireplace with a window beside it",
             ],
             {"intensity": 1.8, "brightness": 0.45, "window": True, "interior": 1.0, "fire": 1.0, "fire_sound": True, **INTERIOR_RAIN},
@@ -586,7 +586,7 @@ SCENES = {
             [
                 "the window is above the bed",
                 "the window is large with a wide wooden sill",
-                "a cat is also sleeping at the foot of the bed",
+                "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed at the foot of the bed",
             ],
             {"intensity": 1.7, "brightness": 0.45, "window": True, "interior": 1.0, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST, animals=True,
@@ -598,7 +598,7 @@ SCENES = {
             [
                 "wide view of the whole glass wall",
                 "view from the bed toward the fireplace and the glass wall",
-                "a cat is also sleeping on the bed",
+                "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed on the bed",
             ],
             {"intensity": 2.0, "brightness": 0.45, "window": True, "interior": 1.0, "fire": 1.0, "fire_sound": True, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST, animals=True,
@@ -622,7 +622,7 @@ SCENES = {
             [
                 "wide view of the study",
                 "close view of the desk with candles and the window behind",
-                "a cat is sleeping on the armchair",
+                "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed on the armchair",
             ],
             {"intensity": 1.8, "brightness": 0.45, "window": True, "interior": 1.0, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST, animals=True,
@@ -634,7 +634,7 @@ SCENES = {
             [
                 "wide view of the cabin room",
                 "the window is beside the fireplace",
-                "a cat is also sleeping on the bench",
+                "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed on the bench",
             ],
             {"intensity": 1.9, "brightness": 0.45, "window": True, "interior": 1.0, "fire": 1.0, "fire_sound": True, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST, animals=True,
@@ -646,11 +646,11 @@ SCENES = {
             "a black vinyl record on the platter with its colorful center label clearly visible and the tonearm resting on it, "
             "shelves of vinyl records and a pair of old speakers, a stone fireplace with a crackling wood fire, "
             "a large window with clean clear glass and a dark stormy night outside, a few candles with bright steady flames, "
-            "exactly one single dog with one head sleeping curled up peacefully with eyes closed on a rug, warm firelight, empty room without people",
+            "exactly one single dog with one head sleeping curled up peacefully with eyes closed on a rug, warm firelight, empty room without people, no cat",
             [
                 "wide view of the room with the turntable in the foreground",
                 "close view of the turntable and records with the fireplace glowing behind",
-                "a cat is also sleeping on an armchair",
+                "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed on an armchair, not sitting",
             ],
             {"intensity": 1.8, "brightness": 0.45, "window": True, "interior": 1.0, "fire": 1.0, "fire_sound": True,
              "vinyl_sound": True, **INTERIOR_RAIN},
@@ -680,7 +680,7 @@ SCENES = {
             [
                 "close view of the turntable with the rainy window behind",
                 "wide view of the cozy corner with the window and records",
-                "a cat is sleeping on the armchair",
+                "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed on the armchair",
             ],
             {"intensity": 1.8, "brightness": 0.45, "window": True, "interior": 1.0, "vinyl_sound": True, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST, animals=True,
@@ -694,8 +694,8 @@ SCENES = {
             "charming little decorations, warm golden light, empty room without people",
             [
                 "wide view of the room",
-                "a cat is also sleeping on the sofa",
-                "a cat is also sleeping curled up on the hearth rug beside the dog",
+                "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed on the sofa",
+                "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed on the hearth rug beside the dog",
                 "close view of the fireplace and the sleeping dog on the rug",
             ],
             {"intensity": 1.3, "brightness": 0.42, "window": True, "interior": 1.0, "fire": 1.0, "fire_sound": True,

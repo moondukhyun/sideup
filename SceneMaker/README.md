@@ -95,3 +95,6 @@ LoopMaker 쪽은 `LoopMaker_v9.py`(v11.19 최신)로 교체하면 [AI 배경] �
 - v11.22 AI 움직임(실내): `--wan` 을 켜면 벽난로 불·촛불은 Wan 2.2 가 만든 픽셀로, 반려동물 숨쉬기는 Wan 의 움직임(흐름)만 원본 사진에 입힘 (`wanroom.py`, `--wan-clips N` 클립 수). 실패하면 수식 움직임으로 자동 대체.
 - 반려동물·선풍기 위치: LoopMaker 가 Claude 로 자동 찾기(`🤖 자동 찾기`) → `pets.json` 저장. 장작 소리는 기본 -12dB (`--fire-db`).
 - 턴테이블 장면(`living_turntable_fireplace`, `turntable_candles_windowless`, `turntable_window_rain`): `--pet x0,y0,x1,y1,record` 로 레코드판 원 전체를 표시하면 가운데 라벨이 33⅓회전/분으로 돌고(바깥 홈은 고정, 루프당 정수 바퀴), 레코드 지직 소리를 합성해 섞음 (`--vinyl-db`, `--no-vinyl-sound`).
+- v11.22 위치 표시 종류(`--pet`/pets.json): dog, cat, fan(선풍기), record(레코드판), tonearm(톤암: 레코드 한 바퀴마다 바늘 쪽이 살짝 오르내림), fire(벽난로 불 위치 힌트), glass(창 유리 보정), candle(촛불 위치 힌트). LoopMaker 의 `🤖 자동 찾기` 가 Claude 로 채워 줌.
+- 방 전체 조명 일렁임은 최대 약 ±5% 로 제한 (어두워졌다 밝아졌다 하지 않게).
+- LoopMaker `🔍 AI 그림 오류 검사`: Claude 가 배경을 보고 머리 2개인 개·앉은 고양이·뒤틀린 물체를 찾아 ⚠ 표시 (`quality.json`).

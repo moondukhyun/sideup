@@ -14,10 +14,11 @@ WARM = np.array([1.0, 0.84, 0.62], dtype=np.float32)         # 불빛이 닿은 
 
 
 # ---------------------------------------------------------------- 불빛 찾기
-def find_lights(bg, max_candles=24, exclude=None):
+def find_lights(bg, max_candles=24, exclude=None, fire_box=None, candle_pts=None):
     """bg: float RGB (H,W,3) 0..1.  exclude: (H,W) 0~1 — 이 영역(창문 유리 등)의 불빛은 무시.
     반환: {"candles": [{"x","y","w","h"}...], "fire": {"mask","box","cx","cy","base"} 또는 None}  (전체 해상도 좌표)
 
+    fire_box: (x0,y0,x1,y1) 전체 해상도 픽셀 — Claude 가 알려준 벽난로 불 위치(있으면 그 안에서만 찾음). candle_pts: [(x,y)...] 촛불 불꽃 위치.
     벽난로 불 = '뜨거운 핵'(노랑·흰빛으로 아주 밝은 덩어리)가 있는 가장 큰 덩어리. 불빛 받은 러그·벽·돌은 주황이어도 핵이 없어 제외된다.
     촛불 불꽃 = 주변보다 확 튀는 작고 따뜻한 밝은 점 (top-hat)."""
     import cv2
@@ -35,7 +36,17 @@ def find_lights(bg, max_candles=24, exclude=None):
         ex = cv2.dilate(ex.astype(np.uint8), np.ones((9, 9), np.uint8)) > 0
 
     # ---- 벽난로 불 ----
-    hot = ((r > 0.72) & (g > 0.42) & (lum > 0.58) & ((r - b) > 0.22)).astype(np.uint8)
+    hint = None
+    if fire_box is not None:
+        hx0, hy0, hx1, hy1 = [int(v * s) for v in fire_box]
+        hint = (max(0, hx0), max(0, hy0), min(sw, hx1), min(sh, hy1))
+    if hint is not None:                                              # Claude 가 알려준 영역 안에서는 기준을 느슨하게
+        hot = ((lum > 0.5) & (r > 0.6) & ((r - b) > 0.08)).astype(np.uint8)
+        zone = np.zeros_like(hot)
+        zone[hint[1]:hint[3], hint[0]:hint[2]] = 1
+        hot *= zone
+    else:
+        hot = ((r > 0.72) & (g > 0.42) & (lum > 0.58) & ((r - b) > 0.12)).astype(np.uint8)
     if ex is not None:
         hot[ex] = 0
     hot = cv2.morphologyEx(hot, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
@@ -47,7 +58,17 @@ def find_lights(bg, max_candles=24, exclude=None):
         x, y, w, h, a = stats[i]
         if a < 0.0004 * area_px or w < 0.012 * sw or h < 0.025 * sh:
             continue
-        score = a * float(lum[lab == i].mean())
+        mi = (lab == i)
+        if hint is None:
+            # 진짜 불: 주변보다 확 밝고(어두운 벽난로 속) 흰빛 도는 뜨거운 핵이 있다. 불빛 받은 바닥·벽은 대비가 약하고 핵이 없다.
+            ring = (cv2.dilate(mi.astype(np.uint8), np.ones((31, 31), np.uint8)) > 0) & ~(cv2.dilate(mi.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0)
+            contrast = float(lum[mi].mean() - lum[ring].mean()) if ring.any() else 0.0
+            core = int((mi & (lum > 0.82)).sum())
+            if core < 20 or contrast < 0.10 or w > 3.2 * h + 8:
+                continue
+            score = contrast * contrast * min(a, 3000)                  # 크기보다 '주변과의 대비'를 훨씬 중요하게 (불빛 받은 바닥·창턱이 더 커도 지지 않게)
+        else:
+            score = float(a)
         if score > best:
             best, pick = score, i
     if pick is not None:
@@ -75,9 +96,26 @@ def find_lights(bg, max_candles=24, exclude=None):
 
     # ---- 촛불 불꽃: 주황빛 밝은 덩어리(불꽃 + 불빛 받은 양초) 안에서 '가장 밝은 점' = 불꽃 심 ----
     candles = []
+    if candle_pts:                                                   # Claude 가 알려준 위치 주변에서 불꽃 끝을 정확히 찾음
+        for (hx, hy) in candle_pts:
+            px, py = int(hx * s), int(hy * s)
+            y0_, y1_, x0_, x1_ = max(0, py - 22), min(sh, py + 26), max(0, px - 15), min(sw, px + 16)
+            win = lum[y0_:y1_, x0_:x1_]
+            if win.size == 0:
+                continue
+            mx = float(win.max())
+            if mx < 0.6:
+                continue
+            ys_, xs_ = np.nonzero(win >= max(0.62, 0.86 * mx))
+            tip = int(ys_.min())
+            rows = xs_[ys_ <= tip + 3]
+            fw = float(min(max(rows.max() - rows.min() + 1, 3), 11))
+            fh = float(min(max(2.4 * fw, 8), 24))
+            xt = x0_ + float(rows.mean())
+            candles.append((mx * 60.0, xt - fw / 2.0, y0_ + tip + 0.2 * fh, fw, fh))
     sm_lum = cv2.GaussianBlur(lum, (0, 0), 1.2)
     for thr, redness, peak_min in ((0.70, 0.22, 0.88), (0.62, 0.18, 0.80)):
-        if candles:
+        if candles or candle_pts:
             break                                      # 또렷한 불꽃을 찾았으면 느슨한 기준은 쓰지 않음
         seed = ((lum > thr) & ((r - b) > redness)).astype(np.uint8)
         seed[fire_zone > 0] = 0
@@ -207,7 +245,7 @@ class Interior:
             cx, cy = c["x"] / W * self.lw, c["y"] / H * self.lh
             sx = (0.15 if nc <= 2 else 0.10) * self.lw * (1.0 + 0.15 * min(c["h"] / (0.05 * H), 3))
             sy = sx * 0.85
-            amp = (0.11 if nc <= 2 else 0.07 if nc <= 6 else 0.05) * self.strength
+            amp = (0.045 if nc <= 2 else 0.030 if nc <= 6 else 0.022) * self.strength       # 촛불 불빛 일렁임: 방 전체가 어두워졌다 밝아지지 않게 아주 작게
             maps.append(amp * np.exp(-(((xx - cx) / sx) ** 2 + ((yy - cy) / sy) ** 2) / 2.0))
             sigs.append(sig)
         self.fire_sig = None
@@ -217,11 +255,11 @@ class Interior:
             self.fire_sig = fs
             cx, cy = self.fire["cx"] / W * self.lw, self.fire["cy"] / H * self.lh
             sx, sy = 0.26 * self.lw, 0.22 * self.lh
-            fa = 0.20 * self.fire_strength
+            fa = 0.065 * self.fire_strength                                              # 벽난로 불빛 일렁임 (실제 벽에 비친 불빛은 몇 % 수준)
             maps.append(fa * np.exp(-(((xx - cx) / sx) ** 2 + ((yy - cy) / sy) ** 2) / 2.0))
             sigs.append(fs)
             floor_y = min(self.fire["base"] / H * self.lh + 0.16 * self.lh, self.lh - 1)          # 앞 바닥·러그에 퍼지는 불빛
-            maps.append(0.12 * self.fire_strength * np.exp(-(((xx - cx) / (0.34 * self.lw)) ** 2 +
+            maps.append(0.035 * self.fire_strength * np.exp(-(((xx - cx) / (0.34 * self.lw)) ** 2 +
                                                            ((yy - floor_y) / (0.12 * self.lh)) ** 2) / 2.0))
             sigs.append(fs)
         self.light_maps = np.stack(maps).astype(np.float32) if maps else None
@@ -355,7 +393,7 @@ class Interior:
         # 3) 불빛이 방 안에 일렁이며 닿는 효과 (곱셈 → 질감은 그대로, 밝기만 변함)
         if self.light_maps is not None:
             lo = np.tensordot(self.light_sigs[:, f], self.light_maps, axes=(0, 0))
-            lo = 0.17 * np.tanh(lo / 0.17)                          # 불이 확 어두워져도 색이 푸르스름해지거나 깜깜해지지 않게 부드럽게 제한
+            lo = 0.055 * np.tanh(lo / 0.055)                        # 방 전체 밝기 변화는 최대 약 ±5% 로 제한 (어두워졌다 밝아졌다 하지 않게)
             L = cv2.resize(lo, (self.W, self.H), interpolation=cv2.INTER_LINEAR)
             out *= 1.0 + L[..., None] * WARM
         return out
@@ -396,7 +434,7 @@ class PetBreath:
         rng = np.random.default_rng(seed + 977)
         sec = N / float(fps)
         for p in pets:
-            if p.get("kind") in ("fan", "record"):
+            if p.get("kind", "dog") not in ("dog", "cat"):
                 continue
             x0, y0 = int(max(0, min(1, p["x0"])) * W), int(max(0, min(1, p["y0"])) * H)
             x1, y1 = int(max(0, min(1, p["x1"])) * W), int(max(0, min(1, p["y1"])) * H)
@@ -523,4 +561,52 @@ class RecordSpin:
                                (it["cy"] + it["b"] * vs - y0).astype(np.float32), cv2.INTER_LINEAR,
                                borderMode=cv2.BORDER_REPLICATE)
             reg[...] = reg * (1 - it["w"]) + warped * it["w"]
+        return out
+
+
+# ---------------------------------------------------------------- 톤암(바늘 달린 팔) 오르내림
+class TonearmBob:
+    """arms: [{"x0","y0","x1","y1" (0~1 비율), "kind": "tonearm"}] 톤암 전체를 감싼 상자.
+    레코드가 한 바퀴 돌 때마다 레코드판의 미세한 휘어짐·편심 때문에 바늘 쪽이 살짝 오르내린다 (축 쪽은 거의 고정, 바늘 쪽이 가장 크게).
+    records(RecordSpin 항목)가 있으면 레코드 회전과 같은 주기(정수 바퀴)로, 축 위치는 레코드 중심에서 먼 쪽 끝으로 본다."""
+
+    def __init__(self, arms, W, H, N, fps, k=1, record_centers=None, amount=1.0):
+        import cv2
+        self.cv2 = cv2
+        self.N = N
+        self.k = max(1, int(k))
+        self.items = []
+        rc = record_centers[0] if record_centers else None
+        for p in arms:
+            x0, y0 = int(max(0, min(1, p["x0"])) * W), int(max(0, min(1, p["y0"])) * H)
+            x1, y1 = int(max(0, min(1, p["x1"])) * W), int(max(0, min(1, p["y1"])) * H)
+            if x1 - x0 < 12 or y1 - y0 < 4:
+                continue
+            ends = [(x0, y0), (x1, y1), (x0, y1), (x1, y0)]
+            if rc is not None:                      # 레코드 중심에서 가장 먼 모서리 = 축(피벗), 가장 가까운 모서리 = 바늘 쪽
+                d = [np.hypot(ex - rc[0], ey - rc[1]) for ex, ey in ends]
+                pivot, tip = ends[int(np.argmax(d))], ends[int(np.argmin(d))]
+            else:
+                pivot, tip = ends[0], ends[1]
+            L = float(np.hypot(tip[0] - pivot[0], tip[1] - pivot[1]))
+            yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
+            ax, ay = (tip[0] - pivot[0]) / L, (tip[1] - pivot[1]) / L
+            t = np.clip(((xx - pivot[0]) * ax + (yy - pivot[1]) * ay) / L, 0, 1)          # 0=축 … 1=바늘
+            dist = np.abs((xx - pivot[0]) * (-ay) + (yy - pivot[1]) * ax)                  # 팔 선에서 떨어진 거리
+            half = max(10.0, 0.09 * L * 1.6)
+            w = _smooth(1 - dist / half) * _smooth(np.minimum(xx - x0, x1 - 1 - xx) / 6.0 + 0.0) * _smooth(np.minimum(yy - y0, y1 - 1 - yy) / 6.0 + 0.0)
+            self.items.append({"box": (x0, y0, x1, y1), "t": t.astype(np.float32), "w": w.astype(np.float32),
+                               "X": xx - x0, "Y": yy - y0, "amp": max(1.8, 0.011 * L) * float(amount) * H / 1080.0})
+
+    def apply(self, out, f):
+        cv2 = self.cv2
+        ph = 2 * np.pi * self.k * (f % self.N) / self.N
+        sig = np.sin(ph) + 0.35 * np.sin(2 * ph + 0.9) + 0.12 * np.sin(5 * ph)             # 한 바퀴에 한 번 크게 + 잔 떨림
+        for it in self.items:
+            x0, y0, x1, y1 = it["box"]
+            reg = out[y0:y1, x0:x1]
+            dy = it["amp"] * sig * (it["t"] ** 1.3) * it["w"]                              # 바늘 쪽일수록 많이 움직임
+            warped = cv2.remap(reg, it["X"].astype(np.float32), (it["Y"] + dy).astype(np.float32), cv2.INTER_LINEAR,
+                               borderMode=cv2.BORDER_REPLICATE)
+            reg[...] = warped
         return out

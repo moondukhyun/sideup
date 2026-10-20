@@ -256,16 +256,25 @@ def _attach_interior(renderer, job, rs, args):
     """v11.22: 촛불·벽난로 불꽃·방 안 불빛 일렁임·반려동물 숨쉬기."""
     if rs.interior <= 0 or getattr(args, "no_interior", False):
         return
-    from .interior import FanSpin, Interior, PetBreath, RecordSpin, find_lights
-    info = find_lights(renderer.bg, exclude=renderer.glass.mask if renderer.glass is not None else None)    # 창밖 불빛은 촛불이 아님
+    from .interior import FanSpin, Interior, PetBreath, RecordSpin, TonearmBob, find_lights
+    marks = _load_pets(job, args)
+    Wp, Hp = renderer.W, renderer.H
+    fbox = next(((m["x0"] * Wp, m["y0"] * Hp, m["x1"] * Wp, m["y1"] * Hp) for m in marks if m.get("kind") == "fire"), None)
+    cpts = [((m["x0"] + m["x1"]) / 2 * Wp, (m["y0"] + m["y1"]) / 2 * Hp) for m in marks if m.get("kind") == "candle"]
+    info = find_lights(renderer.bg, exclude=renderer.glass.mask if renderer.glass is not None else None,
+                       fire_box=fbox, candle_pts=cpts or None)           # 창밖 불빛은 촛불이 아님 / Claude 가 알려준 불·촛불 위치가 있으면 활용
     it = Interior(renderer.bg, renderer.N, renderer.fps, strength=rs.interior, fire_strength=rs.fire,
                   seed=rs.seed, info=info, fire_speed=float(getattr(args, "fire_speed", None) or 0.45))
-    marks = _load_pets(job, args)
-    pets = [p for p in marks if p.get("kind") not in ("fan", "record")]
+    pets = [p for p in marks if p.get("kind", "dog") in ("dog", "cat")]
     fans = [p for p in marks if p.get("kind") == "fan"]
     recs = [p for p in marks if p.get("kind") == "record"]
     if recs:
         renderer.records = RecordSpin(recs, renderer.W, renderer.H, renderer.N, renderer.fps)
+        arms = [p for p in marks if p.get("kind") == "tonearm"]
+        if arms:
+            rc = [((r["box"][0] + r["box"][2]) / 2.0, (r["box"][1] + r["box"][3]) / 2.0) for r in renderer.records.items]
+            renderer.tonearm = TonearmBob(arms, renderer.W, renderer.H, renderer.N, renderer.fps, k=renderer.records.k, record_centers=rc)
+            print(f"  톤암: {len(renderer.tonearm.items)}개가 레코드 한 바퀴마다 살짝 오르내림")
         print(f"  턴테이블 레코드판 회전: {len(renderer.records.items)}장 ({renderer.records.rpm:.1f}회전/분, 루프당 {renderer.records.k}바퀴)")
     if fans:
         renderer.fans = FanSpin(fans, renderer.W, renderer.H, renderer.N, renderer.fps, seed=rs.seed)
@@ -293,6 +302,8 @@ def _attach_interior(renderer, job, rs, args):
             dr.rectangle(p["box"], outline=(255, 0, 255), width=4)
         for p in renderer.records.items if renderer.records else []:
             dr.rectangle(p["box"], outline=(255, 160, 0), width=4)
+        for p in renderer.tonearm.items if renderer.tonearm else []:
+            dr.rectangle(p["box"], outline=(160, 255, 0), width=4)
         pv.resize((1280, int(1280 * renderer.H / renderer.W))).save(Path(job) / "interior_mask.jpg")
         print("  적용 위치 확인: interior_mask.jpg (노란 원=촛불, 빨간 상자=벽난로 불, 하늘색 상자=반려동물, 보라 상자=선풍기, 주황 상자=레코드판)")
     except Exception:
@@ -469,6 +480,14 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
     if want_window:
         from .glass import GlassRain, window_mask, window_mask_cool
         wmask = window_mask_cool(renderer.bg, dfull if real else None) if rs.interior > 0 else None     # 실내: 색으로 창 유리만 찾음
+        gboxes = [(m["x0"] * renderer.W, m["y0"] * renderer.H, m["x1"] * renderer.W, m["y1"] * renderer.H)
+                  for m in _load_pets(job, args) if m.get("kind") == "glass"]
+        if gboxes:                                                                  # 표시한 창 유리 상자로 빠진 칸 보정
+            from .glass import window_mask_boxes
+            gm = window_mask_boxes(renderer.bg, gboxes)
+            if gm is not None:
+                wmask = gm if wmask is None else np.maximum(wmask, gm)
+                print(f"  창 유리: 표시한 창 {len(gboxes)}개를 합침")
         if wmask is None:
             if not real:
                 return

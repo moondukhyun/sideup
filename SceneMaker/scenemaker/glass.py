@@ -449,3 +449,26 @@ def window_mask_cool(bg, depth=None):
     keep = cv2.erode(keep, np.ones((3, 3), np.uint8))                              # 창틀 쪽 가장자리 여유
     m = cv2.GaussianBlur(keep.astype(np.float32), (0, 0), 1.2)
     return np.clip(cv2.resize(m, (W, H), interpolation=cv2.INTER_LINEAR), 0, 1)
+
+
+def window_mask_boxes(bg, boxes):
+    """사용자·Claude 가 표시한 창 유리 상자(전체 해상도 픽셀)를 마스크로. 창살(가는 밝은 선)과 밝은 크림색 창틀은 빼서 선명하게 남긴다.
+    색으로 자동 판별이 틀려 칸이 빠졌을 때 보정용."""
+    import cv2
+    H, W = bg.shape[:2]
+    m = np.zeros((H, W), np.uint8)
+    for x0, y0, x1, y1 in boxes:
+        m[max(0, int(y0)):min(H, int(y1)), max(0, int(x0)):min(W, int(x1))] = 1
+    if not m.any():
+        return None
+    res = H / 1080.0
+    lum = bg @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+    warm = bg[..., 0] - bg[..., 2]
+    solid = (((lum > 0.55) & (warm > 0.04)) | (lum > 0.82)).astype(np.uint8)          # 창살·창틀: 밝고 크림색
+    k = max(5, int(14 * res)) | 1
+    thin = solid & ~cv2.morphologyEx(solid, cv2.MORPH_OPEN, np.ones((k, k), np.uint8)).astype(bool)   # 가는 선
+    wide = cv2.morphologyEx(solid, cv2.MORPH_OPEN, np.ones((k, k), np.uint8)) & (lum > 0.72).astype(np.uint8)
+    bars = cv2.dilate(np.maximum(thin, wide), np.ones((3, 3), np.uint8))
+    m = (m & (1 - bars)).astype(np.uint8)
+    m = cv2.erode(m, np.ones((3, 3), np.uint8))
+    return np.clip(cv2.GaussianBlur(m.astype(np.float32), (0, 0), 1.2), 0, 1)
