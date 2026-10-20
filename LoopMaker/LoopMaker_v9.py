@@ -4742,7 +4742,9 @@ def _claude_find_marks_raw(img_path):
             continue
         area = (x1 - x0) * (y1 - y0)
         if k in ("dog", "cat", "fan", "record", "fire", "glass", "tonearm") and x1 - x0 > 0.01 and y1 - y0 > 0.004 \
-                and 0.0002 < area < (0.12 if k in ("fan", "record", "fire") else 0.06 if k == "tonearm" else 0.5 if k == "glass" else 0.35):
+                and 0.0002 < area < (0.12 if k in ("fan", "fire") else 0.06 if k == "record" else 0.03 if k == "tonearm" else 0.5 if k == "glass" else 0.35):
+            if k == "record" and (x1 - x0) < 1.15 * (y1 - y0):               # 비스듬히 본 LP 는 가로로 납작한 타원 → 세로로 긴 상자는 턴테이블 본체·덮개를 잘못 잡은 것
+                continue
             res.append({"kind": k, "x0": x0, "y0": y0, "x1": x1, "y1": y1})
     return res
 
