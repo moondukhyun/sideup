@@ -88,6 +88,7 @@ import re
 
 # 프롬프트의 비 표현 → '젖은 흐린 날' 표현 (Z-Image 처럼 네거티브 프롬프트가 안 먹는 모델에서도 빗줄기가 안 그려지게)
 _DRY_RULES = [
+    (r"dark stormy night outside", "a still dark night outside with dark blue-black trees"),      # v11.23: Qwen 은 'stormy' 를 보면 유리에 빗방울을 그림 → 빗방울은 영상 효과가 넣음
     (r"torrential rain", "very dark stormy overcast"),
     (r"heavy summer thunderstorm", "dark stormy summer evening"),
     (r"rain dripping from", "wet"),
