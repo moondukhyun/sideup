@@ -743,7 +743,7 @@ SCENES = {
             "living_turntable_fireplace",
             "클래식 턴테이블 + 벽난로 거실 · 폭우",
             "a cozy living room at night with a classic vintage wooden record player turntable on a low wooden cabinet, "
-            "a black vinyl record on the platter with its colorful center label clearly visible and the tonearm resting on it, the turntable body and clear dust cover completely plain and smooth with no lettering, no brand name and no logo, "
+            "a black vinyl record on the platter with its colorful center label clearly visible and the tonearm resting on it, the turntable has no dust cover or lid at all and its body is completely plain and smooth with no lettering, no brand name and no logo, the turntable cabinet stands against a solid wall clearly away from the window, "
             "shelves of vinyl records and a pair of old speakers, a stone fireplace with a bright roaring wood fire with tall lively flames filling the firebox, "
             "a large window with clean clear glass and a dark stormy night outside, a few candles with bright steady flames, "
             "exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a rug, warm firelight, empty room without people, no cat",
