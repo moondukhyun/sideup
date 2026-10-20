@@ -748,6 +748,7 @@ SCENES = {
             "one large window on the far back wall with clean clear glass and a dark stormy night outside, a few candles with bright steady flames, "
             "exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a rug, warm firelight, empty room without people, no cat",
             [
+                "wide medium shot with balanced layout: the turntable on a cabinet in the left third of the frame with the tonearm lying across the playing record and the red center label, the stone fireplace with a bright roaring fire in the right third, the window with raindrops on the back wall, a few lit candles, the sleeping dog on the rug in the center foreground, the whole room visible and balanced, whole scene in sharp focus",
                 "medium shot: the turntable stands large in the left foreground filling about a third of the frame, the tonearm clearly visible lying across the playing record, while the window, the fireplace, the lit candles and the sleeping dog are all visible in the room behind it, whole scene in sharp focus",
                 "medium shot from a slightly higher angle: the turntable large in the foreground with the tonearm over the record and the red label sharp, the fireplace fire, the window and the sleeping dog on the rug clearly visible behind, whole scene in sharp focus",
                 "close view of the turntable and records with the fireplace glowing behind",
