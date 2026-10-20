@@ -296,7 +296,7 @@ class Interior:
             self.flames.append({
                 "idx": i, "box": (x0, y0, x1, y1), "win": win.astype(np.float32), "above2": above.astype(np.float32),
                 "core": core.astype(np.float32), "halo": halo.astype(np.float32),
-                "amp": (0.045 * fw + 0.5 * res) * self.strength, "sway": sway, "sig": self.candle_sigs[i],
+                "amp": (0.11 * fw + 0.9 * res) * self.strength, "sway": sway, "sig": self.candle_sigs[i],
                 "xx": xx_ - x0, "yy": yy_ - y0,
             })
 
@@ -571,9 +571,12 @@ class RecordSpin:
             w = (_smooth((1.0 - lr) / 0.10) * _smooth((lr - 0.10) / 0.06)) if lr is not None else np.zeros_like(r)   # 라벨 안쪽만, 가운데 축은 제외
             if lr is not None:                                                         # 가운데 축(검은 막대)은 색이 없으므로 돌리지 않음
                 cs = np.asarray(bg[ry0:ry1, rx0:rx1], np.float32)
-                w = w * _smooth((cs.max(-1) - cs.min(-1) - 0.06) / 0.10)
-                pegm = ((cs.max(-1) - cs.min(-1) < 0.10) & (lr < 1.0)).astype(np.uint8)       # 가운데 축 자리는 주변 라벨 색으로 메운 그림을 돌림 (축이 같이 돌아 두 개로 보이지 않게)
+                ring = (lr > 0.30) & (lr < 0.90)
+                med = np.median(cs[ring], axis=0) if ring.any() else cs.reshape(-1, 3).mean(0)
+                near = (np.abs(lu) < 0.13) & (lv > -1.7) & (lv < 0.45)                          # 가운데 축(작은 막대): 중심 바로 위아래의 라벨과 색이 다른 부분
+                pegm = (near & (np.abs(cs - med).max(-1) > 0.10)).astype(np.uint8)
                 pegm = cv2.dilate(pegm, np.ones((5, 5), np.uint8))
+                w = w * (1.0 - cv2.GaussianBlur(pegm.astype(np.float32), (0, 0), 1.5))        # 축 자리는 돌리지 않고, 돌리는 그림에서는 라벨 색으로 메움
                 lsrc = cv2.inpaint((np.clip(cs, 0, 1) * 255).astype(np.uint8), pegm, 3, cv2.INPAINT_TELEA).astype(np.float32) / 255.0
             labr = float(la / a) if lab is not None else 0.0
             grv = _smooth((r - labr - 0.03) / 0.05) * _smooth((0.96 - r) / 0.04)          # 바깥 홈 고리
@@ -643,13 +646,13 @@ class RecordSpin:
 
 
 def _groove_pattern(us, vs, off):
-    """회전한 판 좌표(us,vs)에서 본 홈 결: 방사형 부채꼴 광택 + 먼지 점. -1~1 근처 값 × 진폭."""
+    """회전한 판 좌표(us,vs)에서 본 홈 결: 나선형 홈 광택(돌면 나선이 감기듯 움직임) + 부채꼴 광택 + 먼지 점. 판과 함께 도는 무늬."""
     r = np.sqrt(us * us + vs * vs)
     ang = np.arctan2(vs, us)
-    fan = np.cos(3 * ang + off) * 0.5 + np.cos(7 * ang + 2.1 * off) * 0.3                # 판 위의 부채꼴 광택 (판과 함께 돎)
-    ring = np.sin(r * 90.0 + off) * 0.15
-    spec = (np.sin(ang * 41 + off * 3.0) * np.sin(r * 53 + off) > 0.93).astype(np.float32) * 0.8   # 먼지 점
-    return (fan + ring + spec) * 0.06
+    spiral = np.cos(r * 38.0 - ang * 3.0 + off) * 0.55                                  # 나선: 판이 돌면 가닥이 눈에 띄게 돎
+    fan = np.cos(3 * ang + off) * 0.45 + np.cos(7 * ang + 2.1 * off) * 0.25
+    spec = (np.sin(ang * 41 + off * 3.0) * np.sin(r * 53 + off) > 0.90).astype(np.float32) * 1.0   # 먼지 점
+    return (spiral + fan + spec) * 0.10
 
 
 # ---------------------------------------------------------------- 톤암(바늘 달린 팔) 오르내림
@@ -681,10 +684,10 @@ class TonearmBob:
             ax, ay = (tip[0] - pivot[0]) / L, (tip[1] - pivot[1]) / L
             t = np.clip(((xx - pivot[0]) * ax + (yy - pivot[1]) * ay) / L, 0, 1)          # 0=축 … 1=바늘
             dist = np.abs((xx - pivot[0]) * (-ay) + (yy - pivot[1]) * ax)                  # 팔 선에서 떨어진 거리
-            half = max(10.0, 0.09 * L * 1.6)
+            half = max(6.0, 0.05 * L)                                                                    # 팔 선 가까이만 (뒤 책장 등은 움직이지 않게)
             w = _smooth(1 - dist / half) * _smooth(np.minimum(xx - x0, x1 - 1 - xx) / 6.0 + 0.0) * _smooth(np.minimum(yy - y0, y1 - 1 - yy) / 6.0 + 0.0)
             self.items.append({"box": (x0, y0, x1, y1), "t": t.astype(np.float32), "w": w.astype(np.float32),
-                               "X": xx - x0, "Y": yy - y0, "amp": max(1.8, 0.011 * L) * float(amount) * H / 1080.0})
+                               "X": xx - x0, "Y": yy - y0, "amp": max(1.2, 0.007 * L) * float(amount) * H / 1080.0})
 
     def apply(self, out, f):
         cv2 = self.cv2
@@ -693,7 +696,7 @@ class TonearmBob:
         for it in self.items:
             x0, y0, x1, y1 = it["box"]
             reg = out[y0:y1, x0:x1]
-            dy = it["amp"] * sig * (it["t"] ** 1.3) * it["w"]                              # 바늘 쪽일수록 많이 움직임
+            dy = it["amp"] * sig * (it["t"] ** 2.0) * it["w"]                              # 바늘 쪽일수록 많이 움직임
             warped = cv2.remap(reg, it["X"].astype(np.float32), (it["Y"] + dy).astype(np.float32), cv2.INTER_LINEAR,
                                borderMode=cv2.BORDER_REPLICATE)
             reg[...] = warped

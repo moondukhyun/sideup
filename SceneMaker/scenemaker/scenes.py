@@ -628,7 +628,7 @@ SCENES = {
             "living_fireplace_storm",
             "3면 창 폭우 + 벽난로 거실 + 반려견",
             "a spacious cozy living room at night, a wide bay window made of three large window panes with clean clear glass "
-            "showing a dark stormy night outside, a stone fireplace with a crackling wood fire and glowing embers on the hearth, "
+            "showing a dark stormy night outside, a stone fireplace with a bright roaring wood fire with tall lively flames filling the firebox and glowing embers on the hearth, "
             "a comfortable bed with soft blankets and pillows in the room, a dog sleeping curled up peacefully "
             "with eyes closed on the rug on the floor, a few candles with bright steady flames on the mantel, "
             "wooden ceiling beams, charming small decorations, warm firelight, empty room without people",
@@ -658,7 +658,7 @@ SCENES = {
         Scene(
             "living_fireplace_big_window",
             "아주 큰 통창 하나 + 벽난로 거실 · 폭우",
-            "a cozy living room at night with one huge floor-to-ceiling window taking up most of the wall with clean clear glass and a dark stormy night outside, a stone fireplace with a crackling wood fire, a sofa with knitted blankets, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a soft rug, a few candles with bright steady flames, charming small decorations, warm firelight, empty room without people",
+            "a cozy living room at night with one huge floor-to-ceiling window taking up most of the wall with clean clear glass and a dark stormy night outside, a stone fireplace with a bright roaring wood fire with tall lively flames filling the firebox, a sofa with knitted blankets, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a soft rug, a few candles with bright steady flames, charming small decorations, warm firelight, empty room without people",
             [
                 "wide view showing the whole window wall",
                 "view from the sofa toward the huge window and the fireplace",
@@ -670,7 +670,7 @@ SCENES = {
         Scene(
             "living_fireplace_two_windows",
             "큰 창 2개 + 벽난로 거실 · 폭우",
-            "a cozy living room at night with two large tall windows side by side with clean clear glass and a dark stormy night outside, a stone fireplace with a crackling wood fire between a sofa and an armchair, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on the rug, candles with bright steady flames on the mantel, charming small decorations, warm firelight, empty room without people",
+            "a cozy living room at night with two large tall windows side by side with clean clear glass and a dark stormy night outside, a stone fireplace with a bright roaring wood fire with tall lively flames filling the firebox between a sofa and an armchair, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on the rug, candles with bright steady flames on the mantel, charming small decorations, warm firelight, empty room without people",
             [
                 "wide view of the room",
                 "exactly one single cat with one head lying down fully asleep curled up in a ball with eyes closed on the armchair",
@@ -694,7 +694,7 @@ SCENES = {
         Scene(
             "living_fireplace_panorama",
             "전면 통유리 창 + 벽난로 + 침대 · 폭우",
-            "a spacious modern cabin living room at night with an entire wall of floor-to-ceiling glass windows with clean clear glass and a dark stormy night outside, a stone fireplace with a crackling wood fire, a large bed with soft blankets near the glass wall, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a rug, candles with bright steady flames, wooden ceiling beams, warm firelight, empty room without people",
+            "a spacious modern cabin living room at night with an entire wall of floor-to-ceiling glass windows with clean clear glass and a dark stormy night outside, a stone fireplace with a bright roaring wood fire with tall lively flames filling the firebox, a large bed with soft blankets near the glass wall, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a rug, candles with bright steady flames, wooden ceiling beams, warm firelight, empty room without people",
             [
                 "wide view of the whole glass wall",
                 "view from the bed toward the fireplace and the glass wall",
@@ -730,7 +730,7 @@ SCENES = {
         Scene(
             "cabin_fireplace_window",
             "통나무집 벽난로 + 큰 창 · 폭우",
-            "a rustic log cabin interior at night with a large window with clean clear glass and a dark stormy night outside, a rough stone fireplace with a crackling wood fire, a wool blanket on a wooden bench, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a sheepskin rug, a few candles with bright steady flames, warm firelight, empty room without people",
+            "a rustic log cabin interior at night with a large window with clean clear glass and a dark stormy night outside, a rough stone fireplace with a bright roaring wood fire with tall lively flames filling the firebox, a wool blanket on a wooden bench, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a sheepskin rug, a few candles with bright steady flames, warm firelight, empty room without people",
             [
                 "wide view of the cabin room",
                 "the window is beside the fireplace",
@@ -744,7 +744,7 @@ SCENES = {
             "클래식 턴테이블 + 벽난로 거실 · 폭우",
             "a cozy living room at night with a classic vintage wooden record player turntable on a low wooden cabinet, "
             "a black vinyl record on the platter with its colorful center label clearly visible and the tonearm resting on it, the turntable body and clear dust cover completely plain and smooth with no lettering, no brand name and no logo, "
-            "shelves of vinyl records and a pair of old speakers, a stone fireplace with a crackling wood fire, "
+            "shelves of vinyl records and a pair of old speakers, a stone fireplace with a bright roaring wood fire with tall lively flames filling the firebox, "
             "a large window with clean clear glass and a dark stormy night outside, a few candles with bright steady flames, "
             "exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a rug, warm firelight, empty room without people, no cat",
             [
