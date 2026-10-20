@@ -525,7 +525,10 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
                     import cv2
                     near = cv2.dilate(gzone, np.ones((int(0.05 * renderer.W) | 1, int(0.05 * renderer.W) | 1), np.uint8))
                     wmask = wmask * near
-                wmask = gm if wmask is None else np.maximum(wmask, gm)
+                if any(m.get("poly") for m in gmarks):                                # 윤곽(다각형)을 그렸으면 그 안쪽만 유리 (자동 색 판별로 덮개 가장자리 등이 섞이지 않게)
+                    wmask = gm
+                else:
+                    wmask = gm if wmask is None else np.maximum(wmask, gm)
                 print(f"  창 유리: 표시한 창 {len(gboxes)}개를 합침")
         if wmask is None:
             if not real:
