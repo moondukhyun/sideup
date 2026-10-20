@@ -399,16 +399,22 @@ SCENES = {
         Scene(
             "cabin_window",
             "휴양림 산장 창가",
-            "view from inside a simple wooden cabin at a Korean recreational forest looking out a window "
-            "at a rainy mountain slope with slender pine and oak trees, water droplets on the window glass, "
-            "plain wooden window frame, a mug on the windowsill, dim indoor light",
+            "view from inside a cozy lived-in wooden cabin at a Korean recreational forest looking out a large window with a "
+            "thick wooden frame at a misty mountain slope with layers of slender pine and oak trees fading into mist, "
+            "clear clean window glass, on the deep wooden windowsill a steaming ceramic mug, a small potted plant, a few worn books "
+            "and a small oil lamp, a knitted wool blanket draped over a wooden chair, rough wooden plank walls and ceiling beams "
+            "with natural grain and knots, a small framed picture and a bunch of dried herbs on the wall, warm lamp light inside, "
+            "rich natural details like a real documentary photograph, empty cabin without people",
             [
-                "grey rainy afternoon, soft light",
-                "evening, warm lamp inside, dark blue outside",
-                "summer, fresh green leaves outside",
+                "grey rainy afternoon, soft light, a reading nook with a cushion and a book on the windowsill",
+                "evening, warm lamp inside, dark blue misty forest outside",
+                "summer, fresh green leaves outside, a straw hat hanging by the window",
+                "two windows side by side with simple linen curtains, a small wooden table with a teapot and cups",
+                "wide view of the cabin room with the window, a wooden chair, a small shelf and hanging lanterns",
             ],
             {"intensity": 0.8, "brightness": 0.35, "fog": 0.0, "splashes": False, "darken": 0.05, "window": True},
-            negative=FOREST_NEGATIVE + ", log cabin, fireplace, candles, luxury",
+            negative=FOREST_NEGATIVE + ", luxury, bare empty walls, minimalist, plain empty room, modern apartment",
+            comfy={"family": "zimage"},   # v11.22: 너무 단순·밋밋 → 소품·질감을 풍부하게, Z-Image
         ),
         Scene(
             "tent",
