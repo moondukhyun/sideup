@@ -125,10 +125,11 @@ class Scene:
     post: dict = field(default_factory=dict)    # 후처리: grain, soften, saturation
     animals: bool = False     # 반려동물이 나오는 씬: 기본 네거티브의 'animal' 을 뺀다
 
-    def build_prompt(self, rng: random.Random, extra: str = ""):
+    def build_prompt(self, rng: random.Random, extra: str = "", variant=None):
         parts = [self.prompt]
         if self.variations:
-            parts.append(rng.choice(self.variations))
+            # variant 를 주면 번호 순서대로 구도를 고른다 → 한 번에 여러 장을 만들 때 구도가 서로 겹치지 않음
+            parts.append(self.variations[variant % len(self.variations)] if variant is not None else rng.choice(self.variations))
         if extra:
             parts.append(extra)
         parts.append(self.style or STYLE)
@@ -561,6 +562,10 @@ SCENES = {
                 "an old wooden desk beside a stack of well-worn books",
                 "a bedside table with the soft edge of a knitted blanket",
                 "a rustic wooden shelf with a few small trinkets",
+                "a round wooden stool beside an old armchair, a folded wool blanket",
+                "a small wooden nightstand with an old alarm clock and a glass of water, a pillow edge visible",
+                "a low wooden table with a tea cup and an open journal with a pen",
+                "a window-less reading corner with a stack of old books and a small clay plant pot",
             ],
             {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
@@ -583,15 +588,18 @@ SCENES = {
         ),
         Scene(
             "cozy_parlor",
-            "아늑한 응접실 · 창밖 비 · 촛불",
+            "아늑한 응접실 · 창밖 비 · 촛불 하나",
             "a cozy old-fashioned parlor living room at night, a comfortable armchair and a small sofa with a knitted blanket, "
             "a round rug, bookshelves full of books and charming little knick-knacks, a table lamp with a dim warm shade, "
-            "a few lit candles with bright steady flames, patterned wallpaper, dark wooden furniture, "
+            "exactly one single lit candle with a small bright steady flame on a side table, patterned wallpaper, dark wooden furniture, "
             "a large window with dark night outside and clean clear glass, empty room without people",
             [
                 "wide view of the whole room",
-                "view from the armchair toward the window, candles on a side table",
+                "view from the armchair toward the window, the candle on a side table",
                 "a small round table with a teapot and cups in the foreground",
+                "a large bay window with heavy curtains pulled back, the candle on a windowsill",
+                "a fireplace-less corner with a grandfather clock and a bookshelf, the candle on a small table",
+                "a wide wooden window with a deep sill and a sleeping view of the dark garden",
             ],
             {"intensity": 1.2, "brightness": 0.42, "window": True, "interior": 1.0, "fire_sound": False,
              **INTERIOR_RAIN},
@@ -607,6 +615,10 @@ SCENES = {
                 "the window has a wooden frame and a deep sill",
                 "close view of the candle with the window blurred behind it",
                 "a knitted blanket on a chair next to the desk",
+                "a small round table by the window with a teapot, the candle in a glass holder",
+                "a wide window with simple curtains, the candle on the sill",
+                "an old writing desk with a leather notebook and fountain pen beside the window",
+                "a cozy window seat with a cushion, the candle on a small tray",
             ],
             {"intensity": 1.8, "brightness": 0.45, "window": True, "interior": 1.0, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,

@@ -126,6 +126,7 @@ def generate_images(cfg, scene_name, count, seed=None, extra="", cli_loras=None,
         print(f"LoRA 적용: {', '.join(f'{n}({w})' for n, w in loras)}")
     W, H = cfg["output"]["width"], cfg["output"]["height"]
     jobs = []
+    vbase = seed if seed is not None else random.randrange(1000)         # 장면 구도(variations)를 번호 순서로 → 한 번에 여러 장 만들 때 구도가 겹치지 않게
     for i in range(count):
         s = seed + i if seed is not None else random.randrange(2**32)
         picks, rain_override = {}, {}
@@ -135,7 +136,7 @@ def generate_images(cfg, scene_name, count, seed=None, extra="", cli_loras=None,
             extra_s = ", ".join(x for x in (extra, vtext) if x)
         else:
             extra_s = extra
-        positive, negative = scene.build_prompt(random.Random(s), extra_s)
+        positive, negative = scene.build_prompt(random.Random(s), extra_s, variant=vbase + i)
         if triggers:
             positive = f"{triggers}, {positive}"
         print(f"[{scene.name}] 이미지 생성 {i + 1}/{count} (seed={s}) ...")
