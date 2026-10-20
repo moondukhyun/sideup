@@ -139,7 +139,7 @@ def generate_images(cfg, scene_name, count, seed=None, extra="", cli_loras=None,
         positive, negative = scene.build_prompt(random.Random(s), extra_s, variant=vbase + i)
         if triggers:
             positive = f"{triggers}, {positive}"
-        print(f"[{scene.name}] 이미지 생성 {i + 1}/{count} (seed={s}) ...")
+        print(f"[{scene.name}] 이미지 생성 {i + 1}/{count} (seed={s}, 프롬프트 규칙 v11.23) ...")
         t0 = time.time()
         if family == "qwen":
             from .qwenimage import build_qwen

@@ -37,7 +37,7 @@ NEGATIVE = (
 # v11.22: 아늑한 실내 (촛불·벽난로·창밖 폭우·반려동물). 실내 불빛이 비 오는 날 색보정으로 차갑게 변하지 않게 grade 를 낮춘다
 INTERIOR_STYLE = (
     "cozy interior photograph, warm low-key lighting, soft golden glow, deep soft shadows, realistic, "
-    "natural fine detail, shallow depth of field, film grain, 35mm, all objects plain with no writing, labels or logos, window glass perfectly clean and dry"
+    "natural fine detail, shallow depth of field, film grain, 35mm, all objects plain with no writing, labels or logos, every window has perfectly dry smooth crystal clear glass with no water drops, no streaks and no condensation, calm still air outside the window"
 )
 INTERIOR_NEGATIVE = (
     "bright daylight, overexposed, harsh flash, cold fluorescent light, messy clutter, cartoon, illustration, 3d render, "
