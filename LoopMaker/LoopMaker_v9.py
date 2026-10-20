@@ -4708,7 +4708,7 @@ def sm_job_label(bg):
     return label
 
 
-def claude_find_pets_fans(img_path):
+def _claude_find_marks_raw(img_path):
     """Claude 로 사진 속 자는 강아지·고양이·천장 선풍기 위치를 찾는다 → [{"kind","x0","y0","x1","y1"}] (0~1 비율).
     (이 PC 에 로그인된 claude 를 쓰므로 추가 비용 없음. 결과는 틀릴 수 있어 사용자가 화면에서 확인·수정)"""
     path = os.path.abspath(img_path).replace("\\", "/")
@@ -4747,6 +4747,81 @@ def claude_find_pets_fans(img_path):
     return res
 
 
+def claude_verify_marks(img_path, marks, rounds=2):
+    """v11.23: 찾은 위치 상자를 그림 위에 번호와 함께 그려서 Claude 에게 '맞게 잡혔나' 다시 확인시키고, 틀린 상자는 고친 값으로 바꾼다.
+    (위치가 어긋나면 레코드가 엉뚱한 곳이 돌거나 책장이 흔들리는 문제가 생기므로, 영상 만들기 전에 최대 2번 바로잡음). 실패하면 원래 값을 그대로 돌려줌."""
+    colors = {"dog": (0, 170, 255), "cat": (0, 170, 255), "fan": (170, 0, 255), "record": (255, 140, 0), "tonearm": (255, 0, 120),
+              "fire": (255, 40, 0), "glass": (0, 200, 120), "candle": (255, 230, 0)}
+    marks = [dict(m) for m in marks]
+    for _ in range(rounds):
+        try:
+            from PIL import Image, ImageDraw
+            im = Image.open(img_path).convert("RGB")
+            sc = min(1.0, 1600.0 / im.width)
+            if sc < 1.0:
+                im = im.resize((int(im.width * sc), int(im.height * sc)))
+            W, H = im.size
+            dr = ImageDraw.Draw(im)
+            for i, m in enumerate(marks):
+                c = colors.get(m["kind"], (255, 255, 255))
+                if m["kind"] == "candle":
+                    cx, cy = (m["x0"] + m["x1"]) / 2 * W, (m["y0"] + m["y1"]) / 2 * H
+                    dr.ellipse((cx - 9, cy - 9, cx + 9, cy + 9), outline=c, width=3)
+                    dr.text((cx + 11, cy - 6), str(i), fill=c)
+                else:
+                    dr.rectangle((m["x0"] * W, m["y0"] * H, m["x1"] * W, m["y1"] * H), outline=c, width=3)
+                    dr.text((m["x0"] * W + 5, m["y0"] * H + 3), f'{i}:{m["kind"]}', fill=c)
+            tmp = os.path.join(tempfile.mkdtemp(), "marks_check.png")
+            im.save(tmp)
+            tmp = tmp.replace("\\", "/")
+            lines = "\n".join(f'- {i}: {m["kind"]}' for i, m in enumerate(marks))
+            prompt = (f"Read 도구로 이 이미지 파일을 열어서 보세요: {tmp}\n\n"
+                      "그림 위에 색 상자(또는 촛불은 동그라미)와 번호가 그려져 있습니다. 각 번호의 상자가 그 이름의 대상을 정확히 감싸는지 검사해 주세요:\n"
+                      f"{lines}\n\n"
+                      "기준: record=LP 판의 타원 전체(가장자리까지, 가운데 라벨 포함, 톤암·받침대 제외), tonearm=톤암(바늘 달린 팔)만 — 뒤의 책장·벽·판은 최대한 넣지 말 것, "
+                      "fire=벽난로 안에서 불꽃이 보이는 부분, glass=창 유리(창틀 안쪽), dog/cat=자는 동물 몸 전체, candle=불꽃 위치, fan=선풍기 날개 전체.\n"
+                      "상자가 대상을 많이 벗어나거나(절반 이상 어긋남) 다른 물체를 크게 포함하거나 대상을 놓치면 틀린 것입니다. 약간의 여유는 허용.\n"
+                      '출력은 JSON 한 덩어리만: {"items":[{"id":0,"ok":true},{"id":1,"ok":false,"x0":0.1,"y0":0.2,"x1":0.3,"y1":0.4}]} '
+                      "— 틀린 상자만 ok:false 와 고친 값(이미지 전체를 가로·세로 0~1 로 본 비율, candle 은 x,y 한 점)을 주세요. 다른 글은 쓰지 마세요.")
+            out = run_claude_text(prompt, timeout=240, allow_read=True, retries=1)
+            m_ = re.search(r"\{.*\}", out, re.S)
+            if not m_:
+                break
+            changed = False
+            for it in json.loads(m_.group(0)).get("items", []):
+                try:
+                    i = int(it["id"])
+                    if it.get("ok", True) or not (0 <= i < len(marks)):
+                        continue
+                    if marks[i]["kind"] == "candle":
+                        cx, cy = min(max(float(it["x"]), 0.0), 1.0), min(max(float(it["y"]), 0.0), 1.0)
+                        marks[i].update(x0=max(0.0, cx - 0.008), y0=max(0.0, cy - 0.012), x1=min(1.0, cx + 0.008), y1=min(1.0, cy + 0.012))
+                    else:
+                        x0, y0, x1, y1 = (min(max(float(it[c]), 0.0), 1.0) for c in ("x0", "y0", "x1", "y1"))
+                        if x1 - x0 < 0.01 or y1 - y0 < 0.004:
+                            continue
+                        marks[i].update(x0=x0, y0=y0, x1=x1, y1=y1)
+                    changed = True
+                except (KeyError, TypeError, ValueError):
+                    continue
+            if not changed:
+                break
+        except Exception:
+            break
+    return marks
+
+
+def claude_find_pets_fans(img_path):
+    """위치 찾기(+ 찾은 상자가 맞는지 한 번 더 검증·보정)."""
+    marks = _claude_find_marks_raw(img_path)
+    if marks:
+        try:
+            marks = claude_verify_marks(img_path, marks)
+        except Exception:
+            pass
+    return marks
+
+
 def claude_check_image(img_path):
     """Claude 가 AI 그림을 보고 오류(머리 2개인 개, 앉아 있는 고양이, 뒤틀린 물체 등)를 검사 → {"ok","score","issues"}.
     영상 효과로는 고칠 수 없는 '그림 자체의 오류'를 영상 만들기 전에 걸러내기 위한 것."""
@@ -4762,6 +4837,7 @@ def claude_check_image(img_path):
               "   (한옥·풍경 사진이라면: 신발·장독·그릇·등불 같은 작은 물체가 합쳐지거나 뭉개지거나 모양이 이상함, 기둥·처마·기와가 뒤틀림, 나무·잎이 인조물처럼 보임)\n"
               "8) 전체적으로 '사진'이 아니라 그림·3D 렌더처럼 너무 매끈하거나 번져 있어 AI 티가 남 (짚·나무결·벽 균열·잎·돌 같은 질감이 뭉개짐, 나뭇잎이 비현실적으로 크고 모양·크기·색이 모두 비슷하거나 플라스틱처럼 매끈함, 산·나무가 물감 번진 듯 뭉개지거나 판타지·알프스처럼 비현실적, 능선·나무 한 그루 한 그루가 구분되지 않음). 이런 경우 score 를 5 이하로 주고 ok 를 false 로\n"
               "7) 창 유리에 비친 반사(촛불·조명·방 안 물건)가 실제 방 안 개수·위치와 맞지 않음 (예: 촛불은 2개인데 유리에는 1개만 비침)\n"
+              "9) 영상 효과를 붙일 장면의 필수 요소: 턴테이블이 있으면 레코드판(라벨 포함)과 톤암이 또렷하고 톤암이 판 위에 놓여 있어야 함 / 벽난로가 있으면 불꽃이 불상자를 어느 정도 채울 만큼 크고 밝아야 함(작고 희미하면 감점, score 6 이하) / 촛불이 있으면 불꽃이 켜져 있어야 함\n"
               '출력은 JSON 한 덩어리만: {"ok":true,"score":8,"issues":[]} — ok 는 위 오류가 하나도 없을 때만 true, score 는 1~10(10=완벽), '
               "issues 에는 발견한 문제를 한국어로 짧게 (예: \"강아지 몸 하나에 머리 2개\"). 다른 글은 쓰지 마세요.")
     out = run_claude_text(prompt, timeout=240, allow_read=True, retries=1)
