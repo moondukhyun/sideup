@@ -144,7 +144,10 @@ def generate_images(cfg, scene_name, count, seed=None, extra="", cli_loras=None,
         t0 = time.time()
         if family == "qwen":
             from .qwenimage import build_qwen
-            wf, how = build_qwen(c, positive, negative, s, prefix=f"scenemaker/{scene.name}")
+            from .scenes import QWEN_REALISM, QWEN_NEGATIVE
+            positive = f"{positive}, {QWEN_REALISM}"                                   # 사진처럼 사실적으로(그림·판타지 느낌 방지) — Qwen 은 화려한 일러스트로 흐르기 쉬움
+            qneg = f"{negative}, {QWEN_NEGATIVE}"
+            wf, how = build_qwen(c, positive, qneg, s, prefix=f"scenemaker/{scene.name}", cfg=float((c.get("qwen") or {}).get("cfg", 2.5)))
             print(f"  Qwen-Image 2.1: {how}")
             img = client.generate(wf)[0]
         elif family == "zimage":

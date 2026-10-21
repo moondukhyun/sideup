@@ -119,12 +119,12 @@ RUGS = ["a thick cream shag rug", "a worn Persian rug in deep reds", "a handwove
 
 # v11.23: 자연·한옥·텐트 장면도 이미지마다 풍경 분위기가 달라지게 하는 추가 축 (장면별로 어울리는 것만)
 LIGHT_VIEWS = ["soft diffused overcast light", "light mist drifting between the trees", "a faint break of warm light through the clouds",
-               "deep moody blue light", "gentle glowing haze in the air", "crisp clear light after the rain"]
-FOREGROUNDS = ["mossy stones in the foreground", "wet fallen leaves on the ground", "puddles reflecting the sky", "dripping water droplets on leaves in sharp detail",
-               "fresh wet grass in the foreground", "smooth wet pebbles in the foreground", "ferns and small wildflowers in the foreground"]
-PALETTE_NATURE = ["fresh vivid greens", "muted calm cool tones", "deep rich emerald tones", "soft grey-green tones", "warm earthy tones", "silvery blue-green tones"]
-VEGETATION = ["dominant tall pine and fir trees", "mixed oak and maple trees", "slender birch trees with white trunks", "dense lush ferns and broadleaf trees",
-              "tall zelkova and elm trees", "a mix of conifers and deciduous trees with moss covered trunks"]
+               "calm dim natural blue-hour light", "even flat natural daylight", "crisp clear natural light"]
+FOREGROUNDS = ["mossy stones in the foreground", "wet fallen leaves on the ground", "puddles reflecting the sky", "damp leaves on the ground",
+               "fresh wet grass in the foreground", "smooth wet pebbles in the foreground", "ordinary grass and small stones in the foreground"]
+PALETTE_NATURE = ["natural muted greens", "calm cool grey-blue tones", "natural olive and brown tones", "soft grey-green tones", "warm earthy tones", "subtle desaturated tones"]
+VEGETATION = ["dominant tall pine and fir trees", "mixed oak and maple trees", "slender birch trees with white trunks", "ordinary Korean mountain forest with oak and hornbeam trees",
+              "tall zelkova and elm trees", "a plain mixed forest of conifers and deciduous trees"]
 CAMP_PROPS = ["a camp lantern glowing warmly", "a pair of muddy hiking boots and a backpack", "a steaming enamel mug on a folding table",
               "a hammock and a folding camp chair", "string lights under the tarp", "a small portable stove with a kettle"]
 CANDLE_HOLDERS = ["a brass candle holder", "a rustic ceramic saucer", "a clear glass jar", "a wooden plate", "an antique iron holder", "a small stone dish"]

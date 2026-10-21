@@ -10,6 +10,12 @@ STYLE = (
 )
 
 # AI 티를 줄인 자연스러운 사진 톤 — 완벽하지 않되, 색은 생생하고 질감은 선명하게
+QWEN_REALISM = ("unedited real photograph taken with a full-frame camera and a 35mm lens, natural muted true-to-life colors, "
+                "realistic scale and proportions, an ordinary real place, empty scenery, calm still air, no stylization")
+QWEN_NEGATIVE = ("person, people, human, man, woman, figure, fantasy, painting, illustration, digital art, CGI, 3d render, concept art, "
+                 "oversaturated, neon, glowing light beams, magical, surreal, jungle, falling rain, rain streaks, heavy downpour, storm, "
+                 "hdr, over-sharpened, plastic")
+
 NATURAL_STYLE = (
     "natural candid photograph, realistic unedited look, true-to-life rich colors, "
     "natural fine detail and texture, natural lighting, real place, imperfect natural composition"
@@ -100,6 +106,9 @@ _DRY_RULES = [
     (r"rain-soaked", "soaked"),
     (r"darkened by rain", "darkened by moisture"),
     (r"\bin (?:the |a )?(?:[a-z]+ ){0,3}rain\b", "on a wet overcast day"),
+    (r"\bthunderstorm\b", "overcast evening"),
+    (r"\bstormy\b", "overcast"),
+    (r"\bstorm\b", "overcast"),
     (r"\brainy\b", "wet overcast"),
     (r"\b(?:light |steady |heavy |gentle )?(?:rain|drizzle|downpour)\b", "wet air"),
 ]

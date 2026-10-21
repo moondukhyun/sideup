@@ -40,7 +40,7 @@ def _links(wf):
     return pos, neg
 
 
-def fill_template(wf, positive, negative, seed, width, height, prefix):
+def fill_template(wf, positive, negative, seed, width, height, prefix, cfg=None):
     """API 워크플로(dict)의 프롬프트·시드·크기·저장 이름을 바꿔 새 dict 로 돌려준다. 바꾼 항목 수를 함께 반환."""
     wf = json.loads(json.dumps(wf))
     pos_ids, neg_ids = _links(wf)
@@ -57,6 +57,8 @@ def fill_template(wf, positive, negative, seed, width, height, prefix):
                 inp[k] = positive; done["positive"] += 1
             elif k == "negative_prompt":
                 inp[k] = negative; done["negative"] += 1
+            elif k == "cfg" and cfg is not None and isinstance(v, (int, float)):
+                inp[k] = float(cfg)                                       # 네거티브 문장은 cfg 가 1 보다 커야 효과가 있음
             elif k in ("seed", "noise_seed") and isinstance(v, (int, float)):
                 inp[k] = int(seed); done["seed"] += 1
             elif k == "width" and isinstance(v, (int, float)):
@@ -159,15 +161,15 @@ def default_graph(c, positive, negative, seed, width, height, prefix):
     return wf
 
 
-def build_qwen(c, positive, negative, seed, prefix="scenemaker/qwen", width=1536, height=864):
+def build_qwen(c, positive, negative, seed, prefix="scenemaker/qwen", width=1536, height=864, cfg=None):
     """워크플로 dict 와 설명(어떤 틀을 썼는지)을 돌려준다."""
     p = find_template(c)
     if p is None:
-        return default_graph(c, positive, negative, seed, width, height, prefix), "기본 구성(틀 파일 없음)"
+        return default_graph({**c, "qwen": {**(c.get("qwen") or {}), "cfg": cfg if cfg is not None else (c.get("qwen") or {}).get("cfg", 1.0)}}, positive, negative, seed, width, height, prefix), "기본 구성(틀 파일 없음)"
     wf = json.loads(p.read_text(encoding="utf-8-sig"))
     if "nodes" in wf and "links" in wf:
         raise SystemExit(f"{p.name} 는 '저장'으로 만든 일반 파일입니다. ComfyUI 메뉴 ☰ → 내보내기 → 'API' 로 다시 저장하세요.")
-    wf, done = fill_template(wf, positive, negative, seed, width, height, prefix)
+    wf, done = fill_template(wf, positive, negative, seed, width, height, prefix, cfg=cfg)
     if not done["positive"]:
         raise SystemExit(f"{p.name} 에서 프롬프트 칸을 찾지 못했습니다. ComfyUI 에서 '내보내기(API)' 로 저장했는지 확인하세요.\n  (파일 구조: {describe(wf)[:900]})")
     extra = ""
