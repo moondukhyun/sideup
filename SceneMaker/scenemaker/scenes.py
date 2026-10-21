@@ -665,6 +665,24 @@ SCENES = {
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
         ),
         Scene(
+            "candle_closeup",
+            "큰 촛불 클로즈업 · 컴컴한 방 소품 배경",
+            "an extreme close-up photograph of one single large lit candle filling the center of the frame, a tall bright steady flame with a white-yellow core and a warm orange glow, "
+            "soft melted wax at the candle top and a few slow wax drips on the side, the candle is the only light source in a completely dark room, "
+            "warm golden light gently falling on a few nearby objects, deep soft darkness all around with a few props faintly visible and softly out of focus in the background, "
+            "sharp focus on the flame and the wax, windowless room, empty room without people, calm sleepy atmosphere",
+            [
+                "the candle in the center of the frame, props softly blurred behind it",
+                "the candle slightly left of center with the dark room and its objects visible on the right",
+                "the candle slightly right of center with the dark room and its objects visible on the left",
+                "a slightly lower angle looking up at the tall flame against the dark",
+                "a closer view with the flame very large and the background almost dark",
+                "a wider view where the candle is large in the foreground and the dim room shows behind it",
+            ],
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "big_flame": True, **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
             "living_fireplace_big_window",
             "아주 큰 통창 하나 + 벽난로 거실 · 폭우",
             "a cozy living room at night with one huge floor-to-ceiling window taking up most of the wall with clean clear glass and a dark stormy night outside, a stone fireplace with a bright roaring wood fire with tall lively flames filling the firebox, a sofa with knitted blankets, exactly one single small cute adorable dog with one head sleeping curled up peacefully with eyes closed on a soft rug, a few candles with bright steady flames, charming small decorations, warm firelight, empty room without people",

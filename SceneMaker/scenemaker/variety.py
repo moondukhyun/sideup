@@ -29,7 +29,7 @@ AXES = {
                "looking down a path", "close view of the foreground"],
 }
 # v11.22: 실내 장면은 '한낮·여름' 같은 자연 풍경 문구가 섞이면 안 되므로 전용 축을 쓴다
-INTERIOR_SCENES = {"candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "living_fireplace_storm",
+INTERIOR_SCENES = {"candle_closeup", "candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "living_fireplace_storm",
                    "living_fireplace_candles", "hearth_dog_cat", "candle_nook",
                    "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
                    "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window",
@@ -138,6 +138,20 @@ VEGETATION_SCENES = {"forest_path", "valley_stream", "forest_lake", "thunder_for
                      "tent_view_stream", "tent_view_valley", "cabin_window"}
 TENT_SCENES = {"tent", "tent_by_stream", "tent_view_mountains", "tent_view_stream", "tent_view_valley"}
 
+CLOSEUP_CANDLES = [
+    "a thick ivory pillar candle", "a tall hand-poured golden beeswax candle", "a thick white church candle with soft melted edges",
+    "a chunky cream pillar candle with long wax drips", "a wide short candle in a clear glass jar", "an old thick candle burnt down in a brass dish",
+    "a hand-dipped tapered candle in a heavy brass candlestick", "a rustic uneven handmade candle with a thick wick", "a smooth white candle on a small ceramic plate"]
+CLOSEUP_BACKDROPS = [
+    "behind it an old wooden bookshelf with worn book spines faintly visible", "behind it a tall antique clock and a brass lamp dimly visible",
+    "behind it a stone fireplace with a dark mantel and framed pictures faintly visible", "behind it a hanging dried flower bundle and a woven basket dimly visible",
+    "behind it a vintage record player and a stack of records faintly visible", "behind it a dark armchair with a knitted blanket and a small side table",
+    "behind it an old wooden chest and a framed painting dimly visible", "behind it a shelf of ceramic jars and a teapot faintly glowing in the candlelight",
+    "behind it a dark window with thick velvet curtains and a potted plant", "behind it a rustic wooden door and an iron lantern dimly visible",
+    "behind it a writing desk with a leather journal and a fountain pen faintly visible", "behind it a rough plaster wall with a small mirror reflecting a tiny glow"]
+CLOSEUP_SURFACES = ["on a dark wooden table", "on a rough stone ledge", "on a worn linen cloth", "on an old wooden shelf", "on a slate slab", "on a polished walnut desk"]
+CLOSEUP_GLOWS = ["warm golden glow", "deep amber glow", "soft orange glow", "gentle honey-colored glow", "warm candlelit glow with deep shadows"]
+
 # 씬 이름에 시간이 정해진 경우 시간 축을 쓰지 않음
 FIXED_TIME = {"forest_night", "night_park", "city_night"}
 
@@ -204,6 +218,10 @@ def diversify(scene_name, seed, rain_level=None):
             picks["vegetation"] = rng.choice(VEGETATION)
         if scene_name in TENT_SCENES:
             picks["camp"] = rng.choice(CAMP_PROPS)
+    if scene_name == "candle_closeup":                                       # 큰 촛불 클로즈업: 양초 종류·받침·뒤에 보이는 소품·빛 색을 이미지마다 다르게
+        picks["candle"] = rng.choice(CLOSEUP_CANDLES) + " " + rng.choice(CLOSEUP_SURFACES)
+        picks["backdrop"] = rng.choice(CLOSEUP_BACKDROPS)
+        picks["glow"] = rng.choice(CLOSEUP_GLOWS)
     if scene_name == "candle_single":
         picks["holder"] = rng.choice(CANDLE_HOLDERS) + " on " + rng.choice(CANDLE_SURFACES)
     elif scene_name in ("candle_many", "candle_nook"):                       # 촛불 여러 개: 놓인 곳·받침의 재질을 바꿔 분위기를 다르게 (개수는 건드리지 않음)

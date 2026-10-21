@@ -14,7 +14,7 @@ WARM = np.array([1.0, 0.84, 0.62], dtype=np.float32)         # 불빛이 닿은 
 
 
 # ---------------------------------------------------------------- 불빛 찾기
-def find_lights(bg, max_candles=24, exclude=None, fire_box=None, candle_pts=None):
+def find_lights(bg, max_candles=24, exclude=None, fire_box=None, candle_pts=None, big_flame=False):
     """bg: float RGB (H,W,3) 0..1.  exclude: (H,W) 0~1 — 이 영역(창문 유리 등)의 불빛은 무시.
     반환: {"candles": [{"x","y","w","h"}...], "fire": {"mask","box","cx","cy","base"} 또는 None}  (전체 해상도 좌표)
 
@@ -30,6 +30,25 @@ def find_lights(bg, max_candles=24, exclude=None, fire_box=None, candle_pts=None
     lum = small @ LUMA
     r, g, b = small[..., 0], small[..., 1], small[..., 2]
     area_px = float(sw * sh)
+    if big_flame:                                                     # 큰 촛불 클로즈업: 화면에서 가장 크고 밝은 따뜻한 덩어리 = 불꽃 하나
+        bright = ((lum > 0.62) & ((r - b) > 0.10)).astype(np.uint8)
+        bright = cv2.morphologyEx(bright, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+        n_, lab_, st_, cen_ = cv2.connectedComponentsWithStats(bright, connectivity=8)
+        best, pick_ = 0.0, None
+        for i in range(1, n_):
+            x_, y_, w_, h_, a_ = st_[i]
+            if a_ < 0.0006 * area_px or a_ > 0.30 * area_px:
+                continue
+            sc_ = float(lum[lab_ == i].max()) * a_ * (1.0 + 0.6 * (h_ > 1.2 * w_))      # 밝고 크고 위로 길쭉한 것(불꽃 모양) 우선
+            if sc_ > best:
+                best, pick_ = sc_, i
+        out_ = []
+        if pick_ is not None:
+            x_, y_, w_, h_, a_ = st_[pick_]
+            fw_ = float(np.clip(0.6 * w_, 6, 0.22 * sw))                                  # 불꽃 몸통 폭(바깥 번짐 제외)
+            fh_ = float(np.clip(h_, 12, 0.60 * sh))
+            out_.append({"x": (x_ + w_ / 2.0) / s, "y": (y_ + 0.55 * h_) / s, "w": max(6.0, fw_ / s), "h": max(12.0, fh_ / s)})
+        return {"candles": out_, "fire": None}
     ex = None
     if exclude is not None:
         ex = cv2.resize(np.asarray(exclude, np.float32), (sw, sh), interpolation=cv2.INTER_AREA) > 0.4
@@ -297,7 +316,8 @@ class Interior:
             self.flames.append({
                 "idx": i, "box": (x0, y0, x1, y1), "win": win.astype(np.float32), "above2": above.astype(np.float32),
                 "core": core.astype(np.float32), "halo": halo.astype(np.float32),
-                "amp": (0.11 * fw + 0.9 * res) * self.strength, "sway": sway, "sig": self.candle_sigs[i],
+                "amp": (0.11 * fw + 0.9 * res) * (2.4 if fh > 70 * res else 1.0) * self.strength,      # 화면 가득한 큰 불꽃은 크기에 맞게 더 크게 일렁임
+                "sway": sway, "sig": self.candle_sigs[i],
                 "xx": xx_ - x0, "yy": yy_ - y0,
             })
 

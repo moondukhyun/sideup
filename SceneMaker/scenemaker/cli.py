@@ -287,7 +287,7 @@ def _attach_interior(renderer, job, rs, args):
     fbox = next(((m["x0"] * Wp, m["y0"] * Hp, m["x1"] * Wp, m["y1"] * Hp) for m in marks if m.get("kind") == "fire"), None)
     cpts = [((m["x0"] + m["x1"]) / 2 * Wp, (m["y0"] + m["y1"]) / 2 * Hp) for m in marks if m.get("kind") == "candle"]
     info = find_lights(renderer.bg, exclude=renderer.glass.mask if renderer.glass is not None else None,
-                       fire_box=fbox, candle_pts=cpts or None)
+                       fire_box=fbox, candle_pts=cpts or None, big_flame=bool(getattr(rs, "big_flame", False)))
     fpoly = next((m for m in marks if m.get("kind") == "fire" and m.get("poly")), None)
     if fpoly is not None and info.get("fire") is not None:                       # 직접 그린 불 윤곽 안쪽만 타오르게
         import cv2

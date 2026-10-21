@@ -44,6 +44,7 @@ class RainSettings:
     sway: bool = True         # v11.22: False 면 잎 흔들림(식물 감지)을 건너뜀 (실내 장면)
     vinyl_sound: bool = False # v11.22: True 면 레코드판 특유의 지직거리는 소리를 자동으로 합성해 섞음
     fire_sound: bool = False  # v11.22: True 면 벽난로 타닥거리는 소리를 자동으로 합성해 섞음
+    big_flame: bool = False   # v11.23: True 면 화면 가득한 큰 촛불 클로즈업용 불꽃 감지·움직임 (일반 촛불 감지는 작은 불꽃만 인정)
     dof: float = 0.0          # 깊이 기반 피사계심도 (0 = 끔). 가을 씬은 1.0 (2026-10-02 Cowork: 잘린 종이 느낌 해소)
     seed: int = 7
 
