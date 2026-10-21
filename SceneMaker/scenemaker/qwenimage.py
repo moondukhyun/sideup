@@ -189,6 +189,29 @@ def _resolve(wf, nid, depth=0):
     return None
 
 
+def _next_id(wf):
+    return "9" + str(max([int(k) for k in wf if str(k).isdigit()] + [1000]) + 1)
+
+
+def _clone_chain(wf, nid, text, depth=0):
+    """nid 노드를 복제하고, 문장 칸은 text 로(링크면 새 문자열 노드로), 조건(conditioning) 링크는 재귀로 복제한다. 새 노드 번호 반환."""
+    src = wf[str(nid)]
+    node = {"class_type": src.get("class_type"), "inputs": dict(src.get("inputs") or {})}
+    new_id = _next_id(wf)
+    wf[new_id] = node
+    for k, v in list(node["inputs"].items()):
+        if k in _PKEYS:
+            if isinstance(v, str):
+                node["inputs"][k] = text
+            elif isinstance(v, list):
+                sid = _next_id(wf)
+                wf[sid] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": text}}
+                node["inputs"][k] = [sid, 0]
+        elif k in ("conditioning", "conditioning_1", "cond") and isinstance(v, list) and depth < 6 and str(v[0]) in wf:
+            node["inputs"][k] = [_clone_chain(wf, v[0], text, depth + 1), v[1]]
+    return new_id
+
+
 def verify_and_fix(wf, positive, negative):
     """샘플러가 실제로 받는 긍정·부정 문장을 확인하고, 뒤바뀌었거나 같은 칸을 공유하면 고친다. 반환: 설명 문자열(없으면 '')."""
     notes = []
@@ -202,16 +225,14 @@ def verify_and_fix(wf, positive, negative):
         if rp is None or rp[3]:
             raise SystemExit("Qwen 틀 파일에서 긍정 문장 칸을 찾지 못했습니다. 이대로 만들면 장면과 다른 그림이 나옵니다.\n"
                              f"  (샘플러 {sid} 의 positive → {pin}) 파일 구조를 알려 주세요: {describe(wf)[:600]}")
-        if rn is not None and not rn[3] and (rn[0], rn[1]) == (rp[0], rp[1]):
-            # 긍정·부정이 같은 칸을 공유: 부정용 문자열 노드를 새로 만들어 따로 쓴다
-            new_id = "9" + str(max([int(k) for k in wf if str(k).isdigit()] + [1000]) + 1)
-            wf[new_id] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": negative}}
-            neg_node = wf[str(nin[0])]
-            for k in list(neg_node["inputs"]):
-                if k in _PKEYS and isinstance(neg_node["inputs"][k], list):
-                    neg_node["inputs"][k] = [new_id, 0]
-            notes.append("긍정·부정이 같은 칸을 써서 분리함")
-            rn = _resolve(wf, nin[0])
+        shared = rn is not None and not rn[3] and (rn[0], rn[1]) == (rp[0], rp[1])
+        if shared or str(pin[0]) == str(nin[0]):
+            # 긍정·부정이 같은 노드/칸을 쓴다 (예: 부정이 긍정 조건을 그대로 재사용). 부정 쪽 노드 묶음을 통째로 복제해 따로 쓴다
+            nid_new = _clone_chain(wf, nin[0], negative)
+            sn["inputs"]["negative"] = [nid_new, nin[1]]
+            nin = sn["inputs"]["negative"]                                              # 이후 확인은 새로 연결한 부정 노드로
+            notes.append("긍정·부정이 같은 칸을 써서 부정 쪽을 복제해 분리함")
+            rn = _resolve(wf, nid_new)
         # 긍정 칸이 긍정 문장인지 강제 확인
         if rp[2] != positive:
             wf[rp[0]]["inputs"][rp[1]] = positive
@@ -220,9 +241,12 @@ def verify_and_fix(wf, positive, negative):
             wf[rn[0]]["inputs"][rn[1]] = negative
             notes.append(f"부정 문장 칸({rn[0]}:{rn[1]}) 값이 달라 바로잡음")
         rp2, rn2 = _resolve(wf, pin[0]), _resolve(wf, nin[0])
-        assert rp2 and rp2[2] == positive, "긍정 문장 검증 실패"
-        if rn2 is not None and not rn2[3]:
-            assert rn2[2] == negative and rn2[2] != positive, "부정 문장 검증 실패"
+        if not (rp2 and rp2[2] == positive):
+            raise SystemExit("Qwen 문장 검증 실패: 샘플러가 받는 긍정 문장이 장면 문장과 다릅니다. 그림이 장면과 다르게 나오므로 중단합니다.\n"
+                             f"  이 줄과 이미지 폴더의 qwen_workflow_sent.json 을 알려 주세요: 샘플러 {sid}, positive={pin}, negative={nin}, 구조={describe(wf)[:500]}")
+        if rn2 is not None and not rn2[3] and not (rn2[2] == negative and rn2[2] != positive):
+            raise SystemExit("Qwen 문장 검증 실패: 부정 문장 칸이 긍정과 구분되지 않습니다. 중단합니다.\n"
+                             f"  샘플러 {sid}, positive={pin}, negative={nin}, 구조={describe(wf)[:500]}")
         notes.append(f"샘플러 {sid}: 긍정='{rp2[2][:40]}…' / 부정={'(영벡터 — 사용 안 함)' if (rn2 is None or rn2[3]) else repr(rn2[2][:30]) + '…'}")
     return " · ".join(notes)
 
