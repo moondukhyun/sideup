@@ -86,6 +86,34 @@ PROPS = [
     "a pair of reading glasses on an open book, a wool throw and a decorative lantern",
     "a bowl of fresh fruit, a wooden bookshelf with ceramic ornaments and a tall indoor plant",
 ]
+FIREPLACES = [
+    "a rough natural stone fireplace", "a red brick fireplace with a thick wooden mantel", "a whitewashed brick fireplace with a rustic beam mantel",
+    "a black cast-iron wood stove with a glass door", "a marble fireplace surround with a carved mantel", "a handmade ceramic tile fireplace",
+    "a curved plaster arch fireplace with a wooden shelf", "a river-stone floor-to-ceiling chimney fireplace"]
+WALLS = [
+    "warm beige limewash plaster walls", "deep forest green painted walls with white wainscoting", "exposed red brick walls",
+    "honey-colored wooden plank walls", "soft floral wallpaper walls", "dark navy blue painted walls", "pale sage green walls with wood trim",
+    "terracotta colored plaster walls", "cream colored walls with tall wood paneling", "dark chocolate brown walls"]
+FLOORS = [
+    "herringbone oak parquet floor", "dark walnut wide plank floor", "terracotta tile floor", "whitewashed pine plank floor",
+    "polished concrete floor", "worn honey oak floor", "checkered black and white tile floor", "warm cherry wood floor"]
+PALETTES = [
+    "color palette of warm amber and brown", "color palette of deep green and brass gold", "color palette of navy blue and copper",
+    "color palette of burgundy and cream", "color palette of earthy terracotta and olive", "color palette of muted teal and walnut",
+    "color palette of soft grey and warm candle gold", "color palette of mustard yellow and chocolate"]
+WINDOWS = [
+    "tall arched white-framed windows", "black steel-framed windows with small square panes", "dark wooden sash windows with many panes",
+    "wide French doors with glass panels", "a large picture window with a thick wooden frame", "a round-top window with white muntins"]
+CURTAINS = [
+    "heavy velvet curtains in a deep color tied back", "light white linen curtains", "sheer curtains with a patterned valance",
+    "no curtains at all so the glass is fully visible", "thick plaid wool curtains"]
+LAMPS = [
+    "a floor lamp with a linen shade", "a brass table lamp with a green glass shade", "a hanging paper lantern", "a vintage glass pendant lamp",
+    "an iron candelabra on the floor", "a ceramic base lamp with a pleated shade"]
+CABINET_WOODS = [
+    "teak", "dark walnut", "light oak", "mahogany", "painted white", "ebony black lacquered", "reclaimed pine", "cherry wood"]
+CEILINGS = [
+    "exposed dark wooden ceiling beams", "a plain white plaster ceiling", "a tongue-and-groove wooden ceiling", "a high vaulted ceiling with timber trusses"]
 RUGS = ["a thick cream shag rug", "a worn Persian rug in deep reds", "a handwoven jute rug", "a soft grey wool rug",
         "a patterned kilim rug", "a plush sheepskin rug"]
 
@@ -131,10 +159,36 @@ def diversify(scene_name, seed, rain_level=None):
             picks = {"outside": rng.choice(OUTSIDE_VIEWS), **picks}
         if scene_name in DECOR_SCENES:
             picks["style"] = rng.choice(ROOM_STYLES)
+            picks["walls"] = rng.choice(WALLS)
+            picks["floor"] = rng.choice(FLOORS)
+            picks["ceiling"] = rng.choice(CEILINGS)
+            picks["palette"] = rng.choice(PALETTES)
+            picks["lamp"] = rng.choice(LAMPS)
             picks["props"] = rng.choice(PROPS)
             picks["rug"] = rng.choice(RUGS)
+            picks["cabinet"] = f"furniture made of {rng.choice(CABINET_WOODS)}"
+            if scene_name in WINDOW_INTERIOR:
+                picks["window"] = rng.choice(WINDOWS)
+                picks["curtains"] = rng.choice(CURTAINS)
+            picks["fireplace"] = rng.choice(FIREPLACES)
     text = ", ".join(picks.values())
     return text, picks
+
+
+def adapt_prompt(text, picks):
+    """고른 벽난로 종류로 문장 속 '돌 벽난로' 표현을 바꿔서 방 분위기가 확 달라지게."""
+    fp = picks.get("fireplace")
+    if not fp:
+        return text
+    import re
+    noun = fp.split(" ", 1)[1] if fp.startswith("a ") else fp
+    def rep(m):
+        return ("the " + noun) if m.group(1) == "the " else fp
+    return re.sub(r"\b(a |the )(?:rough )?(?:natural )?stone fireplace", rep, text)
+    for old in ("a rough stone fireplace", "a stone fireplace", "the stone fireplace", "a rough natural stone fireplace", "stone firep"):
+        if old in text and old != "stone firep":
+            text = text.replace(old, fp if not old.startswith("the ") else "the " + fp.split(" ", 1)[1], 1)
+    return text
 
 
 def jitter_rain(base, seed, rain_level=None):

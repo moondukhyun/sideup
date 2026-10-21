@@ -137,6 +137,7 @@ def generate_images(cfg, scene_name, count, seed=None, extra="", cli_loras=None,
         else:
             extra_s = extra
         positive, negative = scene.build_prompt(random.Random(s), extra_s, variant=vbase + i)
+        positive = variety.adapt_prompt(positive, picks)
         if triggers:
             positive = f"{triggers}, {positive}"
         print(f"[{scene.name}] 이미지 생성 {i + 1}/{count} (seed={s}, 프롬프트 규칙 v11.23) ...")
