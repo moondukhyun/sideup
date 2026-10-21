@@ -107,10 +107,10 @@ def fill_template(wf, positive, negative, seed, width, height, prefix, cfg=None)
             elif isinstance(v, str) and (len(v) > 20 or v == ""):
                 inp[k] = key
                 done.setdefault("followed", []).append(f"{nid}:{node.get('class_type')}:{k}")
+    for nid in neg_ids:                                              # 부정을 먼저, 긍정을 나중에: 두 칸이 같은 노드를 가리켜도 긍정 문장이 남게
+        follow(nid, negative)
     for pid in pos_ids:
         follow(pid, positive)
-    for nid in neg_ids:
-        follow(nid, negative)
     foreign = []
     for nid, node in wf.items():
         inp = node.get("inputs") if isinstance(node, dict) else None
@@ -161,6 +161,72 @@ def default_graph(c, positive, negative, seed, width, height, prefix):
     return wf
 
 
+_PKEYS = ("text", "prompt", "value", "string", "positive_prompt", "user_prompt", "instruction", "caption")
+
+
+def _resolve(wf, nid, depth=0):
+    """샘플러의 positive/negative 가 최종적으로 가리키는 문장 칸 → (노드번호, 키, 현재 문장, 영벡터 여부). 못 찾으면 None."""
+    node = wf.get(str(nid))
+    if not isinstance(node, dict) or depth > 8:
+        return None
+    inp = node.get("inputs") or {}
+    if "ZeroOut" in str(node.get("class_type", "")):
+        return (str(nid), None, "", True)
+    for k in _PKEYS:
+        v = inp.get(k)
+        if isinstance(v, str):
+            return (str(nid), k, v, False)
+        if isinstance(v, list) and v:
+            r = _resolve(wf, v[0], depth + 1)
+            if r:
+                return r
+    for k in ("conditioning", "conditioning_1", "cond", "positive", "negative"):
+        v = inp.get(k)
+        if isinstance(v, list) and v:
+            r = _resolve(wf, v[0], depth + 1)
+            if r:
+                return r
+    return None
+
+
+def verify_and_fix(wf, positive, negative):
+    """샘플러가 실제로 받는 긍정·부정 문장을 확인하고, 뒤바뀌었거나 같은 칸을 공유하면 고친다. 반환: 설명 문자열(없으면 '')."""
+    notes = []
+    samplers = [(nid, n) for nid, n in wf.items() if isinstance(n, dict)
+                and isinstance((n.get("inputs") or {}).get("positive"), list) and isinstance((n.get("inputs") or {}).get("negative"), list)]
+    if not samplers:
+        return "샘플러 연결을 찾지 못해 문장 검증은 생략"
+    for sid, sn in samplers:
+        pin, nin = sn["inputs"]["positive"], sn["inputs"]["negative"]
+        rp, rn = _resolve(wf, pin[0]), _resolve(wf, nin[0])
+        if rp is None or rp[3]:
+            raise SystemExit("Qwen 틀 파일에서 긍정 문장 칸을 찾지 못했습니다. 이대로 만들면 장면과 다른 그림이 나옵니다.\n"
+                             f"  (샘플러 {sid} 의 positive → {pin}) 파일 구조를 알려 주세요: {describe(wf)[:600]}")
+        if rn is not None and not rn[3] and (rn[0], rn[1]) == (rp[0], rp[1]):
+            # 긍정·부정이 같은 칸을 공유: 부정용 문자열 노드를 새로 만들어 따로 쓴다
+            new_id = "9" + str(max([int(k) for k in wf if str(k).isdigit()] + [1000]) + 1)
+            wf[new_id] = {"class_type": "PrimitiveStringMultiline", "inputs": {"value": negative}}
+            neg_node = wf[str(nin[0])]
+            for k in list(neg_node["inputs"]):
+                if k in _PKEYS and isinstance(neg_node["inputs"][k], list):
+                    neg_node["inputs"][k] = [new_id, 0]
+            notes.append("긍정·부정이 같은 칸을 써서 분리함")
+            rn = _resolve(wf, nin[0])
+        # 긍정 칸이 긍정 문장인지 강제 확인
+        if rp[2] != positive:
+            wf[rp[0]]["inputs"][rp[1]] = positive
+            notes.append(f"긍정 문장 칸({rp[0]}:{rp[1]}) 값이 달라 바로잡음")
+        if rn is not None and not rn[3] and rn[2] != negative:
+            wf[rn[0]]["inputs"][rn[1]] = negative
+            notes.append(f"부정 문장 칸({rn[0]}:{rn[1]}) 값이 달라 바로잡음")
+        rp2, rn2 = _resolve(wf, pin[0]), _resolve(wf, nin[0])
+        assert rp2 and rp2[2] == positive, "긍정 문장 검증 실패"
+        if rn2 is not None and not rn2[3]:
+            assert rn2[2] == negative and rn2[2] != positive, "부정 문장 검증 실패"
+        notes.append(f"샘플러 {sid}: 긍정='{rp2[2][:40]}…' / 부정={'(영벡터 — 사용 안 함)' if (rn2 is None or rn2[3]) else repr(rn2[2][:30]) + '…'}")
+    return " · ".join(notes)
+
+
 def build_qwen(c, positive, negative, seed, prefix="scenemaker/qwen", width=1536, height=864, cfg=None):
     """워크플로 dict 와 설명(어떤 틀을 썼는지)을 돌려준다."""
     p = find_template(c)
@@ -172,7 +238,8 @@ def build_qwen(c, positive, negative, seed, prefix="scenemaker/qwen", width=1536
     wf, done = fill_template(wf, positive, negative, seed, width, height, prefix, cfg=cfg)
     if not done["positive"]:
         raise SystemExit(f"{p.name} 에서 프롬프트 칸을 찾지 못했습니다. ComfyUI 에서 '내보내기(API)' 로 저장했는지 확인하세요.\n  (파일 구조: {describe(wf)[:900]})")
-    extra = ""
+    verdict = verify_and_fix(wf, positive, negative)
+    extra = f" · 검증: {verdict}" if verdict else ""
     if done.get("followed"):
         extra += f" · 연결된 문장 칸 {len(done['followed'])}곳도 교체"
     if done.get("foreign"):

@@ -149,6 +149,7 @@ def generate_images(cfg, scene_name, count, seed=None, extra="", cli_loras=None,
             qneg = f"{negative}, {QWEN_NEGATIVE}"
             wf, how = build_qwen(c, positive, qneg, s, prefix=f"scenemaker/{scene.name}", cfg=float((c.get("qwen") or {}).get("cfg", 2.5)))
             print(f"  Qwen-Image 2.1: {how}")
+            qwen_sent = wf
             img = client.generate(wf)[0]
         elif family == "zimage":
             img = client.generate(build_zimage(c, positive, negative, s, prefix=f"scenemaker/{scene.name}"))[0]
@@ -156,6 +157,11 @@ def generate_images(cfg, scene_name, count, seed=None, extra="", cli_loras=None,
             img = client.generate(build_txt2img(c, positive, negative, s, prefix=f"scenemaker/{scene.name}",
                                                 loras=loras))[0]
         job = _job_dir(cfg, f"{scene.name}_{s}")
+        if family == "qwen":
+            try:
+                (job / "qwen_workflow_sent.json").write_text(json.dumps(qwen_sent, ensure_ascii=False, indent=1), encoding="utf-8")   # 실제로 보낸 워크플로(문제 확인용)
+            except (OSError, NameError):
+                pass
         img = fit_cover(img, W, H)
         if scene.post:
             img = naturalize(img, seed=s, **_post_args(scene.post))
