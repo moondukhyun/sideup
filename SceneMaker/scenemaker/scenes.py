@@ -865,6 +865,8 @@ for _name in NATURAL_SCENES:
 # v11.22: 사실적인 질감이 필요한 산·숲·개울 장면은 Z-Image (SDXL 은 나무·산이 AI 같고 흐림)
 for _name in ("tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_by_stream"):
     SCENES[_name].comfy = {**SCENES[_name].comfy, "family": "zimage"}
+for _name in ("tent", "tent_view_mountains", "tent_view_stream", "tent_view_valley"):      # v11.23: 텐트 안에서 바깥을 보는 장면 — 비는 열린 바깥에만, 바깥 땅에는 빗방울이 튀게
+    SCENES[_name].rain = {**SCENES[_name].rain, "outside_only": True, "splashes": True}
 
 
 # v11.20: 물·안개가 거의 없는 씬은 Wan(AI 물 움직임)을 기본으로 건너뜀 (실행해도 '움직임 없음'이라 시간만 2~15분 낭비)

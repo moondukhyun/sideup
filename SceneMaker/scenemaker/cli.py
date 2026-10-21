@@ -546,6 +546,18 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
             print("  깊이 지도 없음 → 화면 위치로 대략 추정해 거리별 빗줄기 적용")
     if real or depth_rain:
         renderer.set_depth(dfull)
+    om = None
+    if getattr(rs, "outside_only", False) and (real or depth_rain):          # 텐트 안쪽(천·바닥)에는 비가 안 오고 열린 바깥에만 내림
+        polys = [m["poly"] if m.get("poly") else [[m["x0"], m["y0"]], [m["x1"], m["y0"]], [m["x1"], m["y1"]], [m["x0"], m["y1"]]]
+                 for m in _load_pets(job, args) if m.get("kind") == "outside"]
+        om = details_mod.opening_mask(dfull, polys or None)
+        renderer.set_outside(om)
+        base = np.asarray(bg, np.float32) / 255.0
+        prev = base * (0.45 + 0.55 * om[..., None])
+        prev[..., 2] += 0.25 * om
+        Image.fromarray((np.clip(prev, 0, 1) * 255).astype(np.uint8)).resize(
+            (1280, int(1280 * renderer.H / renderer.W))).save(Path(job) / "outside_mask.jpg")
+        print(f"  텐트 바깥 영역: 화면의 {float((om > 0.5).mean()):.0%}에만 비를 내림 ({'직접 그린 윤곽' if polys else '깊이로 자동 판별'}) — 확인: outside_mask.jpg (파란 부분)")
     if want_window:
         from .glass import GlassRain, window_mask, window_mask_cool
         wmask = window_mask_cool(renderer.bg, dfull if real else None) if rs.interior > 0 else None     # 실내: 색으로 창 유리만 찾음
@@ -573,7 +585,7 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         if rs.interior > 0:                                                         # 턴테이블·톤암·동물·선풍기·불은 유리가 아님 → 물방울 제외
             import cv2
             marks_all = _load_pets(job, args)
-            ex = _mark_zone([m for m in marks_all if m.get("kind", "dog") not in ("candle", "block")],
+            ex = _mark_zone([m for m in marks_all if m.get("kind", "dog") not in ("candle", "block", "outside")],
                             ("record", "tonearm", "dog", "cat", "fan", "fire"), renderer.W, renderer.H, pad=int(0.02 * renderer.W))
             ex = np.maximum(ex, _mark_zone(marks_all, ("candle", "block"), renderer.W, renderer.H, pad=0))
             if ex.any():
@@ -593,6 +605,8 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         print("  깊이 지도 없음 → 추정 깊이로 잎 흔들림·젖은 바위만 적용 (물 튀김·물웅덩이는 생략)")
     maps = (details_mod.build_maps(bg, Image.open(depth).resize(bg.size, Image.BILINEAR), seed=rs.seed)
             if real else None)
+    if om is not None and maps is not None:
+        maps = details_mod.outside_maps(maps, om, dfull)                    # 물 튀김·물방울도 바깥에서만, 바깥 땅에도 빗방울이 튀게
     if want_details and real:
         renderer.details = details_mod.WeatherDetails(maps, renderer.W, renderer.H, renderer.N, renderer.fps,
                                                       intensity=rs.intensity, seed=rs.seed)

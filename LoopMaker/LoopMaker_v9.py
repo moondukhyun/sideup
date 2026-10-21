@@ -5308,9 +5308,9 @@ class SceneTabMixin:
         mode = tk.StringVar(value="draw")                   # draw 그리기 / move 옮기기 / delete 지우기 / poly 다각형
         state = {"start": None, "cur": None, "pts": [], "drag": None}
         COLORS = {"cat": "#ffcc00", "fan": "#ff66ff", "record": "#ff9900", "fire": "#ff3300", "glass": "#33aaff",
-                  "candle": "#ffee00", "tonearm": "#99ff00", "block": "#ffffff"}
+                  "candle": "#ffee00", "tonearm": "#99ff00", "block": "#ffffff", "outside": "#00ccff"}
         NAMES = {"cat": "고양이", "fan": "선풍기", "record": "레코드판", "fire": "벽난로 불", "glass": "창 유리",
-                 "candle": "촛불", "tonearm": "톤암", "block": "창 가림"}
+                 "candle": "촛불", "tonearm": "톤암", "block": "창 가림", "outside": "비 내리는 바깥"}
         ONE_ONLY = ("record", "tonearm", "fire")            # 하나만 있어야 하는 종류: 새로 그리면 이전 것을 대체
 
         def redraw():
@@ -5474,6 +5474,7 @@ class SceneTabMixin:
         ttk.Radiobutton(bar, text="벽난로 불", variable=kind, value="fire").pack(side="left", padx=6)
         ttk.Radiobutton(bar, text="톤암", variable=kind, value="tonearm").pack(side="left")
         ttk.Radiobutton(bar, text="창 가림(덮개·스탠드 등)", variable=kind, value="block").pack(side="left")
+        ttk.Radiobutton(bar, text="텐트: 비 내리는 바깥(다각형 권장)", variable=kind, value="outside").pack(side="left", padx=6)
         ttk.Label(bar, text="상자는 동물보다 살짝 크게", foreground="#666666").pack(side="left", padx=10)
         auto_btn = ttk.Button(bar, text="🤖 자동 찾기")
         auto_btn.pack(side="right", padx=(6, 0))

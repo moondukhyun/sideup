@@ -113,6 +113,61 @@ def build_maps(bg, depth, seed=7, max_drips=14):
             "trickles": trickles}
 
 
+def opening_mask(depth, polys=None, W=None, H=None):
+    """텐트 입구처럼 '안쪽 천·바닥(가까움)' 너머로 열린 바깥 풍경 영역 (0~1, H×W). polys 가 있으면(사용자가 그린 윤곽) 그것을 쓴다.
+    없으면 깊이 지도로: 가까운 곳(천·바닥)과 먼 곳(숲·땅)을 나누고, 가장 큰 열린 덩어리(+비슷한 큰 덩어리)만 남긴다."""
+    import cv2
+    d = np.asarray(depth, dtype=np.float32)
+    H, W = d.shape[:2]
+    if polys:
+        m = np.zeros((H, W), np.uint8)
+        for poly in polys:
+            cv2.fillPoly(m, [np.array([[p[0] * W, p[1] * H] for p in poly], np.int32)], 1)
+        return cv2.GaussianBlur(m.astype(np.float32), (0, 0), max(2.0, 0.004 * W))
+    sw = 320
+    sh = max(8, int(round(H * sw / W)))
+    ds = cv2.resize(d, (sw, sh), interpolation=cv2.INTER_AREA)
+    hist, edges = np.histogram(ds, bins=64, range=(0, 1))
+    w0 = np.cumsum(hist).astype(np.float64)
+    m0 = np.cumsum(hist * (edges[:-1] + edges[1:]) / 2.0)
+    tot, mt = w0[-1], m0[-1]
+    best, thr = -1.0, 0.55
+    for i in range(1, 63):                                           # Otsu: 가까움/멂 두 무리를 가르는 값
+        a, b = w0[i], tot - w0[i]
+        if a < 1 or b < 1:
+            continue
+        var = a * b * ((m0[i] / a) - ((mt - m0[i]) / b)) ** 2
+        if var > best:
+            best, thr = var, (edges[i] + edges[i + 1]) / 2.0
+    thr = float(np.clip(thr, 0.45, 0.72))
+    far = (ds < thr).astype(np.uint8)
+    far = cv2.morphologyEx(far, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+    n, lab, st, _ = cv2.connectedComponentsWithStats(far, connectivity=8)
+    keep = np.zeros_like(far)
+    if n > 1:
+        areas = st[1:, cv2.CC_STAT_AREA]
+        big = areas.max()
+        for i in range(1, n):
+            if st[i, cv2.CC_STAT_AREA] >= 0.25 * big and st[i, cv2.CC_STAT_AREA] > 0.01 * sw * sh:
+                keep[lab == i] = 1
+    keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+    om = cv2.resize(keep.astype(np.float32), (W, H), interpolation=cv2.INTER_LINEAR)
+    return cv2.GaussianBlur(om, (0, 0), max(2.0, 0.004 * W))
+
+
+def outside_maps(maps, om, depth):
+    """물 튀김·물방울을 바깥(열린) 영역으로 제한하고, 바깥 땅(자갈·흙)에도 빗방울이 튀게 한다."""
+    H, W = om.shape[:2]
+    yy = np.linspace(0, 1, H, dtype=np.float32)[:, None]
+    low = np.clip((yy - 0.50) / 0.12, 0, 1) * np.clip((depth - 0.18) / 0.12, 0, 1) * np.clip((0.72 - depth) / 0.12, 0, 1)
+    out = dict(maps)
+    out["ground"] = np.maximum(maps["ground"] * om, om * low * 0.9)
+    out["puddle"] = maps["puddle"] * om
+    out["drips"] = [t for t in maps["drips"] if om[min(H - 1, int(t[1])), min(W - 1, int(t[0]))] > 0.5]
+    out["trickles"] = [t for t in maps["trickles"] if om[min(H - 1, int(t[1])), min(W - 1, int(t[0]))] > 0.5]
+    return out
+
+
 # ---------- 이벤트 (루프 안에서 반복) ----------
 class WeatherDetails:
     def __init__(self, maps, W, H, N, fps, intensity=1.0, seed=7):
