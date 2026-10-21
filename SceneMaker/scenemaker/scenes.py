@@ -114,6 +114,12 @@ _DRY_RULES = [
 ]
 
 
+CAMPFIRE_RAIN = {"brightness": 0.45, "wet": 0.0, "wan_hint": "the lake surface moves very slightly in the breeze, the campfire flames flicker, no rain"}
+CAMPFIRE_NEGATIVE = ("people, person, human, man, woman, figure, rain, raindrops, rain streaks, wet ground, puddles, snow, fog bank, "
+                     "jungle, rainforest, fantasy, fairy tale, painting, illustration, 3d render, oversaturated, neon, glowing magical light, "
+                     "cartoon flames, fireworks, sparks flying everywhere, huge bonfire tower, bonfire pile, house, cabin, buildings, text, logo, watermark")
+
+
 def dry_prompt(text):
     """프롬프트에서 비·빗줄기를 암시하는 표현을 젖은 표면·흐린 날 표현으로 바꾼다."""
     for pat, rep_ in _DRY_RULES:
@@ -681,6 +687,102 @@ SCENES = {
             ],
             {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "big_flame": True, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
+            "campfire_lake",
+            "산속 호숫가 모닥불",
+            "a calm mountain lake in Korea with a small gravel shore, a campfire burning on the shore in the foreground, the lake reflecting the last light of the sky and the hills, "
+            "a real wood campfire with tall lively orange flames and glowing embers on a ring of stones, small split logs stacked in the fire, warm firelight lighting the ground and nearby objects, "
+            "real documentary photograph of a Korean mountain campsite, ordinary Korean mountain scenery: rounded ridges covered with mixed oak, pine and other deciduous trees, individual tree crowns of different heights and greens, ridgelines layered one behind another fading into soft haze, natural irregular details, no fantasy, no alpine peaks, dry clear air with no precipitation, empty campsite without people",
+            [
+                "wide view of the whole lake with the campfire in the lower foreground",
+                "the campfire slightly left of center, the lake and hills on the right",
+                "the campfire slightly right of center, the lake and hills on the left",
+                "a closer low view of the flames with the lake softly visible behind",
+                "blue hour, the fire is the main light and the lake is dim and still",
+            ],
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "fire": 1.0, "water_rain": 0.0, **CAMPFIRE_RAIN},
+            style=NATURAL_STYLE, negative=CAMPFIRE_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
+            "campfire_kettle_lake",
+            "호숫가 모닥불 · 커피 주전자",
+            "a dark blackened metal camping kettle with a handle hanging over the campfire on a small iron tripod, a simple steaming coffee brewing, a camping mug on a flat rock nearby, a calm mountain lake in Korea behind, "
+            "a real wood campfire with tall lively orange flames and glowing embers on a ring of stones, small split logs stacked in the fire, warm firelight lighting the ground and nearby objects, "
+            "real documentary photograph of a Korean mountain campsite, ordinary Korean mountain scenery: rounded ridges covered with mixed oak, pine and other deciduous trees, individual tree crowns of different heights and greens, ridgelines layered one behind another fading into soft haze, natural irregular details, no fantasy, no alpine peaks, dry clear air with no precipitation, empty campsite without people",
+            [
+                "the kettle hanging above the flames in the center, the lake softly behind",
+                "the kettle over the fire slightly left of center with the lake on the right",
+                "the kettle sitting on a grill grate over the fire, a mug and a coffee dripper beside it on a stone",
+                "a closer view of the kettle and flames, the lake dim behind",
+                "wide view with the kettle fire at the shore and the hills reflected in the water",
+            ],
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "fire": 1.0, "water_rain": 0.0, **CAMPFIRE_RAIN},
+            style=NATURAL_STYLE, negative=CAMPFIRE_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
+            "campfire_tent_lake",
+            "호숫가 텐트 + 모닥불",
+            "a dome tent pitched on a grassy lakeshore with a soft warm glow from inside, a campfire burning in front of the tent, a folding camp chair and a stack of firewood, a calm mountain lake in Korea behind, "
+            "a real wood campfire with tall lively orange flames and glowing embers on a ring of stones, small split logs stacked in the fire, warm firelight lighting the ground and nearby objects, "
+            "real documentary photograph of a Korean mountain campsite, ordinary Korean mountain scenery: rounded ridges covered with mixed oak, pine and other deciduous trees, individual tree crowns of different heights and greens, ridgelines layered one behind another fading into soft haze, natural irregular details, no fantasy, no alpine peaks, dry clear air with no precipitation, empty campsite without people",
+            [
+                "wide view: tent on the left, campfire in the middle, the lake and hills behind",
+                "wide view: tent on the right, campfire in the middle, the lake and hills behind",
+                "the campfire in the foreground with the glowing tent and the lake behind",
+                "a low angle across the flames toward the tent and the dim lake",
+                "blue hour, a few first stars, the tent glowing, the fire is the brightest light",
+            ],
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "fire": 1.0, "water_rain": 0.0, **CAMPFIRE_RAIN},
+            style=NATURAL_STYLE, negative=CAMPFIRE_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
+            "campfire_tent_kettle",
+            "텐트 앞 모닥불 + 커피 주전자",
+            "a dome tent with a soft warm glow from inside, in front of it a campfire with a blackened camping kettle on a grill grate over the flames and a steaming mug on a log, a calm mountain lake in Korea behind, "
+            "a real wood campfire with tall lively orange flames and glowing embers on a ring of stones, small split logs stacked in the fire, warm firelight lighting the ground and nearby objects, "
+            "real documentary photograph of a Korean mountain campsite, ordinary Korean mountain scenery: rounded ridges covered with mixed oak, pine and other deciduous trees, individual tree crowns of different heights and greens, ridgelines layered one behind another fading into soft haze, natural irregular details, no fantasy, no alpine peaks, dry clear air with no precipitation, empty campsite without people",
+            [
+                "the kettle on the fire in the center, the tent and the lake behind it",
+                "kettle and fire on the left, tent on the right, the lake behind",
+                "kettle and fire on the right, tent on the left, the lake behind",
+                "a close view of the kettle over the fire, the glowing tent softly blurred behind",
+                "wide dusk view with a coffee pot on the fire and the lake reflecting the sky",
+            ],
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "fire": 1.0, "water_rain": 0.0, **CAMPFIRE_RAIN},
+            style=NATURAL_STYLE, negative=CAMPFIRE_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
+            "campfire_forest",
+            "숲속 캠핑 모닥불",
+            "a campfire in a clearing of a Korean mountain forest, tall pine and oak trees around, a simple tent and a camp lantern at the edge of the firelight, logs for sitting around the fire, "
+            "a real wood campfire with tall lively orange flames and glowing embers on a ring of stones, small split logs stacked in the fire, warm firelight lighting the ground and nearby objects, "
+            "real documentary photograph of a Korean mountain campsite, ordinary Korean mountain scenery: rounded ridges covered with mixed oak, pine and other deciduous trees, individual tree crowns of different heights and greens, ridgelines layered one behind another fading into soft haze, natural irregular details, no fantasy, no alpine peaks, dry clear air with no precipitation, empty campsite without people",
+            [
+                "wide view of the clearing with the campfire in the center",
+                "the campfire in the foreground, the tent softly visible behind",
+                "a closer view of the flames and the logs, the dark forest behind",
+                "deep night, the fire is the only light, trees faintly lit at the edge of the glow",
+                "the kettle hanging over the fire on a tripod, the dark forest behind",
+            ],
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "fire": 1.0, "water_rain": 0.0, **CAMPFIRE_RAIN},
+            style=NATURAL_STYLE, negative=CAMPFIRE_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
+            "campfire_only",
+            "모닥불만 크게",
+            "a close view of a single large campfire burning on a ring of stones beside a calm mountain lake, the fire fills the center of the frame, only the fire and the dim shore are visible, dark soft background, "
+            "a real wood campfire with tall lively orange flames and glowing embers on a ring of stones, small split logs stacked in the fire, warm firelight lighting the ground and nearby objects, "
+            "real documentary photograph of a Korean mountain campsite, ordinary Korean mountain scenery: rounded ridges covered with mixed oak, pine and other deciduous trees, individual tree crowns of different heights and greens, ridgelines layered one behind another fading into soft haze, natural irregular details, no fantasy, no alpine peaks, dry clear air with no precipitation, empty campsite without people",
+            [
+                "the fire in the center of the frame, the dim lake softly blurred behind",
+                "the fire slightly left of center, the dark lake on the right",
+                "the fire slightly right of center, the dark lake on the left",
+                "a lower angle with tall flames against the dark",
+                "a wider view showing the fire ring and the whole dim shore",
+            ],
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "fire": 1.0, "water_rain": 0.0, **CAMPFIRE_RAIN},
+            style=NATURAL_STYLE, negative=CAMPFIRE_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
         ),
         Scene(
             "living_fireplace_big_window",

@@ -153,6 +153,20 @@ CLOSEUP_SURFACES = ["on a dark wooden table", "on a rough stone ledge", "on a wo
 CLOSEUP_GLOWS = ["warm golden glow", "deep amber glow", "soft orange glow", "gentle honey-colored glow", "warm candlelit glow with deep shadows"]
 
 # 씬 이름에 시간이 정해진 경우 시간 축을 쓰지 않음
+# v11.24: 모닥불 캠핑 장면 — 비 없는 저녁·밤. 호수·텐트·장작·소품·계절을 이미지마다 다르게
+CAMPFIRE_SCENES = {"campfire_lake", "campfire_kettle_lake", "campfire_tent_lake", "campfire_tent_kettle", "campfire_forest", "campfire_only"}
+CAMPFIRE_AXES = {
+    "time": ["dusk just after sunset", "blue hour twilight", "late evening with a last glow in the sky", "deep blue night with a few stars", "calm early night"],
+    "season": ["late spring", "early summer", "late summer", "early autumn with a few yellowing leaves"],
+    "air": ["clear still air", "faint thin mist low over the water", "calm clear air, the sky with soft thin clouds"],
+}
+CAMPFIRE_PITS = ["a ring of rounded grey river stones", "a ring of rough dark granite stones", "a simple black iron fire pit ring", "a shallow pit with a few flat stones around it"]
+CAMPFIRE_WOODS = ["split pine logs with a few thin branches", "stacked oak logs crossing each other", "small split firewood in a neat teepee", "a mix of thick logs and thin kindling"]
+CAMPFIRE_GROUND = ["fine gravel and pebbles", "short natural grass", "flat dry sand and small stones", "packed dirt with a few pine needles"]
+CAMPFIRE_EXTRAS = ["a folding wooden camp chair beside the fire", "a canvas backpack leaning on a log", "a steel camping mug on a flat rock", "a stack of firewood under a small tarp",
+                   "a hanging camp lantern on a pole (unlit)", "a blanket folded over a log seat", "an enamel cooking pot beside the fire", "nothing else, only the fire and the nature"]
+CAMPFIRE_TENTS = ["an olive green dome tent", "a beige canvas bell tent", "a grey-blue dome tent", "a sand-colored tunnel tent", "a dark green cabin tent"]
+
 FIXED_TIME = {"forest_night", "night_park", "city_night"}
 
 RAIN_JITTER = {"intensity": 0.25, "angle": 4.0, "fog": 0.06, "brightness": 0.08}
@@ -178,6 +192,16 @@ def diversify(scene_name, seed, rain_level=None):
     rain_level 을 주면 비의 세기는 고정 (녹음한 빗소리에 맞춤)."""
     rng = random.Random(f"{scene_name}:{seed}")
     picks = {}
+    if scene_name in CAMPFIRE_SCENES:
+        for axis, options in CAMPFIRE_AXES.items():
+            picks[axis] = rng.choice(options)
+        picks["pit"] = "campfire inside " + rng.choice(CAMPFIRE_PITS) + " with " + rng.choice(CAMPFIRE_WOODS)
+        picks["ground"] = rng.choice(CAMPFIRE_GROUND) + " on the ground"
+        picks["extra"] = rng.choice(CAMPFIRE_EXTRAS)
+        if scene_name in ("campfire_tent_lake", "campfire_tent_kettle", "campfire_forest"):
+            picks["tent"] = "the tent is " + rng.choice(CAMPFIRE_TENTS)
+        picks["vegetation"] = rng.choice(VEGETATION)
+        return ", ".join(picks.values()), picks
     for axis, options in (INTERIOR_AXES if scene_name in INTERIOR_SCENES else AXES).items():
         if axis == "time" and scene_name in FIXED_TIME:
             continue
