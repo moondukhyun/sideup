@@ -117,6 +117,27 @@ CEILINGS = [
 RUGS = ["a thick cream shag rug", "a worn Persian rug in deep reds", "a handwoven jute rug", "a soft grey wool rug",
         "a patterned kilim rug", "a plush sheepskin rug"]
 
+# v11.23: 자연·한옥·텐트 장면도 이미지마다 풍경 분위기가 달라지게 하는 추가 축 (장면별로 어울리는 것만)
+LIGHT_VIEWS = ["soft diffused overcast light", "light mist drifting between the trees", "a faint break of warm light through the clouds",
+               "deep moody blue light", "gentle glowing haze in the air", "crisp clear light after the rain"]
+FOREGROUNDS = ["mossy stones in the foreground", "wet fallen leaves on the ground", "puddles reflecting the sky", "dripping water droplets on leaves in sharp detail",
+               "fresh wet grass in the foreground", "smooth wet pebbles in the foreground", "ferns and small wildflowers in the foreground"]
+PALETTE_NATURE = ["fresh vivid greens", "muted calm cool tones", "deep rich emerald tones", "soft grey-green tones", "warm earthy tones", "silvery blue-green tones"]
+VEGETATION = ["dominant tall pine and fir trees", "mixed oak and maple trees", "slender birch trees with white trunks", "dense lush ferns and broadleaf trees",
+              "tall zelkova and elm trees", "a mix of conifers and deciduous trees with moss covered trunks"]
+CAMP_PROPS = ["a camp lantern glowing warmly", "a pair of muddy hiking boots and a backpack", "a steaming enamel mug on a folding table",
+              "a hammock and a folding camp chair", "string lights under the tarp", "a small portable stove with a kettle"]
+CANDLE_HOLDERS = ["a brass candle holder", "a rustic ceramic saucer", "a clear glass jar", "a wooden plate", "an antique iron holder", "a small stone dish"]
+CANDLE_SURFACES = ["a dark wooden table", "a rough stone ledge", "a linen tablecloth", "a worn wooden shelf", "an old window sill", "a smooth slate slab"]
+NATURE_FOREGROUND_SCENES = {"forest_path", "valley_stream", "forest_lake", "thunder_forest", "autumn_forest_path", "autumn_temple", "temple_path",
+                            "bamboo_garden", "hydrangea_garden", "tent", "tent_by_stream", "tent_view_mountains", "tent_view_stream", "tent_view_valley",
+                            "country_house", "cabin_window", "hanok_courtyard", "thatched_house", "rain_leaves", "jangdokdae"}
+URBAN_SCENES = {"city_night", "cafe_window", "hanok_cafe"}
+AUTUMN_SCENES = {"autumn_forest_path", "autumn_temple"}
+VEGETATION_SCENES = {"forest_path", "valley_stream", "forest_lake", "thunder_forest", "tent", "tent_by_stream", "tent_view_mountains",
+                     "tent_view_stream", "tent_view_valley", "cabin_window"}
+TENT_SCENES = {"tent", "tent_by_stream", "tent_view_mountains", "tent_view_stream", "tent_view_valley"}
+
 # 씬 이름에 시간이 정해진 경우 시간 축을 쓰지 않음
 FIXED_TIME = {"forest_night", "night_park", "city_night"}
 
@@ -170,9 +191,37 @@ def diversify(scene_name, seed, rain_level=None):
             if scene_name in WINDOW_INTERIOR:
                 picks["window"] = rng.choice(WINDOWS)
                 picks["curtains"] = rng.choice(CURTAINS)
-            picks["fireplace"] = rng.choice(FIREPLACES)
+            if _scene_has_fireplace(scene_name):
+                picks["fireplace"] = rng.choice(FIREPLACES)
+    if scene_name not in INTERIOR_SCENES:                                      # v11.23: 자연·한옥·텐트 장면의 추가 변화
+        if scene_name not in FIXED_TIME and scene_name not in URBAN_SCENES:
+            picks["light"] = rng.choice(LIGHT_VIEWS)
+        if scene_name in NATURE_FOREGROUND_SCENES:
+            picks["foreground"] = rng.choice(FOREGROUNDS)
+            if scene_name not in AUTUMN_SCENES:
+                picks["palette"] = "color palette of " + rng.choice(PALETTE_NATURE)
+        if scene_name in VEGETATION_SCENES:
+            picks["vegetation"] = rng.choice(VEGETATION)
+        if scene_name in TENT_SCENES:
+            picks["camp"] = rng.choice(CAMP_PROPS)
+    if scene_name == "candle_single":
+        picks["holder"] = rng.choice(CANDLE_HOLDERS) + " on " + rng.choice(CANDLE_SURFACES)
+    elif scene_name in ("candle_many", "candle_nook"):                       # 촛불 여러 개: 놓인 곳·받침의 재질을 바꿔 분위기를 다르게 (개수는 건드리지 않음)
+        picks["holder"] = "candles standing in " + rng.choice(["brass candle holders", "mismatched ceramic saucers", "clear glass jars",
+                                                                "old iron holders", "small stone dishes", "wooden blocks"]) + " on " + rng.choice(CANDLE_SURFACES)
     text = ", ".join(picks.values())
     return text, picks
+
+
+def _scene_has_fireplace(scene_name):
+    """장면 문장(기본·구도)에 벽난로가 들어 있는가 — 없는 장면에 벽난로를 만들어 넣지 않기 위해."""
+    try:
+        from .scenes import get_scene
+        sc = get_scene(scene_name)
+        blob = (sc.prompt + " " + " ".join(sc.variations)).lower()
+        return "fireplace" in blob or "wood stove" in blob or "hearth" in blob
+    except Exception:
+        return False
 
 
 def adapt_prompt(text, picks):
