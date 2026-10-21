@@ -90,6 +90,34 @@ def fill_template(wf, positive, negative, seed, width, height, prefix):
             for _, nid2, k2 in cands[1:]:
                 if "neg" in k2 or not wf[nid2]["inputs"][k2].strip() or wf[nid2]["inputs"][k2] == "":
                     wf[nid2]["inputs"][k2] = negative; done["negative"] += 1
+    # v11.23: 템플릿의 '기본 예시 문장'이 다른 칸(링크로 연결된 문자열 노드·다른 이름의 칸)에 남아 있으면 그것이 그림을 결정해 버린다
+    #         (비 오는 텐트를 골랐는데 템플릿 기본 문장의 거실·벽난로 그림이 나오던 문제). 긍정 문장 칸을 끝까지 따라가 모두 바꾼다.
+    PROMPT_KEYS = ("text", "prompt", "value", "string", "positive_prompt", "positive", "user_prompt", "instruction", "caption")
+    def follow(nid, key, depth=0):
+        node = wf.get(str(nid))
+        if not isinstance(node, dict) or depth > 6:
+            return
+        inp = node.get("inputs") or {}
+        for k in PROMPT_KEYS:
+            v = inp.get(k)
+            if isinstance(v, list) and v:
+                follow(v[0], key, depth + 1)
+            elif isinstance(v, str) and (len(v) > 20 or v == ""):
+                inp[k] = key
+                done.setdefault("followed", []).append(f"{nid}:{node.get('class_type')}:{k}")
+    for pid in pos_ids:
+        follow(pid, positive)
+    for nid in neg_ids:
+        follow(nid, negative)
+    foreign = []
+    for nid, node in wf.items():
+        inp = node.get("inputs") if isinstance(node, dict) else None
+        if not isinstance(inp, dict) or "Save" in str(node.get("class_type", "")):
+            continue
+        for k, v in inp.items():
+            if isinstance(v, str) and len(v) > 60 and v not in (positive, negative) and k not in ("unet_name", "clip_name", "vae_name", "filename_prefix"):
+                foreign.append(f"{nid}:{node.get('class_type')}:{k}")
+    done["foreign"] = foreign
     return wf, done
 
 
@@ -142,4 +170,9 @@ def build_qwen(c, positive, negative, seed, prefix="scenemaker/qwen", width=1536
     wf, done = fill_template(wf, positive, negative, seed, width, height, prefix)
     if not done["positive"]:
         raise SystemExit(f"{p.name} 에서 프롬프트 칸을 찾지 못했습니다. ComfyUI 에서 '내보내기(API)' 로 저장했는지 확인하세요.\n  (파일 구조: {describe(wf)[:900]})")
-    return wf, f"{p.name} (프롬프트 {done['positive']} · 시드 {done['seed']} · 크기 {done['size']})"
+    extra = ""
+    if done.get("followed"):
+        extra += f" · 연결된 문장 칸 {len(done['followed'])}곳도 교체"
+    if done.get("foreign"):
+        extra += f" · ⚠ 교체하지 못한 긴 문장 칸: {', '.join(done['foreign'][:4])}"
+    return wf, f"{p.name} (프롬프트 {done['positive']} · 시드 {done['seed']} · 크기 {done['size']}{extra}) → 문장 앞부분: {positive[:60]}"
