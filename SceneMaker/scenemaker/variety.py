@@ -49,6 +49,46 @@ INTERIOR_AXES = {
                "close view of the foreground"],
 }
 
+# v11.23: 같은 장면이라도 이미지마다 창밖 풍경·방 분위기·소품이 확 달라지게 하는 추가 축
+WINDOW_INTERIOR = {"living_fireplace_storm", "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
+                   "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window", "cabin_fireplace_window",
+                   "living_turntable_fireplace", "turntable_window_rain", "candle_rain_window"}
+DECOR_SCENES = PET_SCENES | {"living_fireplace_candles", "turntable_candles_windowless", "turntable_window_rain", "cozy_parlor"}
+
+OUTSIDE_VIEWS = [
+    "outside the window a lush dense pine forest with every tree trunk, branch and needle sharply detailed, layered misty hills behind",
+    "outside the window a beautiful birch and maple forest with finely detailed trunks and leaves, soft mist between the trees",
+    "outside the window a quiet garden with a stone path, detailed shrubs and tall trees, a small pond and soft garden lanterns",
+    "outside the window a calm lake and distant forested mountains in the blue night haze, finely detailed shoreline trees",
+    "outside the window a wide meadow with tall grass and a line of detailed cypress and oak trees under a deep blue night sky",
+    "outside the window a bamboo grove with tall slender stalks and fine bamboo leaves, glowing softly in the night",
+    "outside the window a Korean village garden with a traditional stone wall, persimmon trees and distant dark mountain ridges",
+    "outside the window a sparkling city skyline with detailed buildings and warm lights far below, out of focus",
+    "outside the window a rocky mountain valley with tall conifers and a faint river, rich detailed foliage in the blue night light",
+]
+ROOM_STYLES = [
+    "Scandinavian style room with pale oak floors, white plaster walls and soft wool textiles",
+    "rustic log cabin style with warm honey-colored timber walls and a woven jute rug",
+    "vintage 1970s style room with walnut paneling, a patterned wool rug and brass fixtures",
+    "English country cottage style with floral cushions, painted wooden beams and a worn leather armchair",
+    "Korean modern warm hanok-inspired interior with soft wood tones, paper lantern lamps and a cotton floor cushion",
+    "mid-century modern room with teak furniture, a sheepskin rug and a sculptural floor lamp",
+    "cozy bohemian style room with layered kilim rugs, many green houseplants and a macrame wall hanging",
+    "elegant classic study style room with dark green walls, built-in bookshelves and a velvet sofa",
+]
+PROPS = [
+    "a stack of books with plain covers, a steaming ceramic teacup and a small brass clock",
+    "a potted fern, a woven basket with a knitted blanket and a framed forest painting",
+    "a glass vase of dried flowers, a pile of cushions and an antique wooden globe",
+    "a leather-bound journal with a fountain pen, a small wooden stool and a hanging plant",
+    "a ceramic teapot on a tray, a folded plaid blanket and a small framed family photograph",
+    "a row of old vinyl record sleeves, a monstera plant and a rattan chair",
+    "a pair of reading glasses on an open book, a wool throw and a decorative lantern",
+    "a bowl of fresh fruit, a wooden bookshelf with ceramic ornaments and a tall indoor plant",
+]
+RUGS = ["a thick cream shag rug", "a worn Persian rug in deep reds", "a handwoven jute rug", "a soft grey wool rug",
+        "a patterned kilim rug", "a plush sheepskin rug"]
+
 # 씬 이름에 시간이 정해진 경우 시간 축을 쓰지 않음
 FIXED_TIME = {"forest_night", "night_park", "city_night"}
 
@@ -86,6 +126,13 @@ def diversify(scene_name, seed, rain_level=None):
         picks[axis] = choice
     if scene_name in PET_SCENES:
         picks["pet"] = rng.choice(PET_BREEDS) + " dog sleeping peacefully"      # 작고 예쁜 강아지 품종을 매번 다르게
+    if scene_name in INTERIOR_SCENES:                                          # v11.23: 창밖 풍경·방 스타일·소품·러그를 이미지마다 다르게
+        if scene_name in WINDOW_INTERIOR:
+            picks = {"outside": rng.choice(OUTSIDE_VIEWS), **picks}
+        if scene_name in DECOR_SCENES:
+            picks["style"] = rng.choice(ROOM_STYLES)
+            picks["props"] = rng.choice(PROPS)
+            picks["rug"] = rng.choice(RUGS)
     text = ", ".join(picks.values())
     return text, picks
 
