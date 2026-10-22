@@ -20,7 +20,7 @@ from .rain import RainRenderer, RainSettings
 from .scenes import (NATURAL_COMFY, NATURAL_NEGATIVE, NATURAL_POST, NATURAL_STYLE, NEGATIVE, SCENES, dry_prompt,
                      get_scene)
 from .video import (RESOLUTIONS, assemble, budget_kbps, ffmpeg_bin, loopable_audio, parse_durations,
-                    render_master, segment_for_duration)
+                    print_seam_report, render_master, seam_report, segment_for_duration)
 
 RAIN_OPTS = ["intensity", "angle", "speed", "brightness", "darken", "fog", "lightning", "grade", "grain"]
 
@@ -232,6 +232,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
         final = _final_path(job, args, label, v)
         print(f"[{label}] 조립 중 — {v['resolution']} {v['encoder']} {kbps / 1000:.1f}Mbps")
         assemble(seg, final, duration, v, audio=audio, extra=extra_audio)
+        print_seam_report(seam_report(final, v["loop_seconds"], v["fps"]), v["loop_seconds"])
         gb = final.stat().st_size / 1e9
         print(f"  -> {final.name}  {gb:.2f}GB (상한 {v['max_size_gb']}GB)")
         print(f"  영상 저장 위치: {final}")

@@ -154,7 +154,15 @@ def assemble(segment, out_path, duration, v, audio=None, extra=None):
     seg_len = v["loop_seconds"]
     repeats = max(1, math.ceil(duration / seg_len))
     listfile = out_path.with_suffix(".concat.txt")
-    line = f"file '{segment.resolve().as_posix()}'\n"
+    join_src = segment
+    ts = segment.with_suffix(".ts")
+    try:                                                         # 구간을 MPEG-TS 로 바꿔 이어붙이면 이음새의 타임스탬프가 어긋나지 않음
+        if not ts.exists() or ts.stat().st_mtime < segment.stat().st_mtime:
+            subprocess.run([ffmpeg_bin(), "-y", "-loglevel", "error", "-i", str(segment), "-c", "copy", "-f", "mpegts", str(ts)], check=True)
+        join_src = ts
+    except (subprocess.CalledProcessError, OSError):
+        join_src = segment
+    line = f"file '{join_src.resolve().as_posix()}'\n"
     listfile.write_text(line * repeats, encoding="utf-8")
 
     def build(normalize):
@@ -174,7 +182,8 @@ def assemble(segment, out_path, duration, v, audio=None, extra=None):
         elif audio:
             cmd += ["-stream_loop", "-1", "-i", str(audio),
                     "-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", v["audio_bitrate"], "-ar", "48000"]
-        cmd += ["-c:v", "copy", "-t", f"{duration:.3f}", "-movflags", "+faststart", str(out_path)]
+        cmd += ["-c:v", "copy", *(["-tag:v", "hvc1"] if v.get("encoder") in ("hevc_nvenc", "libx265") else []),
+                "-t", f"{duration:.3f}", "-movflags", "+faststart", str(out_path)]
         return cmd
 
     try:
@@ -189,6 +198,62 @@ def assemble(segment, out_path, duration, v, audio=None, extra=None):
     finally:
         listfile.unlink(missing_ok=True)
     return out_path
+
+
+def seam_report(final, seg_len, fps, joins=3):
+    """완성 영상의 루프 이음새(예: 20초, 40초 지점)를 실제로 확인해 로그로 알려 준다.
+    ① 프레임 시간 간격이 어긋난(멈칫·중복·누락) 곳 수  ② 이음새 앞뒤의 화면 변화량이 평소 변화량과 비슷한지."""
+    import numpy as np
+    out = {"timing": None, "joins": []}
+    try:
+        probe = subprocess.run([shutil.which("ffprobe") or "ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", "frame=pts_time",
+                                "-of", "csv=p=0", str(final)], capture_output=True, text=True, timeout=300)
+        pts = sorted(float(x) for x in probe.stdout.replace(",", " ").split() if x.strip())
+        if len(pts) > 3:
+            d = np.diff(pts)
+            bad = int(((d > 1.6 / fps) | (d < 0.4 / fps)).sum())
+            out["timing"] = (len(pts), bad)
+        N = int(round(seg_len * fps))
+        total = len(pts) if pts else 0
+        idx = []
+        for k in range(1, joins + 1):
+            j = k * N
+            if total and j + 3 < total:
+                idx += list(range(j - 3, j + 3))
+        idx += list(range(200, 206))
+        if not idx:
+            return out
+        sel = "+".join(f"eq(n\\,{i})" for i in idx)
+        gw, gh = 160, 90
+        raw = subprocess.run([ffmpeg_bin(), "-loglevel", "error", "-i", str(final), "-vf", f"select='{sel}',scale={gw}:{gh},format=gray",
+                              "-vsync", "0", "-f", "rawvideo", "-"], capture_output=True, timeout=600).stdout
+        fr = np.frombuffer(raw, np.uint8).reshape(-1, gh, gw).astype(np.float32)
+        order = sorted(idx)
+        if len(fr) != len(order):
+            return out
+        pos = {n: i for i, n in enumerate(order)}
+        def hf(a):                                               # 가는 빗줄기·방울의 양 (고주파 에너지)
+            return float(np.abs(np.diff(a, axis=1)).mean() + np.abs(np.diff(a, axis=0)).mean())
+        typ = np.mean([np.abs(fr[pos[n + 1]] - fr[pos[n]]).mean() for n in range(200, 205)])
+        typ_hf = np.mean([hf(fr[pos[n]]) for n in range(200, 206)])
+        for k in range(1, joins + 1):
+            j = k * N
+            if j - 1 in pos and j in pos:
+                step = float(np.abs(fr[pos[j]] - fr[pos[j - 1]]).mean())
+                near_hf = np.mean([hf(fr[pos[n]]) for n in range(j - 3, j + 3) if n in pos])
+                out["joins"].append((k * seg_len, step, float(typ), near_hf / (typ_hf + 1e-6)))
+    except Exception:
+        pass
+    return out
+
+
+def print_seam_report(rep, seg_len):
+    if rep.get("timing"):
+        n, bad = rep["timing"]
+        print(f"  이음새 점검: 프레임 {n}장 중 시간 간격이 어긋난 곳 {bad}곳" + (" ✅" if bad == 0 else " ⚠ (멈칫·중복 프레임)"))
+    for t, step, typ, hfr in rep.get("joins", []):
+        ok = step < 2.5 * max(typ, 0.05) and hfr > 0.75
+        print(f"  이음새 점검 {t:.0f}초 지점: 앞뒤 화면 변화 {step:.2f} (평소 {typ:.2f}) · 빗줄기 양 평소의 {hfr:.0%}" + (" ✅" if ok else " ⚠ 이음새에서 끊김"))
 
 
 def parse_durations(value, parse_duration):
