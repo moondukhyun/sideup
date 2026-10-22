@@ -604,7 +604,8 @@ class Steam:
             x1, y1 = max(0.0, min(1.0, p["x1"])) * W, max(0.0, min(1.0, p["y1"])) * H
             bw = max(10.0, x1 - x0)
             rng = np.random.RandomState((seed * 131 + i * 17) % (2 ** 31 - 1))
-            ox, oy = (x0 + x1) / 2.0, y0 + 0.35 * (y1 - y0)              # 김이 나오는 점
+            bw = min(bw, 0.05 * W)                                       # 상자를 크게 그려도 김 폭은 컵·주둥이 크기로 제한
+            ox, oy = (x0 + x1) / 2.0, y0 + 0.2 * (y1 - y0)               # 김이 나오는 점: 상자 위쪽 가운데 (주둥이·컵 입구)
             hp = float(np.clip(max(0.11 * H, 4.0 * bw), 0.09 * H, 0.24 * H)) * (0.8 + 0.4 * amount)   # 김이 올라가는 높이(px)
             hw0 = 0.5 * bw                                               # 처음 폭의 절반
             hw1 = max(hw0 * 3.0, 0.15 * hp)                              # 맨 위에서의 폭의 절반
