@@ -679,7 +679,7 @@ SCENES = {
                 "a corner of the room where the bookshelf meets a tall window, the candle on a desk",
                 "a low angle across the table with the candle in the foreground, the bookshelf and the rainy window behind",
             ],
-            {"intensity": 1.0, "brightness": 0.3, "speed": 0.55, "window": True, "interior": 1.0, "big_flame": True, **INTERIOR_RAIN},
+            {"intensity": 1.0, "brightness": 0.3, "speed": 0.55, "veil": 0.0, "window": True, "interior": 1.0, "big_flame": True, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE + ", readable text on book covers, titles, logos, empty shelves, modern shelves", comfy={"family": "zimage"}, post=NATURAL_POST,
         ),
         Scene(
@@ -732,7 +732,7 @@ SCENES = {
                 "an old writing desk with a leather notebook and fountain pen beside the window",
                 "a cozy window seat with a cushion, the candle on a small tray",
             ],
-            {"intensity": 1.0, "brightness": 0.3, "speed": 0.55, "window": True, "interior": 1.0, "big_flame": True, **INTERIOR_RAIN},
+            {"intensity": 1.0, "brightness": 0.3, "speed": 0.55, "veil": 0.0, "window": True, "interior": 1.0, "big_flame": True, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
         ),
         Scene(

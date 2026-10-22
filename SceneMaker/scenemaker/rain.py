@@ -45,6 +45,7 @@ class RainSettings:
     vinyl_sound: bool = False # v11.22: True 면 레코드판 특유의 지직거리는 소리를 자동으로 합성해 섞음
     fire_sound: bool = False  # v11.22: True 면 벽난로 타닥거리는 소리를 자동으로 합성해 섞음
     outside_only: bool = False  # v11.23: True 면 텐트 안쪽(천·바닥)에는 비를 그리지 않고 열린 바깥 풍경에만 내림
+    veil: float = 1.0          # 창밖 먼 비 '장막'(세로 결이 아래로 흐르는 옅은 막) 세기 배율. 큰 어두운 창에서는 검은 띠·뿌연 띠가 번갈아 내려와 보이므로 0 으로 끔
     big_flame: bool = False   # v11.23: True 면 화면 가득한 큰 촛불 클로즈업용 불꽃 감지·움직임 (일반 촛불 감지는 작은 불꽃만 인정)
     dof: float = 0.0          # 깊이 기반 피사계심도 (0 = 끔). 가을 씬은 1.0 (2026-10-02 Cowork: 잘린 종이 느낌 해소)
     seed: int = 7
@@ -180,7 +181,7 @@ class RainRenderer:
         tex = np.asarray(img, dtype=np.float32) / 255.0
         tex = np.clip((tex - tex.mean()) * 4 + 0.5, 0, 1)
         far = np.clip((0.4 - d) / 0.3, 0, 1)
-        self.veil = tex * far * 0.14 * self.s.intensity
+        self.veil = tex * far * 0.14 * self.s.intensity * self.s.veil     # veil 0 = 끔 (촛불 창 장면: 큰 어두운 창에서 띠가 번갈아 훑고 지나가 보임)
         self.veil_cycles = max(1, int(round(self.N / self.fps * 0.8)))   # 초당 약 0.8화면 높이
         if self.depth_style:
             self.veil = self.veil * 0.8
