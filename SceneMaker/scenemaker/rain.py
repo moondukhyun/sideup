@@ -283,6 +283,8 @@ class RainRenderer:
     # ---------- 프레임 ----------
     def _rain_mask(self, f):
         mask = np.zeros((self.H, self.W), dtype=np.float32)
+        if self.s.intensity <= 0:                            # 비 없는 장면(모닥불·촛불 클로즈업): 빗방울을 한 줄기도 그리지 않음
+            return mask
         for li, layer in enumerate(self.layers):
             d = layer.drops
             lw, lh = d["size"]
