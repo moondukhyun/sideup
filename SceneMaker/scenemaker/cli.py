@@ -321,7 +321,8 @@ def _attach_interior(renderer, job, rs, args):
         print(f"  천장 선풍기 회전: {len(renderer.fans.items)}대 (루프당 {renderer.fans.k}바퀴)")
     steams = [p for p in marks if p.get("kind") == "steam"]
     if steams:
-        renderer.steam = Steam(steams, Wp, Hp, renderer.N, renderer.fps, seed=rs.seed, amount=float(getattr(args, "steam_amount", None) or 1.0))
+        renderer.steam = Steam(steams, Wp, Hp, renderer.N, renderer.fps, seed=rs.seed, amount=float(getattr(args, "steam_amount", None) or 1.0),
+                               bg=renderer.bg, clean=not getattr(args, "no_steam_clean", False))
         for line in renderer.steam.describe():
             print("  " + line)
     if it.candles or it.fire is not None:
@@ -1025,6 +1026,7 @@ def _add_video_args(p):
     p.add_argument("--wan-force", action="store_true", help="물이 없는 장면에서도 Wan 을 강제로 실행")
     p.add_argument("--wan-prompt", default="", help="Wan 움직임 묘사 추가 (영어)")
     p.add_argument("--wan-seed", type=int, help="Wan 시드 (기본: 배경 시드)")
+    p.add_argument("--no-steam-clean", action="store_true", help="그림에 이미 그려진 김 자국을 지우지 않음")
     p.add_argument("--steam-amount", type=float, help="김(커피잔·주전자) 진하기 배율 (기본 1.0)")
     p.add_argument("--pet-amount", type=float, help="반려동물 숨쉬는 크기 배율 (기본 0.6, 클수록 크게)")
     p.add_argument("--fire-speed", type=float, help="불꽃·촛불 움직임 속도 (낮을수록 느림. 수식 기본 0.45, Wan 기본 0.6 → 보통 0.5배속)")

@@ -583,11 +583,12 @@ def _torus_noise(rng, P, Q, sy, sx, cv2):
 
 class Steam:
     """steams: [{"x0","y0","x1","y1" (0~1 비율), "kind": "steam"}] — 컵 입구·주전자 주둥이를 감싼 작은 상자.
-    상자 위쪽 가운데에서 김이 피어올라 퍼지며 사라진다.
-    루프 이음새가 없게 하는 원리: 김 무늬는 위아래로 이어지는 무늬를 정확히 정수 칸(k)만큼 올려 보내고,
-    좌우 흔들림은 정수 번(m) 왕복하는 사인파라서 마지막 프레임 다음이 첫 프레임과 완전히 같다."""
+    상자 위쪽 가운데에서 김이 천천히 피어올라 구불구불 퍼지며 사라진다.
+    루프 이음새가 없게 하는 원리: 김 무늬는 아주 긴 무늬를 정확히 정수 칸(k)만큼 올려 보내고,
+    좌우 굽이침·무늬 변화는 모두 정수 번 반복하는 사인파라서 마지막 프레임 다음이 첫 프레임과 완전히 같다.
+    clean=True 면 그림에 이미 그려져 있던 (멈춰 있는) 김 자국을 지우고 그 자리에 움직이는 김을 그린다."""
 
-    def __init__(self, steams, W, H, N, fps, seed=7, amount=1.0):
+    def __init__(self, steams, W, H, N, fps, seed=7, amount=1.0, bg=None, clean=True):
         import cv2
         self.cv2 = cv2
         self.N = N
@@ -601,29 +602,65 @@ class Steam:
             rng = np.random.RandomState((seed * 131 + i * 17) % (2 ** 31 - 1))
             ox, oy = (x0 + x1) / 2.0, y0 + 0.35 * (y1 - y0)              # 김이 나오는 점
             hp = float(np.clip(max(0.17 * H, 5.5 * bw), 0.12 * H, 0.34 * H)) * (0.8 + 0.4 * amount)   # 김이 올라가는 높이(px)
-            hw0 = 0.45 * bw                                              # 처음 폭의 절반
-            hw1 = max(hw0 * 2.2, 0.09 * hp)                              # 맨 위에서의 폭의 절반
-            side = int(hw1 * 2.6 + 12)
+            hw0 = 0.5 * bw                                               # 처음 폭의 절반
+            hw1 = max(hw0 * 3.0, 0.15 * hp)                              # 맨 위에서의 폭의 절반
+            lean = float(rng.choice([-1.0, 1.0]) * rng.uniform(0.25, 0.6))   # 바람에 살짝 기울어지는 방향 (정해진 한쪽)
+            side = int(hw1 * 3.6 + 16)
             rx0, rx1 = int(max(0, ox - side)), int(min(W, ox + side))
             ry0, ry1 = int(max(0, oy - hp - 8)), int(min(H, oy + 6))
             if rx1 - rx0 < 8 or ry1 - ry0 < 8:
                 continue
-            P = int(max(96, hp * 1.1))                                   # 무늬 세로 길이
-            Q = int(max(64, side * 2))
+            v_px = hp / 11.0                                             # 초당 올라가는 거리(px): 맨 위까지 약 11초 (천천히)
+            P = int(max(2.4 * hp, 160))                                  # 무늬 세로 길이 (김 높이보다 훨씬 길어 같은 무늬가 반복돼 보이지 않음)
+            k = int(round(v_px * sec / P))
+            if k < 1:                                                    # 루프가 짧으면 무늬를 길게 늘려서 속도를 지킴
+                k = 1
+                P = int(max(P, v_px * sec))
+            Q = int(max(96, side * 2.4))
             layers = []
-            for li, (sy, sx, mult) in enumerate(((P / 14.0, Q / 48.0, 1.0), (P / 22.0, Q / 70.0, 1.8))):
-                tex = _torus_noise(rng, P, Q, sy, sx, cv2)
-                v_px = hp / (3.8 / mult)                                 # 초당 올라가는 거리(px): 한 줄기가 약 4초 만에 끝까지 올라감
-                k = max(1, int(round(v_px * sec / P)))                   # 루프당 무늬가 올라가는 칸 수 (정수)
-                layers.append({"tex": tex, "k": k, "off": float(rng.uniform(0, P))})
+            for sy, sx, mult in ((0.34 * hp, 0.11 * hp, 1.0), (0.17 * hp, 0.07 * hp, 1.6)):
+                t1 = _torus_noise(rng, P, Q, sy, sx, cv2)
+                t2 = _torus_noise(rng, P, Q, sy, sx, cv2)
+                kk = max(1, int(round(k * mult))) if P > 0 else k
+                layers.append({"t1": t1, "t2": t2, "k": kk, "off": float(rng.uniform(0, P)), "mix": int(rng.randint(1, 3)), "ph": float(rng.uniform(0, 6.28))})
             yy, xx = np.mgrid[ry0:ry1, rx0:rx1].astype(np.float32)
             hf = np.clip((oy - yy) / hp, 0.0, 1.0)                       # 0 = 입구, 1 = 맨 위
-            self.items.append({"box": (rx0, ry0, rx1, ry1), "ox": ox, "oy": oy, "hp": hp, "hw0": hw0, "hw1": hw1,
-                               "yy": yy, "xx": xx, "hf": hf, "P": P, "Q": Q, "layers": layers,
-                               "m1": int(rng.randint(1, 3)), "m2": int(rng.randint(2, 5)),
-                               "ph1": float(rng.uniform(0, 6.28)), "ph2": float(rng.uniform(0, 6.28)),
-                               "amount": float(amount), "kind": p.get("kind", "steam")})
+            item = {"box": (rx0, ry0, rx1, ry1), "ox": ox, "oy": oy, "hp": hp, "hw0": hw0, "hw1": hw1, "lean": lean,
+                    "yy": yy, "xx": xx, "hf": hf, "P": P, "Q": Q, "layers": layers,
+                    "m1": int(rng.randint(1, 3)), "m2": int(rng.randint(2, 4)), "m3": int(rng.randint(1, 3)),
+                    "ph1": float(rng.uniform(0, 6.28)), "ph2": float(rng.uniform(0, 6.28)), "ph3": float(rng.uniform(0, 6.28)),
+                    "amount": float(amount), "kind": p.get("kind", "steam"), "patch": None}
+            if clean and bg is not None:
+                item["patch"] = self._clean_patch(bg, item, y1)
+            self.items.append(item)
         self.sec = sec
+
+    def _clean_patch(self, bg, it, box_bottom):
+        """그림에 이미 그려진 김(주변보다 밝고 흐릿한 줄기)을 찾아 지운 조각과 그 가중치를 만든다. 못 찾으면 None."""
+        cv2 = self.cv2
+        x0, y0, x1, y1 = it["box"]
+        reg = np.clip(np.asarray(bg[y0:y1, x0:x1], np.float32), 0, 1)
+        if reg.size == 0:
+            return None
+        luma = reg.mean(axis=2)
+        mx, mn = reg.max(axis=2), reg.min(axis=2)
+        sat = (mx - mn) / (mx + 1e-3)
+        k = int(max(9, it["hw1"] * 1.2)) | 1
+        opened = cv2.morphologyEx(luma, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
+        top = luma - opened
+        # 입구(상자) 바로 위부터 위쪽 기둥 안에서만, 주변보다 밝고 색이 옅은 부분
+        hf, xx = it["hf"], it["xx"]
+        col = np.exp(-(((xx - it["ox"]) / (it["hw1"] * 1.8)) ** 2))
+        zone = (hf > 0.04) & (col > 0.15)
+        m = ((top > 0.035) & (sat < 0.55) & zone).astype(np.uint8)
+        frac = float(m.mean())
+        if frac < 0.004:
+            return None
+        m = cv2.dilate(m, np.ones((7, 7), np.uint8))
+        u8 = (reg * 255).astype(np.uint8)
+        fixed = cv2.inpaint(u8, m * 255, 6, cv2.INPAINT_TELEA).astype(np.float32) / 255.0
+        w = cv2.GaussianBlur(m.astype(np.float32), (0, 0), 3.0)[..., None]
+        return {"img": fixed, "w": np.clip(w * 1.4, 0, 1)}
 
     def apply(self, out, f):
         cv2 = self.cv2
@@ -632,35 +669,43 @@ class Steam:
         for it in self.items:
             x0, y0, x1, y1 = it["box"]
             hf, xx, yy = it["hf"], it["xx"], it["yy"]
-            sway = (9.0 * np.sin(tp * it["m1"] + it["ph1"] + 3.2 * hf) + 5.0 * np.sin(tp * it["m2"] + it["ph2"] - 5.0 * hf)) * (0.15 + hf) \
-                * (it["hw1"] / 40.0 + 0.4)
+            hw1, hp = it["hw1"], it["hp"]
+            reg = out[y0:y1, x0:x1]
+            if it["patch"] is not None:                                  # 멈춰 있던 김 자국을 먼저 지움
+                reg[...] = reg * (1 - it["patch"]["w"]) + it["patch"]["img"] * it["patch"]["w"]
+            g = hf ** 1.25                                               # 위로 갈수록 크게 굽이침
+            sway = (0.55 * hw1 * np.sin(tp * it["m1"] + it["ph1"] + 2.6 * hf) + 0.35 * hw1 * np.sin(tp * it["m2"] + it["ph2"] - 4.1 * hf)) * g \
+                + it["lean"] * hw1 * 1.1 * hf ** 1.6                      # 바람에 한쪽으로 기울며 올라감
             cx = it["ox"] + sway
-            hw = it["hw0"] + (it["hw1"] - it["hw0"]) * np.sqrt(hf)
+            hw = it["hw0"] + (hw1 - it["hw0"]) * hf ** 0.7
             dx = (xx - cx) / np.maximum(hw, 1.0)
-            lat = np.exp(-dx * dx * 1.35)                                # 가운데가 짙고 가장자리는 옅게
-            env = _smooth(hf / 0.10) * (1.0 - _smooth((hf - 0.35) / 0.65)) ** 1.15      # 입구에서 서서히 생겼다가 위에서 사라짐
+            lat = np.exp(-dx * dx * 1.2)
+            env = _smooth(hf / 0.12) * (1.0 - _smooth((hf - 0.30) / 0.70)) ** 1.1      # 입구에서 서서히 생겼다가 위에서 사라짐
+            wob = 0.30 * hw1 * np.sin(tp * it["m3"] + it["ph3"] + 7.0 * hf)         # 무늬 자체도 굽이쳐서 곧은 줄로 보이지 않게
             dens = np.zeros_like(hf)
+            P, Q = it["P"], it["Q"]
             for ly in it["layers"]:
-                P, Q = it["P"], it["Q"]
                 s = ly["k"] * P * t + ly["off"]                          # 무늬를 정수 칸만큼 올려 보냄
                 my = np.mod(yy - y0 + s, P).astype(np.float32)
-                mx = np.mod((xx - cx) * 0.9 + Q / 2.0, Q).astype(np.float32)
-                tex = cv2.remap(ly["tex"], mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
-                dens += np.clip(0.38 + 0.8 * tex, 0.0, 1.0) ** 1.3 / len(it["layers"])
+                mx = np.mod((xx - cx + wob) * 0.8 + Q / 2.0, Q).astype(np.float32)
+                ph = tp * ly["mix"] + ly["ph"]                           # 두 무늬를 섞는 비율도 정수 번 반복 → 김 모양이 서서히 변함
+                tex = np.cos(ph) * cv2.remap(ly["t1"], mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP) \
+                    + np.sin(ph) * cv2.remap(ly["t2"], mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
+                dens += np.clip(0.34 + 0.75 * tex, 0.0, 1.0) ** 1.4 / len(it["layers"])
             edge = _smooth(np.minimum(xx - x0, x1 - 1 - xx) / 14.0) * _smooth(np.minimum(yy - y0, y1 - 1 - yy) / 10.0)      # 잘라낸 사각형 경계가 보이지 않게
-            a = np.clip(dens * lat * env * edge * 0.85 * it["amount"], 0.0, 0.5)[..., None]
-            reg = out[y0:y1, x0:x1]
+            a = np.clip(dens * lat * env * edge * 0.95 * it["amount"], 0.0, 0.5)[..., None]
             luma = reg.mean(axis=2, keepdims=True)
-            glow = cv2.GaussianBlur(luma, (0, 0), max(6.0, it["hw1"] * 0.8))
+            glow = cv2.GaussianBlur(luma, (0, 0), max(6.0, hw1 * 0.8))
             if glow.ndim == 2:
                 glow = glow[..., None]
             lit = np.clip(0.55 + 1.8 * glow, 0.0, 1.0)                   # 주변이 밝을수록 하얗게, 어두운 방에서는 은은하게
-            col = np.array([0.95, 0.93, 0.91], np.float32)[None, None, :] * lit * 0.85 + reg * 0.15
-            reg[...] = reg * (1 - a) + col * a
+            colr = np.array([0.95, 0.93, 0.91], np.float32)[None, None, :] * lit * 0.85 + reg * 0.15
+            reg[...] = reg * (1 - a) + colr * a
         return out
 
     def describe(self):
-        return [f"김: {len(self.items)}곳에서 피어오름 (루프당 무늬 {', '.join(str(l['k']) for it in self.items for l in it['layers'])}칸 → 이음새 없음)"]
+        return [f"김: {len(self.items)}곳에서 천천히 피어오름 (루프당 무늬 {', '.join(str(l['k']) for it in self.items for l in it['layers'])}칸 → 이음새 없음"
+                + (", 그림에 있던 김 자국 지움)" if any(it["patch"] is not None for it in self.items) else ")")]
 
 
 # ---------------------------------------------------------------- 턴테이블 레코드판 회전
