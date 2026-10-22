@@ -5094,13 +5094,13 @@ class SceneTabMixin:
         g.pack(fill="x", padx=10, pady=(2, 0))
         r1 = ttk.Frame(g); r1.pack(fill="x", padx=8, pady=(4, 2))
         ttk.Label(r1, text="장면:").pack(side="left")
-        self.sm_scene_cb = ttk.Combobox(r1, textvariable=self.sm_scene_var, width=32, state="readonly")
-        self.sm_scene_cb.pack(side="left", padx=4)
+        self.sm_scene_cb = ttk.Combobox(r1, textvariable=self.sm_scene_var, width=56, state="readonly", style="SMScene.TCombobox")       # 장면 이름이 길어도 다 보이게 넓게 (창 폭에 맞춰 늘어남)
+        self.sm_scene_cb.pack(side="left", padx=4, fill="x", expand=True)
         self.sm_scene_cb.bind("<<ComboboxSelected>>", lambda e: self.sm_refresh_list())
-        ttk.Label(r1, text="장수:").pack(side="left", padx=(10, 0))
-        ttk.Spinbox(r1, from_=1, to=12, width=4, textvariable=self.sm_count_var).pack(side="left", padx=4)
         r2 = ttk.Frame(g); r2.pack(fill="x", padx=8, pady=2)
-        ttk.Label(r2, text="비:").pack(side="left")
+        ttk.Label(r2, text="장수:").pack(side="left")
+        ttk.Spinbox(r2, from_=1, to=12, width=4, textvariable=self.sm_count_var).pack(side="left", padx=4)
+        ttk.Label(r2, text="비:").pack(side="left", padx=(10, 0))
         ttk.Combobox(r2, textvariable=self.sm_rain_var, width=16, state="readonly",
                      values=[n for n, _ in SM_RAIN]).pack(side="left", padx=4)
         ttk.Label(r2, text="모델:").pack(side="left", padx=(10, 0))
@@ -5988,6 +5988,14 @@ class SceneTabMixin:
         tag = msg[0]
         if tag == "__SM_SCENES__":
             self.sm_scene_cb.configure(values=msg[1])
+            try:                                                      # 펼친 목록은 가장 긴 장면 이름이 다 보이는 폭으로 (칸보다 넓어도 됨)
+                import tkinter.font as tkfont
+                f = tkfont.nametofont("TkTextFont")
+                need = max([f.measure(x) for x in msg[1]] + [200]) + 40
+                have = max(self.sm_scene_cb.winfo_width(), 100)
+                ttk.Style().configure("SMScene.TCombobox", postoffset=(0, 0, max(0, min(need - have, 900)), 0))
+            except Exception:
+                pass
             names = [s.split(" — ")[0] for s in msg[1]]
             if self._sm_scene_name() not in names and msg[1]:
                 self.sm_scene_var.set(msg[1][0])
