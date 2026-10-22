@@ -124,7 +124,7 @@ class RainRenderer:
         self.layers = [self._init_layer(_Layer(**{f.name: getattr(l, f.name) for f in fields(l)}), rng)
                        for l in (LAYERS_DEPTH if self.depth_style else LAYERS)]
         self.vis = self._make_visibility(bg)
-        self.fog = self._make_fog(rng) if settings.fog > 0 else None
+        self.fog = self._make_fog(rng) if (settings.fog > 0 and settings.interior <= 0) else None     # 실내 장면: 옆으로 흘러가는 안개 없음 (예전에 저장된 값에 안개가 섞여 있어도)
         self.flash = self._make_flash(rng)
         self.layer_w = None          # set_depth(): 층별 원근 가림
         self.veil = None

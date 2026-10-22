@@ -340,6 +340,9 @@ def jitter_rain(base, seed, rain_level=None):
         base = {**base, "intensity": base.get("intensity", 1.0) * RAIN_LEVELS[rain_level][1]}
     for k, amp in RAIN_JITTER.items():
         if k in base and base[k] is not None:
+            if k == "fog" and base[k] <= 0:                  # 안개 0 인 장면(실내·촛불)에 흔들림으로 안개가 생겨 왼쪽에서 계속 흘러나오던 문제
+                out[k] = 0.0
+                continue
             v = base[k] + rng.uniform(-amp, amp) * (base[k] if k == "intensity" else 1)
             out[k] = round(max(0.0, v), 3)
     return out
