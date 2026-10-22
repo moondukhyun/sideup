@@ -4666,7 +4666,7 @@ SM_ANIMAL_SCENES = SM_ANIMAL_SCENES | {"living_turntable_fireplace", "turntable_
 SM_STEAM_SCENES = {"living_coffee_fireplace_rain", "living_tea_fireplace_rain", "campfire_kettle_lake", "campfire_tent_kettle",
                    "campfire_lake", "campfire_tent_lake", "campfire_forest", "campfire_only"}      # 김이 올라오는 장면
 SM_MARK_SCENES = SM_ANIMAL_SCENES | SM_TURNTABLE_SCENES | SM_STEAM_SCENES          # 위치 표시(반려동물·선풍기·레코드판)가 필요한 장면
-SM_INTERIOR_SCENES = SM_MARK_SCENES | {"campfire_lake", "campfire_kettle_lake", "campfire_tent_lake", "campfire_tent_kettle", "campfire_forest", "campfire_only", "candle_closeup", "candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "candle_nook"}
+SM_INTERIOR_SCENES = SM_MARK_SCENES | {"candle_bookshelf", "campfire_lake", "campfire_kettle_lake", "campfire_tent_lake", "campfire_tent_kettle", "campfire_forest", "campfire_only", "candle_closeup", "candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "candle_nook"}
 
 
 def sm_python():

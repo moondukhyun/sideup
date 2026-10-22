@@ -648,6 +648,23 @@ SCENES = {
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
         ),
         Scene(
+            "candle_bookshelf",
+            "오래된 책이 가득한 책장 + 촛불 방",
+            "a dark cozy windowless room with solid plain walls and no windows, one tall wooden bookshelf filled with many old worn books of different sizes and faded leather and cloth spines standing in neat rows, "
+            "a large thick lit candle with a big bright steady flame in the foreground on a wooden table, the candle is the only light source, warm golden glow falling on the book spines, "
+            "a few small charming objects nearby, deep soft darkness around, empty room without people, calm sleepy atmosphere",
+            [
+                "wide view of the whole bookshelf wall with the candle on a reading table in front",
+                "the candle slightly left of center with the tall bookshelf behind it on the right",
+                "the candle slightly right of center with the tall bookshelf behind it on the left",
+                "a closer view of the candle with the old book spines glowing softly behind it",
+                "a corner of the room with two bookshelves meeting and a small reading table with the candle",
+                "a low angle view along a row of old books with the candle glowing in the foreground",
+            ],
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "big_flame": True, **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE + ", readable text on book covers, titles, logos, empty shelves, modern shelves", comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
             "candle_many",
             "촛불 여러 개 아기자기한 방",
             "a dark cozy windowless room with solid plain walls and no windows, lit only by many small lit candles of different heights with bright steady flames, "

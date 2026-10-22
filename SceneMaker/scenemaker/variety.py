@@ -29,7 +29,7 @@ AXES = {
                "looking down a path", "close view of the foreground"],
 }
 # v11.22: 실내 장면은 '한낮·여름' 같은 자연 풍경 문구가 섞이면 안 되므로 전용 축을 쓴다
-INTERIOR_SCENES = {"candle_closeup", "candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "living_fireplace_storm",
+INTERIOR_SCENES = {"candle_closeup", "candle_bookshelf", "candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "living_fireplace_storm",
                    "living_fireplace_candles", "hearth_dog_cat", "candle_nook",
                    "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
                    "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window",
@@ -282,6 +282,10 @@ def diversify(scene_name, seed, rain_level=None):
         picks["candle"] = rng.choice(CLOSEUP_CANDLES) + " " + rng.choice(CLOSEUP_SURFACES)
         picks["backdrop"] = rng.choice(CLOSEUP_BACKDROPS)
         picks["glow"] = rng.choice(CLOSEUP_GLOWS)
+    if scene_name == "candle_bookshelf":                                      # 책장 재질·책 분위기·촛대·탁자를 이미지마다 다르게
+        picks["shelf"] = ("the bookshelf is " + rng.choice(["dark walnut wood", "warm oak", "painted dark green wood", "rustic pine", "black iron and wood", "tall built-in dark wood"])
+                          + ", the books are " + rng.choice(["old leather-bound volumes", "faded cloth-bound books in muted colors", "thick worn encyclopedias and journals", "a mix of old paperbacks and hardcovers"]))
+        picks["holder"] = rng.choice(CANDLE_HOLDERS) + " on " + rng.choice(["a reading table with an open book", "a wooden desk with a brass lamp (unlit)", "a small round table with a ceramic cup", "a stack of old books"])
     if scene_name == "candle_single":
         picks["holder"] = rng.choice(CANDLE_HOLDERS) + " on " + rng.choice(CANDLE_SURFACES)
     elif scene_name in ("candle_many", "candle_nook"):                       # 촛불 여러 개: 놓인 곳·받침의 재질을 바꿔 분위기를 다르게 (개수는 건드리지 않음)
