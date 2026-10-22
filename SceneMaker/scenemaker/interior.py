@@ -592,7 +592,7 @@ class Steam:
     좌우 굽이침·무늬 변화는 모두 정수 번 반복하는 사인파라서 마지막 프레임 다음이 첫 프레임과 완전히 같다.
     clean=True 면 그림에 이미 그려져 있던 (멈춰 있는) 김 자국을 지우고 그 자리에 움직이는 김을 그린다."""
 
-    def __init__(self, steams, W, H, N, fps, seed=7, amount=1.0, bg=None, clean=True):
+    def __init__(self, steams, W, H, N, fps, seed=7, amount=1.0, bg=None, clean=True, speed=1.0):
         import cv2
         self.cv2 = cv2
         self.N = N
@@ -615,7 +615,7 @@ class Steam:
             ry0, ry1 = int(max(0, oy - hp - 8)), int(min(H, oy + 6))
             if rx1 - rx0 < 8 or ry1 - ry0 < 8:
                 continue
-            v_px = hp / 8.0                                             # 초당 올라가는 거리(px): 맨 위까지 약 11초 (천천히)
+            v_px = hp / 8.0 * float(speed)                                             # 초당 올라가는 거리(px): 맨 위까지 약 11초 (천천히)
             P = int(max(2.4 * hp, 160))                                  # 무늬 세로 길이 (김 높이보다 훨씬 길어 같은 무늬가 반복돼 보이지 않음)
             k = int(round(v_px * sec / P))
             if k < 1:                                                    # 루프가 짧으면 무늬를 길게 늘려서 속도를 지킴

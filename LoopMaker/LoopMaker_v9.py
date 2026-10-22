@@ -4655,6 +4655,8 @@ SM_IMG_EXT = (".png", ".jpg", ".jpeg", ".webp")
 SM_FILTERS = ["전체 보기", "🎬 영상 만든 것만", "영상 아직 안 만든 것만"]
 SM_FIREDB = [("작게 (-18dB)", -18), ("보통 (-12dB)", -12), ("크게 (-6dB)", -6)]
 SM_FIRESPEED = [("느리게", 0.4), ("보통", 0.65), ("조금 빠르게", 0.85), ("빠르게", 1.05)]      # 불꽃·촛불 일렁이는 속도
+SM_STEAM_AMOUNT = [("보통", 1.0), ("아주 옅게", 0.45), ("옅게", 0.7), ("진하게", 1.4)]               # 김 진하기
+SM_STEAM_SPEED = [("보통", 1.0), ("아주 느리게", 0.45), ("느리게", 0.7), ("빠르게", 1.4)]            # 김 올라오는 속도
 SM_BREATH = [("아주 작게", 0.3), ("작게", 0.6), ("보통", 0.9), ("크게", 1.3)]                      # 강아지·고양이 숨쉬는 크기
 SM_ANIMAL_SCENES = {"living_fireplace_storm", "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
                     "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window", "cabin_fireplace_window",
@@ -5011,7 +5013,7 @@ class SceneTabMixin:
                    duration=self.sm_dur_var.get(), motion=self.sm_motion_var.get(),
                    details=self.sm_details_var.get(), wan=self.sm_wan_var.get(), wet=self.sm_wet_var.get(),
                    interior=self.sm_interior_var.get(), fire_sound_v2=self.sm_fire_var.get(), vinyl_sound_v2=self.sm_vinyl_var.get(), out_dir=self.sm_outdir_var.get(),
-                   scene_only=self.sm_scene_only_var.get(), firedb=self.sm_firedb_var.get(), firespeed=self.sm_firespeed_var.get(), breath=self.sm_breath_var.get(), autoqc=self.sm_autoqc_var.get(),
+                   scene_only=self.sm_scene_only_var.get(), firedb=self.sm_firedb_var.get(), firespeed=self.sm_firespeed_var.get(), breath=self.sm_breath_var.get(), steam_amt=self.sm_steam_amt_var.get(), steam_spd=self.sm_steam_spd_var.get(), autoqc=self.sm_autoqc_var.get(),
                    auto_count=self.sm_auto_count_var.get(), auto_rounds=self.sm_auto_rounds_var.get())
         try:
             with open(SM_TAB_CFG, "w", encoding="utf-8") as f:
@@ -5040,6 +5042,8 @@ class SceneTabMixin:
         self.sm_firedb_var = tk.StringVar(value=cfg.get("firedb", SM_FIREDB[1][0]))          # v11.22: 장작 소리 크기
         self.sm_firespeed_var = tk.StringVar(value=cfg.get("firespeed", SM_FIRESPEED[1][0]))   # v11.23: 불꽃 속도
         self.sm_breath_var = tk.StringVar(value=cfg.get("breath", SM_BREATH[1][0]))            # v11.23: 숨쉬는 크기
+        self.sm_steam_amt_var = tk.StringVar(value=cfg.get("steam_amt", SM_STEAM_AMOUNT[0][0]))    # v11.24: 김 진하기
+        self.sm_steam_spd_var = tk.StringVar(value=cfg.get("steam_spd", SM_STEAM_SPEED[0][0]))     # v11.24: 김 올라오는 속도
         self.sm_auto_count_var = tk.StringVar(value=str(cfg.get("auto_count", 4)))             # 원클릭: 후보 그림 수
         self.sm_auto_rounds_var = tk.StringVar(value=str(cfg.get("auto_rounds", 2)))           # 원클릭: 정상 그림 없을 때 다시 만드는 횟수
         self.sm_autoqc_var = tk.BooleanVar(value=cfg.get("autoqc", True))                      # v11.22: 배경 만든 뒤 AI 그림 오류 자동 검사
@@ -5172,6 +5176,10 @@ class SceneTabMixin:
         ttk.Combobox(v3d, textvariable=self.sm_firespeed_var, width=10, state="readonly", values=[n for n, _ in SM_FIRESPEED]).pack(side="left", padx=4)
         ttk.Label(v3d, text="🐾 숨쉬는 크기").pack(side="left", padx=(12, 0))
         ttk.Combobox(v3d, textvariable=self.sm_breath_var, width=10, state="readonly", values=[n for n, _ in SM_BREATH]).pack(side="left", padx=4)
+        ttk.Label(v3d, text="☁ 김 진하기").pack(side="left", padx=(12, 0))
+        ttk.Combobox(v3d, textvariable=self.sm_steam_amt_var, width=8, state="readonly", values=[n for n, _ in SM_STEAM_AMOUNT]).pack(side="left", padx=4)
+        ttk.Label(v3d, text="속도").pack(side="left")
+        ttk.Combobox(v3d, textvariable=self.sm_steam_spd_var, width=8, state="readonly", values=[n for n, _ in SM_STEAM_SPEED]).pack(side="left", padx=4)
         ttk.Label(v3d, text="(영상이 마음에 안 들면 여기서 조절하고 다시 만들어요)", foreground="#666666").pack(side="left", padx=6)
         v3b = ttk.Frame(v); v3b.pack(fill="x", padx=8, pady=2)
         ttk.Checkbutton(v3b, text="💧 AI 움직임 (Wan 2.2 · 물·안개 / 실내는 불꽃·촛불·숨쉬기 · 약 15~25분)",
@@ -5681,6 +5689,12 @@ class SceneTabMixin:
         brt = dict(SM_BREATH).get(self.sm_breath_var.get())
         if brt is not None:
             args += ["--pet-amount", str(brt)]
+        sta = dict(SM_STEAM_AMOUNT).get(self.sm_steam_amt_var.get())
+        if sta is not None:
+            args += ["--steam-amount", str(sta)]
+        sts = dict(SM_STEAM_SPEED).get(self.sm_steam_spd_var.get())
+        if sts is not None:
+            args += ["--steam-speed", str(sts)]
         return args
 
     def sm_auto_make(self):
@@ -5888,6 +5902,12 @@ class SceneTabMixin:
         brt = dict(SM_BREATH).get(self.sm_breath_var.get())
         if brt is not None:
             args += ["--pet-amount", str(brt)]
+        sta = dict(SM_STEAM_AMOUNT).get(self.sm_steam_amt_var.get())
+        if sta is not None:
+            args += ["--steam-amount", str(sta)]
+        sts = dict(SM_STEAM_SPEED).get(self.sm_steam_spd_var.get())
+        if sts is not None:
+            args += ["--steam-speed", str(sts)]
         self._sm_save_cfg()
         self._sm_run("video", args, need_comfy=wan)
 
