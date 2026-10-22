@@ -586,6 +586,11 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
                 else:
                     wmask = gm if wmask is None else np.maximum(wmask, gm)
                 print(f"  창 유리: 표시한 창 {len(gboxes)}개를 합침")
+        if wmask is None and rs.interior > 0:                                       # 실내인데 창 유리를 못 찾음 → 방 전체에 비가 내리는 사고를 막기 위해 비를 끔
+            renderer.s.intensity = 0.0
+            print("  ⚠ 창 유리를 찾지 못해 이번 영상에는 비를 내리지 않았어요 (방 전체에 비가 내리는 것을 막기 위해). "
+                  "[🐾 위치 지정]에서 '창 유리'를 그린 뒤 다시 만들면 창과 창밖에만 비가 내려요.")
+            return
         if wmask is None:
             if not real:
                 return

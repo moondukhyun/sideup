@@ -426,7 +426,8 @@ def window_mask_cool(bg, depth=None):
     r, g, b = small[..., 0], small[..., 1], small[..., 2]
     lum = small @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
     warm = cv2.GaussianBlur(r - b, (0, 0), 1.2)
-    cool = ((warm < 0.055) & (lum < 0.78)).astype(np.uint8)                 # 푸르스름하거나 무채색 (실내 벽·나무·조명은 따뜻해서 제외)
+    bluish = cv2.GaussianBlur(b - r, (0, 0), 1.2) > 0.012                      # 어두운 밤 창은 푸르스름함 — 그림자 진 어두운 벽(무채색)은 창이 아님
+    cool = ((warm < 0.055) & (lum < 0.78) & (bluish | (lum > 0.45))).astype(np.uint8)   # 푸르스름하거나 밝은 무채색 (실내 벽·나무·조명은 따뜻해서 제외)
     if depth is not None:
         d = cv2.resize(np.asarray(depth, np.float32), (sw, sh), interpolation=cv2.INTER_AREA)
         cand = cool.astype(bool)
