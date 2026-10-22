@@ -605,7 +605,7 @@ class Steam:
             bw = min(max(10.0, x1 - x0), 0.05 * W)
             rng = np.random.RandomState((seed * 131 + i * 17) % (2 ** 31 - 1))
             ox, oy = (x0 + x1) / 2.0, y0 + 0.2 * (y1 - y0)
-            hp = float(np.clip(max(0.10 * H, 4.0 * bw), 0.08 * H, 0.22 * H)) * (0.8 + 0.4 * amount)    # 올라가는 높이
+            hp = float(np.clip(max(0.07 * H, 2.4 * bw), 0.06 * H, 0.17 * H)) * (0.8 + 0.4 * amount)    # 올라가는 높이
             life0 = 7.0 / max(0.3, float(speed))                                  # 한 덩어리가 사라지기까지(초)
             cycles = max(1, int(round(sec / life0)))
             life = sec / cycles                                                   # 루프 길이를 정확히 나누는 수명
@@ -624,7 +624,7 @@ class Steam:
                 P = int(max(P, v_px * sec))
             Q = int(max(96, (rx1 - rx0) * 1.6))
             tex = {"P": P, "Q": Q, "k": k, "off": float(rng.uniform(0, P)), "mix": int(rng.randint(1, 3)), "ph": float(rng.uniform(0, 6.28)),
-                   "t1": _torus_noise(rng, P, Q, 0.30 * hp, 0.10 * hp, cv2), "t2": _torus_noise(rng, P, Q, 0.30 * hp, 0.10 * hp, cv2),
+                   "t1": _torus_noise(rng, P, Q, 0.30 * hp, 0.12 * hp, cv2), "t2": _torus_noise(rng, P, Q, 0.30 * hp, 0.12 * hp, cv2),
                    "w1": _torus_noise(rng, P, Q, 0.55 * hp, 0.45 * hp, cv2), "w2": _torus_noise(rng, P, Q, 0.55 * hp, 0.45 * hp, cv2),
                    "yy": np.mgrid[ry0:ry1, rx0:rx1][0].astype(np.float32), "xx": np.mgrid[ry0:ry1, rx0:rx1][1].astype(np.float32)}
             self.items.append({
@@ -649,7 +649,7 @@ class Steam:
         xs = it["ox"] + it["wob_a"] * np.sin(2 * np.pi * (it["wob_c"] * age) + it["wob_p"]) * (0.25 + age) \
             + (it["lean"] * 0.8 + wind) * age ** 1.3 + wind * 0.6 * age
         ys = it["oy"] - hp * rise
-        rad = (0.45 * bw + (0.13 * hp) * age ** 0.8) * it["size_j"]       # 올라가며 퍼짐
+        rad = (0.45 * bw + (0.14 * hp) * age ** 0.8) * it["size_j"]       # 올라가며 퍼짐
         alpha = (np.clip(age / 0.12, 0, 1) ** 1.5) * ((1.0 - age) ** 1.4) * it["br"]
         for k in range(it["n"]):
             a = alpha[k]
@@ -690,8 +690,8 @@ class Steam:
             ph = tp * tx["mix"] + tx["ph"]
             tex = np.cos(ph) * cv2.remap(tx["t1"], mx2, my2, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP) \
                 + np.sin(ph) * cv2.remap(tx["t2"], mx2, my2, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
-            wisp = np.clip(1.0 - np.abs(tex) * 1.5, 0.0, 1.0) ** 2.0                    # 가는 김 가닥
-            a = (1.0 - np.exp(-D * 0.7 * it["amount"])) * (0.18 + 1.0 * wisp) * 0.9       # 몽글몽글한 덩어리 × 가는 가닥 → 진짜 김처럼
+            wisp = np.clip(1.0 - np.abs(tex) * 1.3, 0.0, 1.0) ** 1.9                    # 부드러운 김 가닥(너무 가늘어 선처럼 보이지 않게)
+            a = (1.0 - np.exp(-D * 0.8 * it["amount"])) * (0.22 + 0.95 * wisp) * 0.9       # 몽글몽글한 덩어리 × 가는 가닥 → 진짜 김처럼
             a = np.clip(a, 0.0, 0.42)[..., None]
             reg = out[y0:y1, x0:x1]
             luma = reg.mean(axis=2, keepdims=True)
