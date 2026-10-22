@@ -206,8 +206,9 @@ def seam_report(final, seg_len, fps, joins=3):
     import numpy as np
     out = {"timing": None, "joins": []}
     try:
-        probe = subprocess.run([shutil.which("ffprobe") or "ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", "frame=pts_time",
-                                "-of", "csv=p=0", str(final)], capture_output=True, text=True, timeout=300)
+        head = f"%+{seg_len * (joins + 1) + 10:.0f}"                  # 10시간 영상도 앞부분(이음새 몇 개)만 읽어서 몇 초 안에 끝냄
+        probe = subprocess.run([shutil.which("ffprobe") or "ffprobe", "-v", "error", "-select_streams", "v", "-read_intervals", head,
+                                "-show_entries", "frame=pts_time", "-of", "csv=p=0", str(final)], capture_output=True, text=True, timeout=300)
         pts = sorted(float(x) for x in probe.stdout.replace(",", " ").split() if x.strip())
         if len(pts) > 3:
             d = np.diff(pts)
@@ -225,7 +226,7 @@ def seam_report(final, seg_len, fps, joins=3):
             return out
         sel = "+".join(f"eq(n\\,{i})" for i in idx)
         gw, gh = 160, 90
-        raw = subprocess.run([ffmpeg_bin(), "-loglevel", "error", "-i", str(final), "-vf", f"select='{sel}',scale={gw}:{gh},format=gray",
+        raw = subprocess.run([ffmpeg_bin(), "-loglevel", "error", "-t", f"{seg_len * (joins + 1) + 10:.0f}", "-i", str(final), "-vf", f"select='{sel}',scale={gw}:{gh},format=gray",
                               "-vsync", "0", "-f", "rawvideo", "-"], capture_output=True, timeout=600).stdout
         fr = np.frombuffer(raw, np.uint8).reshape(-1, gh, gw).astype(np.float32)
         order = sorted(idx)
