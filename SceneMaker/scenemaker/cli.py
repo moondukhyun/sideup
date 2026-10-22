@@ -595,6 +595,20 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
             if not real:
                 return
             wmask = window_mask(dfull, renderer.bg)
+        if rs.interior > 0:                                                         # 실내: 따뜻한 색(나무 책상·촛불·책·창틀)은 유리가 아님 → 위치 표시가 넓게 잡혔어도 거기에는 비가 안 내림
+            import cv2
+            bgf = np.clip(np.asarray(renderer.bg, np.float32), 0, 1)
+            lum_ = bgf @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+            wr = (bgf[..., 0] - bgf[..., 2]) / (lum_ + 0.05)
+            warm_ = cv2.GaussianBlur(np.clip((wr - 0.25) / 0.2, 0.0, 1.0), (0, 0), max(1.5, 0.003 * renderer.W))
+            blu = cv2.GaussianBlur(np.clip((bgf[..., 2] - bgf[..., 0] - 0.004) / 0.02, 0.0, 1.0), (0, 0), max(1.5, 0.003 * renderer.W))
+            bright = np.clip((lum_ - 0.35) / 0.15, 0.0, 1.0)
+            wmask = wmask * (1.0 - warm_) * np.maximum(blu, bright)                    # 유리 = 푸르스름하거나 밝은 곳 (어두운 무채색 그림자·책상은 제외)
+            if float((wmask > 0.5).mean()) < 0.004:
+                renderer.s.intensity = 0.0
+                print("  ⚠ 창 유리로 볼 만한 푸르스름·밝은 곳이 없어 이번 영상에는 비를 내리지 않았어요. "
+                      "[🐾 위치 지정]에서 '창 유리'를 그린 뒤 다시 만들어 주세요.")
+                return
         if rs.interior > 0:                                                         # 턴테이블·톤암·동물·선풍기·불은 유리가 아님 → 물방울 제외
             import cv2
             marks_all = _load_pets(job, args)
