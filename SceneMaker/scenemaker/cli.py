@@ -534,7 +534,11 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
     no_details = getattr(args, "no_details", False)
     no_motion = getattr(args, "no_motion", False)
     no_wet = getattr(args, "no_wet", False)
-    want_window = rs.window and not no_details
+    gm_marks = [m for m in _load_pets(job, args) if m.get("kind") == "glass"]
+    if gm_marks and not rs.window:                                            # 창 유리를 직접 표시했으면 그 장면 설정과 상관없이 '표시한 곳에만' 비를 내림
+        rs.window = True
+        print(f"  창 유리 표시 {len(gm_marks)}개를 읽음 → 표시한 곳에만 비가 내리도록 설정")
+    want_window = rs.window                                                   # 창 비는 '디테일' 옵션과 무관 (꺼도 비가 방 전체에 내리면 안 됨)
     want_details = rs.splashes and not rs.window and not no_details
     want_motion = not rs.window and not no_motion and rs.sway
     want_wet = not rs.window and not no_wet and (rs.wet > 0 or rs.water_rain > 0)
@@ -575,13 +579,16 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
             from .glass import window_mask_boxes
             gm = window_mask_boxes(renderer.bg, gboxes)
             gzone = _mark_zone(gmarks, ("glass",), renderer.W, renderer.H).astype(np.float32)
+            if any(m.get("poly") or m.get("manual") or not m.get("auto") for m in gmarks):
+                if gm is None or float((gm * gzone).sum()) < 0.5 * float(gzone.sum()):      # 창살 제거로 거의 다 사라지면(밝은 창) 그린 윤곽 그대로 사용
+                    gm = gzone
             if gm is not None:
                 gm = gm * gzone                                                       # 다각형을 그렸으면 그 윤곽 안쪽만
                 if wmask is not None:                                               # 자동으로 찾은 유리는 표시한 창 근처만 인정 (턴테이블 투명 덮개 등 창 아닌 곳 제외)
                     import cv2
                     near = cv2.dilate(gzone, np.ones((int(0.05 * renderer.W) | 1, int(0.05 * renderer.W) | 1), np.uint8))
                     wmask = wmask * near
-                if any(m.get("poly") for m in gmarks):                                # 윤곽(다각형)을 그렸으면 그 안쪽만 유리 (자동 색 판별로 덮개 가장자리 등이 섞이지 않게)
+                if any(m.get("poly") or m.get("manual") or not m.get("auto") for m in gmarks):             # 직접 그렸으면(다각형·상자·옛 표시) 그 안쪽만 유리 (자동 색 판별로 덮개 가장자리 등이 섞이지 않게)
                     wmask = gm
                 else:
                     wmask = gm if wmask is None else np.maximum(wmask, gm)
@@ -595,7 +602,8 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
             if not real:
                 return
             wmask = window_mask(dfull, renderer.bg)
-        if rs.interior > 0:                                                         # 실내: 따뜻한 색(나무 책상·촛불·책·창틀)은 유리가 아님 → 위치 표시가 넓게 잡혔어도 거기에는 비가 안 내림
+        strict = any(m.get("poly") or m.get("manual") or not m.get("auto") for m in gmarks)            # 사용자가 직접 그린 창: 그린 곳에만 정확히 (색으로 다시 거르지 않음)
+        if rs.interior > 0 and not strict:                                          # 실내: 따뜻한 색(나무 책상·촛불·책·창틀)은 유리가 아님 → 자동 표시가 넓게 잡혔어도 거기에는 비가 안 내림
             import cv2
             bgf = np.clip(np.asarray(renderer.bg, np.float32), 0, 1)
             lum_ = bgf @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
@@ -625,7 +633,7 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         tint = (np.clip(renderer.bg, 0, 1) * 255).astype(np.float32)
         tint[..., 2] = tint[..., 2] * (1 - wmask * 0.5) + 255 * wmask * 0.5
         Image.fromarray(np.clip(tint, 0, 255).astype(np.uint8)).resize((1280, 720)).save(Path(job) / "glass_mask.jpg")
-        print(f"  창 유리: 유리 영역 {float((wmask > 0.5).mean()):.0%} · 정지 방울 {g.stats['med']}개(중간·큰) + {g.stats['micro']}개(안개) · "
+        print(("  창 유리: 직접 그린 윤곽 그대로 적용 — " if strict else "  창 유리: ") + f"유리 영역 {float((wmask > 0.5).mean()):.0%} · 정지 방울 {g.stats['med']}개(중간·큰) + {g.stats['micro']}개(안개) · "
               f"흘러내리는 방울 {len(g.sliders)}개 — 적용 영역 확인: glass_mask.jpg (파란색)")
         return
     if not real and (want_motion or want_wet):

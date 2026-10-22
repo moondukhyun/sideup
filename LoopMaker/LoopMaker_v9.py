@@ -4831,6 +4831,8 @@ def claude_find_pets_fans(img_path):
             marks = claude_verify_marks(img_path, marks)
         except Exception:
             pass
+    for m in marks:
+        m["auto"] = True                                  # 자동으로 찾은 표시 (직접 그린 것과 구분 — 직접 그린 창은 그 윤곽 그대로 적용)
     return marks
 
 
@@ -5367,7 +5369,7 @@ class SceneTabMixin:
                 return
             xs, ys = [p[0] for p in pts], [p[1] for p in pts]
             boxes.append({"x0": min(xs) / cw, "y0": min(ys) / ch, "x1": max(xs) / cw, "y1": max(ys) / ch, "kind": kind.get(),
-                          "poly": [[round(p[0] / cw, 4), round(p[1] / ch, 4)] for p in pts]})
+                          "poly": [[round(p[0] / cw, 4), round(p[1] / ch, 4)] for p in pts], "manual": True})
             redraw()
 
         def down(e):
@@ -5425,7 +5427,7 @@ class SceneTabMixin:
             if kind.get() in ONE_ONLY:                         # 레코드판·톤암·불은 하나만 → 이전 것을 지우고 새로 그린 것으로 대체
                 boxes[:] = [b for b in boxes if b.get("kind") != kind.get()]
             boxes.append({"x0": max(0, x0) / cw, "y0": max(0, y0) / ch, "x1": min(cw, x1) / cw, "y1": min(ch, y1) / ch,
-                          "kind": kind.get()})
+                          "kind": kind.get(), "manual": True})
             redraw()
 
         def right_click(e):
@@ -5515,7 +5517,7 @@ class SceneTabMixin:
                 if isinstance(r, Exception):
                     messagebox.showwarning("자동 찾기 실패", str(r)[:300], parent=win)
                 else:
-                    boxes[:] = [b for b in boxes if b.get("poly")] + r      # 직접 그린 다각형은 자동 찾기로 지우지 않음
+                    boxes[:] = [b for b in boxes if b.get("poly") or b.get("manual")] + r      # 직접 그린 윤곽·상자는 자동 찾기로 지우지 않음
                     redraw()
             win.after(500, poll)
         auto_btn.configure(command=auto)
