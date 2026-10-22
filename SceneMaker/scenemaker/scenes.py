@@ -630,12 +630,12 @@ SCENES = {
         Scene(
             "candle_single",
             "촛불 하나 켜진 어두운 방",
-            "a single lit candle with a small bright steady flame on a small wooden table in a dark cozy windowless room with solid plain walls and no windows, "
-            "the candle is the only light source, warm golden glow falling on a few charming small objects nearby "
+            "one single large thick pillar candle with a big tall bright steady flame, clearly visible and prominent in the frame, standing on a wooden table in a dark cozy windowless room with solid plain walls and no windows, "
+            "soft melted wax at the top of the candle, the candle is the only light source, warm golden glow falling on a few charming small objects nearby "
             "(a small closed book, a ceramic cup, dried flowers in a tiny vase), deep soft darkness around, "
             "empty room without people, calm sleepy atmosphere",
             [
-                "the candle stands in a small brass holder",
+                "the big candle stands in a heavy brass holder, the room clearly visible behind it",
                 "an old wooden desk beside a stack of well-worn books",
                 "a bedside table with the soft edge of a knitted blanket",
                 "a rustic wooden shelf with a few small trinkets",
@@ -644,7 +644,7 @@ SCENES = {
                 "a low wooden table with a tea cup and an open journal with a pen",
                 "a window-less reading corner with a stack of old books and a small clay plant pot",
             ],
-            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, **INTERIOR_RAIN},
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "big_flame": True, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
         ),
         Scene(

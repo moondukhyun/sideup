@@ -127,7 +127,8 @@ VEGETATION = ["dominant tall pine and fir trees", "mixed oak and maple trees", "
               "tall zelkova and elm trees", "a plain mixed forest of conifers and deciduous trees"]
 CAMP_PROPS = ["a camp lantern glowing warmly", "a pair of muddy hiking boots and a backpack", "an enamel mug on a folding table",
               "a hammock and a folding camp chair", "string lights under the tarp", "a small portable stove with a kettle"]
-CANDLE_HOLDERS = ["a brass candle holder", "a rustic ceramic saucer", "a clear glass jar", "a wooden plate", "an antique iron holder", "a small stone dish"]
+CANDLE_HOLDERS = ["a thick ivory pillar candle in a brass candle holder", "a tall chunky beeswax candle on a rustic ceramic saucer", "a wide white candle in a clear glass jar",
+                  "a big thick candle on a wooden plate with long wax drips", "a large cream pillar candle in an antique iron holder", "a thick hand-poured candle on a small stone dish"]
 CANDLE_SURFACES = ["a dark wooden table", "a rough stone ledge", "a linen tablecloth", "a worn wooden shelf", "an old window sill", "a smooth slate slab"]
 NATURE_FOREGROUND_SCENES = {"forest_path", "valley_stream", "forest_lake", "thunder_forest", "autumn_forest_path", "autumn_temple", "temple_path",
                             "bamboo_garden", "hydrangea_garden", "tent", "tent_by_stream", "tent_view_mountains", "tent_view_stream", "tent_view_valley",
