@@ -632,7 +632,7 @@ SCENES = {
             "촛불 하나 켜진 어두운 방",
             "one single large thick pillar candle with a big tall bright steady flame, clearly visible and prominent in the frame, standing on a wooden table in a dark cozy windowless room with solid plain walls and no windows, "
             "soft melted wax at the top of the candle, the candle is the only light source, warm golden glow falling on a few charming small objects nearby "
-            "(a small closed book, a ceramic cup, dried flowers in a tiny vase), deep soft darkness around, "
+            "(a small closed book, dried flowers in a tiny vase), deep soft darkness around, "
             "empty room without people, calm sleepy atmosphere",
             [
                 "the big candle stands in a heavy brass holder, the room clearly visible behind it",
@@ -641,7 +641,7 @@ SCENES = {
                 "a rustic wooden shelf with a few small trinkets",
                 "a round wooden stool beside an old armchair, a folded wool blanket",
                 "a small wooden nightstand with an old alarm clock and a glass of water, a pillow edge visible",
-                "a low wooden table with a tea cup and an open journal with a pen",
+                "a low wooden table with an open journal and a pen",
                 "a window-less reading corner with a stack of old books and a small clay plant pot",
             ],
             {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "big_flame": True, **INTERIOR_RAIN},
@@ -679,7 +679,7 @@ SCENES = {
                 "a corner of the room where the bookshelf meets a tall window, the candle on a desk",
                 "a low angle across the table with the candle in the foreground, the bookshelf and the rainy window behind",
             ],
-            {"intensity": 1.0, "brightness": 0.45, "window": True, "interior": 1.0, "big_flame": True, **INTERIOR_RAIN},
+            {"intensity": 1.0, "brightness": 0.3, "speed": 0.55, "window": True, "interior": 1.0, "big_flame": True, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE + ", readable text on book covers, titles, logos, empty shelves, modern shelves", comfy={"family": "zimage"}, post=NATURAL_POST,
         ),
         Scene(
@@ -721,7 +721,7 @@ SCENES = {
             "candle_rain_window",
             "창가 큰 촛불 하나 · 창밖 폭우",
             "one single large thick pillar candle with a big tall bright steady flame, clearly visible and prominent, on a wooden desk right beside a large dark window, "
-            "clean clear window glass with a dark stormy night outside, a few small cozy objects (an open book, a ceramic cup), "
+            "clean clear window glass with a dark stormy night outside, a few small cozy objects (an open book), "
             "the candle is the main light source, warm golden glow on the desk, empty room without people",
             [
                 "the window has a wooden frame and a deep sill",
@@ -732,7 +732,7 @@ SCENES = {
                 "an old writing desk with a leather notebook and fountain pen beside the window",
                 "a cozy window seat with a cushion, the candle on a small tray",
             ],
-            {"intensity": 1.0, "brightness": 0.45, "window": True, "interior": 1.0, "big_flame": True, **INTERIOR_RAIN},
+            {"intensity": 1.0, "brightness": 0.3, "speed": 0.55, "window": True, "interior": 1.0, "big_flame": True, **INTERIOR_RAIN},
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
         ),
         Scene(

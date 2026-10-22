@@ -129,6 +129,10 @@ CAMP_PROPS = ["a camp lantern glowing warmly", "a pair of muddy hiking boots and
               "a hammock and a folding camp chair", "string lights under the tarp", "a small portable stove with a kettle"]
 CANDLE_HOLDERS = ["a thick ivory pillar candle in a brass candle holder", "a tall chunky beeswax candle on a rustic ceramic saucer", "a wide white candle in a clear glass jar",
                   "a big thick candle on a wooden plate with long wax drips", "a large cream pillar candle in an antique iron holder", "a thick hand-poured candle on a small stone dish"]
+CANDLE_PROPS = ["an antique brass pocket watch with its chain lying on the table", "an old hourglass with fine sand", "a pair of round reading glasses resting on an open book",
+                "a fountain pen and a small glass inkwell beside a folded handwritten letter with no readable text", "a sprig of dried lavender in a small glass vase",
+                "a small antique brass bell", "an old brass key beside a folded letter with a red wax seal", "a brass magnifying glass on a closed leather-bound book",
+                "a glass of dark red wine", "a small potted succulent in a clay pot", "an antique brass compass", "a stack of old letters tied with twine", "a small hot cup of tea on a saucer"]
 CANDLE_SURFACES = ["a dark wooden table", "a rough stone ledge", "a linen tablecloth", "a worn wooden shelf", "an old window sill", "a smooth slate slab"]
 NATURE_FOREGROUND_SCENES = {"forest_path", "valley_stream", "forest_lake", "thunder_forest", "autumn_forest_path", "autumn_temple", "temple_path",
                             "bamboo_garden", "hydrangea_garden", "tent", "tent_by_stream", "tent_view_mountains", "tent_view_stream", "tent_view_valley",
@@ -286,6 +290,8 @@ def diversify(scene_name, seed, rain_level=None):
         picks["shelf"] = ("the bookshelf is " + rng.choice(["dark walnut wood", "warm oak", "painted dark green wood", "rustic pine", "black iron and wood", "tall built-in dark wood"])
                           + ", the books are " + rng.choice(["old leather-bound volumes", "faded cloth-bound books in muted colors", "thick worn encyclopedias and journals", "a mix of old paperbacks and hardcovers"]))
         picks["holder"] = rng.choice(CANDLE_HOLDERS) + " on " + rng.choice(["a reading table with an open book", "a wooden desk with a brass lamp (unlit)", "a small round table with a ceramic cup", "a stack of old books"])
+    if scene_name in ("candle_single", "candle_rain_window", "candle_bookshelf", "candle_bookshelf_rain_window", "candle_closeup"):
+        picks["prop"] = "on the table beside the candle: " + rng.choice(CANDLE_PROPS)                # 찻잔 대신 촛불 방에 어울리는 소품을 이미지마다 다르게
     if scene_name == "candle_single":
         picks["holder"] = rng.choice(CANDLE_HOLDERS) + " on " + rng.choice(CANDLE_SURFACES)
     elif scene_name in ("candle_many", "candle_nook"):                       # 촛불 여러 개: 놓인 곳·받침의 재질을 바꿔 분위기를 다르게 (개수는 건드리지 않음)
