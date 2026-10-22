@@ -448,7 +448,7 @@ def _attach_wan_interior(cfg, renderer, job, bg, meta, args):
         raise SystemExit(f"Wan 움직임에는 ComfyUI 가 필요합니다: {e}")
     kinds = [p.get("kind", "dog") for p in pets] if pets else []
     extra = ", ".join(x for x in (renderer.s.wan_hint, getattr(args, "wan_prompt", "") or "") if x)
-    prompt = wanmotion.wan_room_prompt(has_fire, len(flames), kinds, extra)
+    prompt = wanmotion.wan_room_prompt(has_fire, len(flames), kinds, extra, steam=any(m.get('kind') == 'steam' for m in _load_pets(job, args)))
     seed0 = args.wan_seed if getattr(args, "wan_seed", None) is not None else int(meta.get("seed", 7))
     n = max(1, int(getattr(args, "wan_clips", None) or 2))
     clips = []
@@ -631,9 +631,15 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
             marks_all = _load_pets(job, args)
             ex = _mark_zone([m for m in marks_all if m.get("kind", "dog") not in ("candle", "block", "outside")],
                             ("record", "tonearm", "dog", "cat", "fan", "fire"), renderer.W, renderer.H, pad=int(0.02 * renderer.W))
-            ex = np.maximum(ex, _mark_zone(marks_all, ("candle", "block"), renderer.W, renderer.H, pad=0))
-            if ex.any():
-                wmask = wmask * (1 - cv2.GaussianBlur(ex.astype(np.float32), (0, 0), 3.0))
+            exb = _mark_zone(marks_all, ("block",), renderer.W, renderer.H, pad=0)
+            exc = _mark_zone(marks_all, ("candle",), renderer.W, renderer.H, pad=int(0.01 * renderer.W))
+            if ex.any() or exb.any():
+                wmask = wmask * (1 - cv2.GaussianBlur(np.maximum(ex, exb).astype(np.float32), (0, 0), 3.0))
+            if exc.any():                                                           # 촛불 표시는 네모가 아니라 부드러운 타원으로 빼서 사각형 자국이 안 남게
+                wmask = wmask * (1 - np.clip(cv2.GaussianBlur(exc.astype(np.float32), (0, 0), max(6.0, 0.012 * renderer.W)) * 1.6, 0, 1))
+        if rs.interior > 0:                                                         # 마스크 가장자리를 부드럽게 (흐림·방울이 사각형 모양으로 끊겨 보이지 않게)
+            import cv2
+            wmask = np.clip(cv2.GaussianBlur(np.asarray(wmask, np.float32), (0, 0), max(2.0, 0.004 * renderer.W)), 0, 1)
         renderer.glass = GlassRain(renderer.bg, wmask, renderer.N, renderer.fps, amount=rs.intensity, seed=rs.seed,
                                    view_blur=4.0 if rs.interior > 0 else 9.0,
                                    cover=0.2 if rs.interior > 0 else 1.0,                  # 실내(폭우): 맺힌 방울은 적게 (AI 그림에 이미 빗방울이 그려져 있는 경우가 많아 덧붙이는 정지 방울은 최소로, 흘러내리는 방울이 움직임을 담당)

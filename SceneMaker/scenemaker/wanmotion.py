@@ -68,7 +68,7 @@ WAN_ROOM_NEG = ("camera movement, zoom, pan, shaking, color shift, blurry, disto
                 "changing furniture, flickering whole room, strobe")
 
 
-def wan_room_prompt(fire, n_candles, pets, extra=""):
+def wan_room_prompt(fire, n_candles, pets, extra="", steam=False):
     """실내 장면용 Wan 프롬프트: 움직여야 하는 것만 말하고 나머지는 가만히 있게."""
     parts = ["static camera, locked-off tripod shot, cozy room at night, realistic natural video footage, "
              "everything stays perfectly still except the following"]
@@ -80,6 +80,9 @@ def wan_room_prompt(fire, n_candles, pets, extra=""):
     if pets:
         parts.append("the sleeping " + " and ".join(sorted(set(pets))) + " stay fast asleep and do not lift or turn their heads, "
                      "only their bodies rise and fall slowly with calm breathing")
+    if steam:
+        parts.append("thin delicate wisps of steam rise slowly from the hot drink, translucent and faint, swirling gently and fading out "
+                     "within a few centimeters above the cup, subtle, realistic, no smoke, no thick vapor")
     return ", ".join(parts + ([extra] if extra else []))
 
 
