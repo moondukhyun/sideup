@@ -120,7 +120,9 @@ class GlassRain:
         self.res = res
         rng = np.random.default_rng(seed + 101)
         # 뒤 풍경은 초점 밖처럼 흐리게 (초점은 유리 위 물방울)
-        blur = cv2.GaussianBlur(bg, (0, 0), view_blur * res)
+        wm0 = np.clip(mask, 0, 1)[..., None].astype(np.float32)
+        blur = cv2.GaussianBlur(bg * wm0, (0, 0), view_blur * res) / (cv2.GaussianBlur(wm0, (0, 0), view_blur * res)[..., None] + 1e-3)   # 유리 안쪽 색끼리만 흐리게 (밝은 창틀·벽 색이 유리로 번져 들어와 창 가장자리에 뿌연 안개처럼 보이던 문제)
+        blur = np.where(wm0 > 0.02, blur, bg)
         self.base = bg * (1 - mask[..., None]) + blur * mask[..., None]
         # 방울이 비추는 풍경: 창 영역의 색만 넓게 번지게 채우고(창틀·실내가 들어오지 않게) 살짝 흐리게 → 방울마다 창 모양이 똑같이 보이지 않음
         wm = np.clip(mask, 0, 1)[..., None].astype(np.float32)
@@ -131,7 +133,7 @@ class GlassRain:
 
         # 결로(김서림): 아래쪽일수록 살짝 뿌옇게 — 주변 색을 밝게 끌어올린 안개. 방울이 지나간 자리는 맑아짐
         y = np.linspace(0, 1, self.H, dtype=np.float32)[:, None]
-        local = cv2.GaussianBlur(self.base, (0, 0), 45 * res)
+        local = cv2.GaussianBlur(self.base * wm0, (0, 0), 45 * res) / (cv2.GaussianBlur(wm0, (0, 0), 45 * res)[..., None] + 1e-3)      # 결로 색도 유리 안쪽 색만으로
         self.fog_col = np.clip(local * 1.7 + 0.04, 0, 1)
         self.fog = (np.clip((y - 0.30) / 0.70, 0, 1) ** 1.4 * 0.10 * min(1.5, amount) * mask).astype(np.float32)
         # 결로를 균일한 띠가 아니라 얼룩덜룩한 '번진 김서림'으로 (폭우일수록 진하게)
