@@ -603,18 +603,27 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
                 return
             wmask = window_mask(dfull, renderer.bg)
         strict = any(m.get("poly") or m.get("manual") or not m.get("auto") for m in gmarks)            # 사용자가 직접 그린 창: 그린 곳에만 정확히 (색으로 다시 거르지 않음)
-        if rs.interior > 0 and not strict:                                          # 실내: 따뜻한 색(나무 책상·촛불·책·창틀)은 유리가 아님 → 자동 표시가 넓게 잡혔어도 거기에는 비가 안 내림
+        if rs.interior > 0:                                                         # 실내: 창 '앞'에 있는 물건(촛불·컵·책·책상·창틀)은 유리가 아님 → 창 윤곽 안이라도 거기에는 비가 안 내림
             import cv2
             bgf = np.clip(np.asarray(renderer.bg, np.float32), 0, 1)
             lum_ = bgf @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
             wr = (bgf[..., 0] - bgf[..., 2]) / (lum_ + 0.05)
-            warm_ = cv2.GaussianBlur(np.clip((wr - 0.25) / 0.2, 0.0, 1.0), (0, 0), max(1.5, 0.003 * renderer.W))
-            blu = cv2.GaussianBlur(np.clip((bgf[..., 2] - bgf[..., 0] - 0.004) / 0.02, 0.0, 1.0), (0, 0), max(1.5, 0.003 * renderer.W))
-            bright = np.clip((lum_ - 0.35) / 0.15, 0.0, 1.0)
-            wmask = wmask * (1.0 - warm_) * np.maximum(blu, bright)                    # 유리 = 푸르스름하거나 밝은 곳 (어두운 무채색 그림자·책상은 제외)
+            sg = max(1.5, 0.003 * renderer.W)
+            warm_ = cv2.GaussianBlur(np.clip((wr - 0.25) / 0.2, 0.0, 1.0), (0, 0), sg)       # 따뜻한 색: 촛불·나무·책·창틀
+            wmask = wmask * (1.0 - warm_)
+            inside = wmask > 0.5
+            if real and inside.sum() > 50:                                          # 깊이: 유리보다 훨씬 가까운 물건(촛대·컵·책)은 제외
+                near = dfull > min(0.98, float(np.percentile(dfull[inside], 70)) + 0.10)
+                near = cv2.dilate(near.astype(np.uint8), np.ones((int(0.012 * renderer.W) | 1, int(0.012 * renderer.W) | 1), np.uint8))
+                near = cv2.GaussianBlur(near.astype(np.float32), (0, 0), sg)
+                wmask = wmask * (1.0 - near)
+            if not strict:
+                blu = cv2.GaussianBlur(np.clip((bgf[..., 2] - bgf[..., 0] - 0.004) / 0.02, 0.0, 1.0), (0, 0), sg)
+                bright = np.clip((lum_ - 0.35) / 0.15, 0.0, 1.0)
+                wmask = wmask * np.maximum(blu, bright)                             # 자동 표시: 푸르스름하거나 밝은 곳만 (어두운 무채색 그림자·책상은 제외)
             if float((wmask > 0.5).mean()) < 0.004:
                 renderer.s.intensity = 0.0
-                print("  ⚠ 창 유리로 볼 만한 푸르스름·밝은 곳이 없어 이번 영상에는 비를 내리지 않았어요. "
+                print("  ⚠ 창 유리로 볼 만한 곳이 없어 이번 영상에는 비를 내리지 않았어요. "
                       "[🐾 위치 지정]에서 '창 유리'를 그린 뒤 다시 만들어 주세요.")
                 return
         if rs.interior > 0:                                                         # 턴테이블·톤암·동물·선풍기·불은 유리가 아님 → 물방울 제외
