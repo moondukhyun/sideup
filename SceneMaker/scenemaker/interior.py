@@ -572,6 +572,97 @@ class FanSpin:
         return out
 
 
+# ---------------------------------------------------------------- 커피잔·찻잔·주전자 김
+def _torus_noise(rng, P, Q, sy, sx, cv2):
+    """가로·세로 모두 이음새 없이 이어지는 무늬 (P x Q), 평균 0 · 표준편차 1."""
+    base = rng.normal(0, 1, (P, Q)).astype(np.float32)
+    t = cv2.GaussianBlur(np.tile(base, (3, 3)), (0, 0), sigmaX=max(0.3, sx), sigmaY=max(0.3, sy))
+    out = t[P:2 * P, Q:2 * Q]
+    return (out - out.mean()) / (float(out.std()) + 1e-6)
+
+
+class Steam:
+    """steams: [{"x0","y0","x1","y1" (0~1 비율), "kind": "steam"}] — 컵 입구·주전자 주둥이를 감싼 작은 상자.
+    상자 위쪽 가운데에서 김이 피어올라 퍼지며 사라진다.
+    루프 이음새가 없게 하는 원리: 김 무늬는 위아래로 이어지는 무늬를 정확히 정수 칸(k)만큼 올려 보내고,
+    좌우 흔들림은 정수 번(m) 왕복하는 사인파라서 마지막 프레임 다음이 첫 프레임과 완전히 같다."""
+
+    def __init__(self, steams, W, H, N, fps, seed=7, amount=1.0):
+        import cv2
+        self.cv2 = cv2
+        self.N = N
+        self.W, self.H = W, H
+        sec = N / float(fps)
+        self.items = []
+        for i, p in enumerate(steams):
+            x0, y0 = max(0.0, min(1.0, p["x0"])) * W, max(0.0, min(1.0, p["y0"])) * H
+            x1, y1 = max(0.0, min(1.0, p["x1"])) * W, max(0.0, min(1.0, p["y1"])) * H
+            bw = max(10.0, x1 - x0)
+            rng = np.random.RandomState((seed * 131 + i * 17) % (2 ** 31 - 1))
+            ox, oy = (x0 + x1) / 2.0, y0 + 0.35 * (y1 - y0)              # 김이 나오는 점
+            hp = float(np.clip(max(0.17 * H, 5.5 * bw), 0.12 * H, 0.34 * H)) * (0.8 + 0.4 * amount)   # 김이 올라가는 높이(px)
+            hw0 = 0.45 * bw                                              # 처음 폭의 절반
+            hw1 = max(hw0 * 2.2, 0.09 * hp)                              # 맨 위에서의 폭의 절반
+            side = int(hw1 * 2.6 + 12)
+            rx0, rx1 = int(max(0, ox - side)), int(min(W, ox + side))
+            ry0, ry1 = int(max(0, oy - hp - 8)), int(min(H, oy + 6))
+            if rx1 - rx0 < 8 or ry1 - ry0 < 8:
+                continue
+            P = int(max(96, hp * 1.1))                                   # 무늬 세로 길이
+            Q = int(max(64, side * 2))
+            layers = []
+            for li, (sy, sx, mult) in enumerate(((P / 14.0, Q / 48.0, 1.0), (P / 22.0, Q / 70.0, 1.8))):
+                tex = _torus_noise(rng, P, Q, sy, sx, cv2)
+                v_px = hp / (3.8 / mult)                                 # 초당 올라가는 거리(px): 한 줄기가 약 4초 만에 끝까지 올라감
+                k = max(1, int(round(v_px * sec / P)))                   # 루프당 무늬가 올라가는 칸 수 (정수)
+                layers.append({"tex": tex, "k": k, "off": float(rng.uniform(0, P))})
+            yy, xx = np.mgrid[ry0:ry1, rx0:rx1].astype(np.float32)
+            hf = np.clip((oy - yy) / hp, 0.0, 1.0)                       # 0 = 입구, 1 = 맨 위
+            self.items.append({"box": (rx0, ry0, rx1, ry1), "ox": ox, "oy": oy, "hp": hp, "hw0": hw0, "hw1": hw1,
+                               "yy": yy, "xx": xx, "hf": hf, "P": P, "Q": Q, "layers": layers,
+                               "m1": int(rng.randint(1, 3)), "m2": int(rng.randint(2, 5)),
+                               "ph1": float(rng.uniform(0, 6.28)), "ph2": float(rng.uniform(0, 6.28)),
+                               "amount": float(amount), "kind": p.get("kind", "steam")})
+        self.sec = sec
+
+    def apply(self, out, f):
+        cv2 = self.cv2
+        t = (f % self.N) / float(self.N)                                 # 0 이상 1 미만 — N 프레임 뒤에 정확히 처음으로 돌아옴
+        tp = 2 * np.pi * t
+        for it in self.items:
+            x0, y0, x1, y1 = it["box"]
+            hf, xx, yy = it["hf"], it["xx"], it["yy"]
+            sway = (9.0 * np.sin(tp * it["m1"] + it["ph1"] + 3.2 * hf) + 5.0 * np.sin(tp * it["m2"] + it["ph2"] - 5.0 * hf)) * (0.15 + hf) \
+                * (it["hw1"] / 40.0 + 0.4)
+            cx = it["ox"] + sway
+            hw = it["hw0"] + (it["hw1"] - it["hw0"]) * np.sqrt(hf)
+            dx = (xx - cx) / np.maximum(hw, 1.0)
+            lat = np.exp(-dx * dx * 1.35)                                # 가운데가 짙고 가장자리는 옅게
+            env = _smooth(hf / 0.10) * (1.0 - _smooth((hf - 0.35) / 0.65)) ** 1.15      # 입구에서 서서히 생겼다가 위에서 사라짐
+            dens = np.zeros_like(hf)
+            for ly in it["layers"]:
+                P, Q = it["P"], it["Q"]
+                s = ly["k"] * P * t + ly["off"]                          # 무늬를 정수 칸만큼 올려 보냄
+                my = np.mod(yy - y0 + s, P).astype(np.float32)
+                mx = np.mod((xx - cx) * 0.9 + Q / 2.0, Q).astype(np.float32)
+                tex = cv2.remap(ly["tex"], mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
+                dens += np.clip(0.38 + 0.8 * tex, 0.0, 1.0) ** 1.3 / len(it["layers"])
+            edge = _smooth(np.minimum(xx - x0, x1 - 1 - xx) / 14.0) * _smooth(np.minimum(yy - y0, y1 - 1 - yy) / 10.0)      # 잘라낸 사각형 경계가 보이지 않게
+            a = np.clip(dens * lat * env * edge * 0.85 * it["amount"], 0.0, 0.5)[..., None]
+            reg = out[y0:y1, x0:x1]
+            luma = reg.mean(axis=2, keepdims=True)
+            glow = cv2.GaussianBlur(luma, (0, 0), max(6.0, it["hw1"] * 0.8))
+            if glow.ndim == 2:
+                glow = glow[..., None]
+            lit = np.clip(0.55 + 1.8 * glow, 0.0, 1.0)                   # 주변이 밝을수록 하얗게, 어두운 방에서는 은은하게
+            col = np.array([0.95, 0.93, 0.91], np.float32)[None, None, :] * lit * 0.85 + reg * 0.15
+            reg[...] = reg * (1 - a) + col * a
+        return out
+
+    def describe(self):
+        return [f"김: {len(self.items)}곳에서 피어오름 (루프당 무늬 {', '.join(str(l['k']) for it in self.items for l in it['layers'])}칸 → 이음새 없음)"]
+
+
 # ---------------------------------------------------------------- 턴테이블 레코드판 회전
 class RecordSpin:
     """records: [{"x0","y0","x1","y1" (0~1 비율), "kind": "record"}]. 상자에 꼭 맞는 타원(비스듬히 본 LP)을 33⅓ 회전/분으로 돌린다.

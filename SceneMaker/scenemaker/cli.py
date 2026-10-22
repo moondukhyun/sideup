@@ -287,11 +287,11 @@ def _attach_interior(renderer, job, rs, args):
     """v11.22: 촛불·벽난로 불꽃·방 안 불빛 일렁임·반려동물 숨쉬기."""
     if rs.interior <= 0 or getattr(args, "no_interior", False):
         return
-    from .interior import FanSpin, Interior, PetBreath, RecordSpin, TonearmBob, find_lights
+    from .interior import FanSpin, Interior, PetBreath, RecordSpin, Steam, TonearmBob, find_lights
     marks = _load_pets(job, args)
     Wp, Hp = renderer.W, renderer.H
     fbox = next(((m["x0"] * Wp, m["y0"] * Hp, m["x1"] * Wp, m["y1"] * Hp) for m in marks if m.get("kind") == "fire"), None)
-    cpts = [((m["x0"] + m["x1"]) / 2 * Wp, (m["y0"] + m["y1"]) / 2 * Hp) for m in marks if m.get("kind") == "candle"]
+    cpts = [((m["x0"] + m["x1"]) / 2 * Wp, (m["y0"] + m["y1"]) / 2 * Hp) for m in marks if m.get("kind") in ("candle", "lantern")]      # 텐트 천장 등불도 은은히 일렁이는 불빛으로
     info = find_lights(renderer.bg, exclude=renderer.glass.mask if renderer.glass is not None else None,
                        fire_box=fbox, candle_pts=cpts or None, big_flame=bool(getattr(rs, "big_flame", False)))
     fpoly = next((m for m in marks if m.get("kind") == "fire" and m.get("poly")), None)
@@ -319,6 +319,11 @@ def _attach_interior(renderer, job, rs, args):
     if fans:
         renderer.fans = FanSpin(fans, renderer.W, renderer.H, renderer.N, renderer.fps, seed=rs.seed)
         print(f"  천장 선풍기 회전: {len(renderer.fans.items)}대 (루프당 {renderer.fans.k}바퀴)")
+    steams = [p for p in marks if p.get("kind") == "steam"]
+    if steams:
+        renderer.steam = Steam(steams, Wp, Hp, renderer.N, renderer.fps, seed=rs.seed, amount=float(getattr(args, "steam_amount", None) or 1.0))
+        for line in renderer.steam.describe():
+            print("  " + line)
     if it.candles or it.fire is not None:
         renderer.interior = it
         for line in it.describe():
@@ -343,6 +348,8 @@ def _attach_interior(renderer, job, rs, args):
             dr.rectangle(p["box"], outline=(0, 220, 255), width=4)
         for p in renderer.fans.items if renderer.fans else []:
             dr.rectangle(p["box"], outline=(255, 0, 255), width=4)
+        for p in renderer.steam.items if renderer.steam else []:
+            dr.rectangle(p["box"], outline=(200, 200, 255), width=3)
         for p in renderer.records.items if renderer.records else []:
             dr.rectangle(p["box"], outline=(255, 160, 0), width=4)
         for p in renderer.tonearm.items if renderer.tonearm else []:
@@ -1018,6 +1025,7 @@ def _add_video_args(p):
     p.add_argument("--wan-force", action="store_true", help="물이 없는 장면에서도 Wan 을 강제로 실행")
     p.add_argument("--wan-prompt", default="", help="Wan 움직임 묘사 추가 (영어)")
     p.add_argument("--wan-seed", type=int, help="Wan 시드 (기본: 배경 시드)")
+    p.add_argument("--steam-amount", type=float, help="김(커피잔·주전자) 진하기 배율 (기본 1.0)")
     p.add_argument("--pet-amount", type=float, help="반려동물 숨쉬는 크기 배율 (기본 0.6, 클수록 크게)")
     p.add_argument("--fire-speed", type=float, help="불꽃·촛불 움직임 속도 (낮을수록 느림. 수식 기본 0.45, Wan 기본 0.6 → 보통 0.5배속)")
     p.add_argument("--wan-clips", type=int, default=2, help="실내 장면 Wan 클립 개수 (기본 2, 많을수록 움직임 반복이 길어지고 시간이 늘어남)")

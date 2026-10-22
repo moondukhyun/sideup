@@ -115,7 +115,7 @@ _DRY_RULES = [
 
 
 CAMPFIRE_RAIN = {"brightness": 0.45, "wet": 0.0, "wan_hint": "the lake surface moves very slightly in the breeze, the campfire flames flicker, no rain"}
-CAMPFIRE_NEGATIVE = ("people, person, human, man, woman, figure, rain, raindrops, rain streaks, wet ground, puddles, snow, fog bank, "
+CAMPFIRE_NEGATIVE = ("steam from the kettle, mist above the kettle, people, person, human, man, woman, figure, rain, raindrops, rain streaks, wet ground, puddles, snow, fog bank, "
                      "jungle, rainforest, fantasy, fairy tale, painting, illustration, 3d render, oversaturated, neon, glowing magical light, "
                      "cartoon flames, fireworks, sparks flying everywhere, huge bonfire tower, bonfire pile, house, cabin, buildings, text, logo, watermark")
 
@@ -783,6 +783,34 @@ SCENES = {
             ],
             {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "fire": 1.0, "water_rain": 0.0, **CAMPFIRE_RAIN},
             style=NATURAL_STYLE, negative=CAMPFIRE_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
+            "living_coffee_fireplace_rain",
+            "벽난로 + 비 오는 창 + 따뜻한 커피잔",
+            "a cozy living room at night, a large window with clean clear glass and a dark blue rainy night outside, a stone fireplace with a bright wood fire with lively flames, a hot coffee in a ceramic cup on a saucer resting on a wooden side table in the foreground, the cup is full of dark coffee, "
+            "a sofa with knitted blankets, a few candles with bright steady flames, warm firelight, sharp focus on the cup, empty room without people, no steam and no smoke above the cup",
+            [
+                "the coffee cup large in the foreground, the fireplace and the rainy window softly visible behind",
+                "the coffee cup in the lower left foreground, the fireplace in the middle and the window on the right",
+                "the coffee cup in the lower right foreground, the fireplace in the middle and the window on the left",
+                "a wide view of the room with the cup on a low table in front of the sofa",
+            ],
+            {"intensity": 2.0, "brightness": 0.45, "window": True, "interior": 1.0, "fire": 1.0, **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE + ", steam, smoke, mist, fog above the cup, text, logo", comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
+            "living_tea_fireplace_rain",
+            "벽난로 + 비 오는 창 + 찻잔",
+            "a cozy living room at night, a large window with clean clear glass and a dark blue rainy night outside, a stone fireplace with a bright wood fire with lively flames, a hot tea in a delicate white porcelain teacup with a saucer and a small teapot on a wooden tray on a low table in the foreground, the cup is full of golden tea, "
+            "a sofa with knitted blankets, a few candles with bright steady flames, warm firelight, sharp focus on the cup, empty room without people, no steam and no smoke above the cup",
+            [
+                "the teacup large in the foreground, the fireplace and the rainy window softly visible behind",
+                "the teacup on the left foreground, the fireplace in the middle and the window on the right",
+                "the teacup on the right foreground, the fireplace in the middle and the window on the left",
+                "a wide view of the room with the tea tray on the low table in front of the sofa",
+            ],
+            {"intensity": 2.0, "brightness": 0.45, "window": True, "interior": 1.0, "fire": 1.0, **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE + ", steam, smoke, mist, fog above the cup, text, logo", comfy={"family": "zimage"}, post=NATURAL_POST,
         ),
         Scene(
             "living_fireplace_big_window",

@@ -34,7 +34,7 @@ INTERIOR_SCENES = {"candle_closeup", "candle_single", "candle_many", "cozy_parlo
                    "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
                    "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window",
                    "cabin_fireplace_window", "living_turntable_fireplace", "turntable_candles_windowless",
-                   "turntable_window_rain"}
+                   "turntable_window_rain", "living_coffee_fireplace_rain", "living_tea_fireplace_rain"}
 # 반려견이 나오는 장면: 작고 예쁜 강아지 품종을 매번 다르게 (큰 개는 몸이 합쳐지거나 머리가 2개로 그려지는 오류가 더 잦음)
 PET_SCENES = {"living_fireplace_storm", "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
               "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window", "cabin_fireplace_window",
@@ -52,8 +52,8 @@ INTERIOR_AXES = {
 # v11.23: 같은 장면이라도 이미지마다 창밖 풍경·방 분위기·소품이 확 달라지게 하는 추가 축
 WINDOW_INTERIOR = {"living_fireplace_storm", "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
                    "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window", "cabin_fireplace_window",
-                   "living_turntable_fireplace", "turntable_window_rain", "candle_rain_window"}
-DECOR_SCENES = PET_SCENES | {"living_fireplace_candles", "turntable_candles_windowless", "turntable_window_rain", "cozy_parlor"}
+                   "living_turntable_fireplace", "turntable_window_rain", "candle_rain_window", "living_coffee_fireplace_rain", "living_tea_fireplace_rain"}
+DECOR_SCENES = PET_SCENES | {"living_coffee_fireplace_rain", "living_tea_fireplace_rain", "living_fireplace_candles", "turntable_candles_windowless", "turntable_window_rain", "cozy_parlor"}
 
 OUTSIDE_VIEWS = [
     "outside the window a lush dense pine forest with every tree trunk, branch and needle sharply detailed, layered misty hills behind",

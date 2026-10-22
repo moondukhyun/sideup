@@ -136,6 +136,7 @@ class RainRenderer:
         self.wan_room = None         # wanroom.WanRoom (Wan 이 만든 불꽃·촛불·숨쉬기 움직임, v11.22)
         self.tonearm = None          # interior.TonearmBob (톤암 오르내림, v11.22)
         self.records = None          # interior.RecordSpin (턴테이블 레코드판 회전, v11.22)
+        self.steam = None            # interior.Steam (커피잔·주전자 김, v11.24)
         self.fans = None             # interior.FanSpin (천장 선풍기 회전, v11.22)
         self.pets = None             # interior.PetBreath (반려동물 숨쉬기, v11.22)
         self.stream = None           # streamflow.StreamFlow (대롱·폭포 물줄기 흐름, v11.21)
@@ -356,6 +357,8 @@ class RainRenderer:
             out = self.fans.apply(out, f)                    # 천장 선풍기 회전 (v11.22)
         if self.interior is not None:
             out = self.interior.apply(out, f)                # 촛불·벽난로 불꽃·방 안 불빛 일렁임 (v11.22)
+        if self.steam is not None:
+            out = self.steam.apply(out, f)                   # 김 (v11.24, 루프 이음새 없음)
         if self.bloom is not None:
             out += self.bloom                                # 밝은 빛 번짐 (halation)
         if self.water is not None:

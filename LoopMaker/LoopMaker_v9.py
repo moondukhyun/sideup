@@ -4661,7 +4661,8 @@ SM_ANIMAL_SCENES = {"living_fireplace_storm", "living_fireplace_big_window", "li
                     "living_fireplace_candles", "hearth_dog_cat"}
 SM_TURNTABLE_SCENES = {"living_turntable_fireplace", "turntable_candles_windowless", "turntable_window_rain"}
 SM_ANIMAL_SCENES = SM_ANIMAL_SCENES | {"living_turntable_fireplace", "turntable_window_rain"}
-SM_MARK_SCENES = SM_ANIMAL_SCENES | SM_TURNTABLE_SCENES          # 위치 표시(반려동물·선풍기·레코드판)가 필요한 장면
+SM_STEAM_SCENES = {"living_coffee_fireplace_rain", "living_tea_fireplace_rain", "campfire_kettle_lake", "campfire_tent_kettle"}      # 김이 올라오는 장면
+SM_MARK_SCENES = SM_ANIMAL_SCENES | SM_TURNTABLE_SCENES | SM_STEAM_SCENES          # 위치 표시(반려동물·선풍기·레코드판)가 필요한 장면
 SM_INTERIOR_SCENES = SM_MARK_SCENES | {"campfire_lake", "campfire_kettle_lake", "campfire_tent_lake", "campfire_tent_kettle", "campfire_forest", "campfire_only", "candle_closeup", "candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "candle_nook"}
 
 
@@ -4724,6 +4725,8 @@ def _claude_find_marks_raw(img_path):
               "- fire: 벽난로 안에서 타오르는 불꽃 영역 (장작과 불꽃이 보이는 안쪽 사각형)\n"
               "- glass: 창 유리 전체 (창틀 안쪽 전부, 창살 포함, 창마다 상자 하나씩)\n"
               "- block: 창 유리 '앞'에서 창을 가리는 물체(턴테이블의 투명 덮개, 스탠드 조명, 화분, 커튼 등) — 창 유리 상자와 겹치는 것만, 물체마다 상자 하나씩. 물방울이 그 위에 내리지 않게 하는 용도\n"
+              "- steam: 뜨거운 커피잔·찻잔의 '컵 입구(액체 윗면)' 또는 주전자의 '주둥이 끝' — 김이 시작될 작은 상자 (잔·주전자마다 하나, 상자는 입구 크기만)\n"
+              "- lantern: 텐트 천장이나 기둥에 매달려 켜진 등불(랜턴) 전체 — 불빛이 일렁일 곳\n"
               "- candle: 켜져 있는 촛불 '불꽃'의 중심 한 점 — 상자 대신 x,y 만 (예: {\"kind\":\"candle\",\"x\":0.52,\"y\":0.60})\n"
               "상자는 대상을 빈틈없이 감싸되 사방으로 약 5% 만 여유를 두세요. 사진에 없는 대상은 빼세요.\n"
               '출력은 JSON 한 덩어리만: {"items":[{"kind":"dog","x0":0.35,"y0":0.80,"x1":0.52,"y1":0.99}]} — 다른 글은 쓰지 마세요.')
@@ -4744,8 +4747,8 @@ def _claude_find_marks_raw(img_path):
         except (KeyError, TypeError, ValueError):
             continue
         area = (x1 - x0) * (y1 - y0)
-        if k in ("dog", "cat", "fan", "record", "fire", "glass", "tonearm", "block") and x1 - x0 > 0.01 and y1 - y0 > 0.004 \
-                and 0.0002 < area < (0.12 if k in ("fan", "fire") else 0.06 if k == "record" else 0.03 if k == "tonearm" else 0.5 if k == "glass" else 0.35):
+        if k in ("dog", "cat", "fan", "record", "fire", "glass", "tonearm", "block", "steam", "lantern") and x1 - x0 > 0.01 and y1 - y0 > 0.004 \
+                and 0.0002 < area < (0.12 if k in ("fan", "fire") else 0.06 if k == "record" else 0.03 if k in ("tonearm", "steam", "lantern") else 0.5 if k == "glass" else 0.35):
             if k == "record" and (x1 - x0) < 1.15 * (y1 - y0):               # 비스듬히 본 LP 는 가로로 납작한 타원 → 세로로 긴 상자는 턴테이블 본체·덮개를 잘못 잡은 것
                 continue
             res.append({"kind": k, "x0": x0, "y0": y0, "x1": x1, "y1": y1})
@@ -4756,7 +4759,7 @@ def claude_verify_marks(img_path, marks, rounds=2):
     """v11.23: 찾은 위치 상자를 그림 위에 번호와 함께 그려서 Claude 에게 '맞게 잡혔나' 다시 확인시키고, 틀린 상자는 고친 값으로 바꾼다.
     (위치가 어긋나면 레코드가 엉뚱한 곳이 돌거나 책장이 흔들리는 문제가 생기므로, 영상 만들기 전에 최대 2번 바로잡음). 실패하면 원래 값을 그대로 돌려줌."""
     colors = {"dog": (0, 170, 255), "cat": (0, 170, 255), "fan": (170, 0, 255), "record": (255, 140, 0), "tonearm": (255, 0, 120),
-              "fire": (255, 40, 0), "glass": (0, 200, 120), "candle": (255, 230, 0), "block": (255, 255, 255)}
+              "fire": (255, 40, 0), "glass": (0, 200, 120), "candle": (255, 230, 0), "block": (255, 255, 255), "steam": (200, 200, 255), "lantern": (255, 200, 80)}
     marks = [dict(m) for m in marks]
     for _ in range(rounds):
         try:
@@ -4784,7 +4787,7 @@ def claude_verify_marks(img_path, marks, rounds=2):
                       "그림 위에 색 상자(또는 촛불은 동그라미)와 번호가 그려져 있습니다. 각 번호의 상자가 그 이름의 대상을 정확히 감싸는지 검사해 주세요:\n"
                       f"{lines}\n\n"
                       "기준: record=LP 판의 타원 전체(가장자리까지, 가운데 라벨 포함, 톤암·받침대 제외), tonearm=톤암(바늘 달린 팔)만 — 뒤의 책장·벽·판은 최대한 넣지 말 것, "
-                      "fire=벽난로 안에서 불꽃이 보이는 부분, block=창 앞을 가리는 물체(덮개·스탠드 등) 하나, glass=창 유리(창틀 안쪽), dog/cat=자는 동물 몸 전체, candle=불꽃 위치, fan=선풍기 날개 전체.\n"
+                      "fire=벽난로 안에서 불꽃이 보이는 부분, block=창 앞을 가리는 물체(덮개·스탠드 등) 하나, glass=창 유리(창틀 안쪽), dog/cat=자는 동물 몸 전체, candle=불꽃 위치, fan=선풍기 날개 전체, steam=컵 입구·주전자 주둥이 부분만의 작은 상자, lantern=켜진 등불 전체.\n"
                       "상자가 대상을 많이 벗어나거나(절반 이상 어긋남) 다른 물체를 크게 포함하거나 대상을 놓치면 틀린 것입니다. 약간의 여유는 허용.\n"
                       '출력은 JSON 한 덩어리만: {"items":[{"id":0,"ok":true},{"id":1,"ok":false,"x0":0.1,"y0":0.2,"x1":0.3,"y1":0.4}]} '
                       "— 틀린 상자만 ok:false 와 고친 값(이미지 전체를 가로·세로 0~1 로 본 비율, candle 은 x,y 한 점)을 주세요. 다른 글은 쓰지 마세요.")
@@ -5308,9 +5311,9 @@ class SceneTabMixin:
         mode = tk.StringVar(value="draw")                   # draw 그리기 / move 옮기기 / delete 지우기 / poly 다각형
         state = {"start": None, "cur": None, "pts": [], "drag": None}
         COLORS = {"cat": "#ffcc00", "fan": "#ff66ff", "record": "#ff9900", "fire": "#ff3300", "glass": "#33aaff",
-                  "candle": "#ffee00", "tonearm": "#99ff00", "block": "#ffffff", "outside": "#00ccff"}
+                  "candle": "#ffee00", "tonearm": "#99ff00", "block": "#ffffff", "outside": "#00ccff", "steam": "#ccccff", "lantern": "#ffc850"}
         NAMES = {"cat": "고양이", "fan": "선풍기", "record": "레코드판", "fire": "벽난로 불", "glass": "창 유리",
-                 "candle": "촛불", "tonearm": "톤암", "block": "창 가림", "outside": "비 내리는 바깥"}
+                 "candle": "촛불", "tonearm": "톤암", "block": "창 가림", "outside": "비 내리는 바깥", "steam": "김 올라오는 곳", "lantern": "천장 등불"}
         ONE_ONLY = ("record", "tonearm", "fire")            # 하나만 있어야 하는 종류: 새로 그리면 이전 것을 대체
 
         def redraw():
@@ -5475,6 +5478,8 @@ class SceneTabMixin:
         ttk.Radiobutton(bar, text="톤암", variable=kind, value="tonearm").pack(side="left")
         ttk.Radiobutton(bar, text="창 가림(덮개·스탠드 등)", variable=kind, value="block").pack(side="left")
         ttk.Radiobutton(bar, text="텐트: 비 내리는 바깥(다각형 권장)", variable=kind, value="outside").pack(side="left", padx=6)
+        ttk.Radiobutton(bar, text="김 올라오는 곳(컵 입구·주전자 주둥이)", variable=kind, value="steam").pack(side="left")
+        ttk.Radiobutton(bar, text="텐트 천장 등불", variable=kind, value="lantern").pack(side="left", padx=6)
         ttk.Label(bar, text="상자는 동물보다 살짝 크게", foreground="#666666").pack(side="left", padx=10)
         auto_btn = ttk.Button(bar, text="🤖 자동 찾기")
         auto_btn.pack(side="right", padx=(6, 0))
@@ -6005,7 +6010,7 @@ class SceneTabMixin:
                             json.dump(res, f, ensure_ascii=False, indent=1)
                     except OSError as ex:
                         self.log(f"⚠ pets.json 저장 실패: {ex}")
-                names = {"dog": "강아지", "cat": "고양이", "fan": "선풍기", "record": "레코드판", "fire": "벽난로 불", "glass": "창 유리", "candle": "촛불", "tonearm": "톤암", "block": "창 가림"}
+                names = {"dog": "강아지", "cat": "고양이", "fan": "선풍기", "record": "레코드판", "fire": "벽난로 불", "glass": "창 유리", "candle": "촛불", "tonearm": "톤암", "block": "창 가림", "steam": "김", "lantern": "천장 등불"}
                 self.log("🐾 찾은 것: " + (", ".join(names.get(r["kind"], r["kind"]) for r in res) if res else "없음")
                          + "  (위치가 어긋났으면 [🐾 위치 지정] 에서 고칠 수 있어요)")
             self._sm_skip_pets = True
