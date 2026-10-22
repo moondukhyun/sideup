@@ -115,7 +115,7 @@ _DRY_RULES = [
 
 
 CAMPFIRE_RAIN = {"brightness": 0.45, "wet": 0.0, "wan_hint": "the lake surface moves very slightly in the breeze, the campfire flames flicker, no rain"}
-CAMPFIRE_NEGATIVE = ("steam from the kettle, mist above the kettle, people, person, human, man, woman, figure, rain, raindrops, rain streaks, wet ground, puddles, snow, fog bank, "
+CAMPFIRE_NEGATIVE = ("steam, vapor, steam rising from the kettle or the mug, wisps of smoke above the kettle, mist above the kettle, people, person, human, man, woman, figure, rain, raindrops, rain streaks, wet ground, puddles, snow, fog bank, "
                      "jungle, rainforest, fantasy, fairy tale, painting, illustration, 3d render, oversaturated, neon, glowing magical light, "
                      "cartoon flames, fireworks, sparks flying everywhere, huge bonfire tower, bonfire pile, house, cabin, buildings, text, logo, watermark")
 
@@ -418,7 +418,7 @@ SCENES = {
             "휴양림 산장 창가",
             "view from inside a cozy lived-in wooden cabin at a Korean recreational forest looking out a large window with a "
             "thick wooden frame at a misty mountain slope with layers of slender pine and oak trees fading into mist, "
-            "clear clean window glass, on the deep wooden windowsill a steaming ceramic mug, a small potted plant, a few worn books "
+            "clear clean window glass, on the deep wooden windowsill a ceramic mug, a small potted plant, a few worn books "
             "and a small oil lamp, a knitted wool blanket draped over a wooden chair, rough wooden plank walls and ceiling beams "
             "with natural grain and knots, a small framed picture and a bunch of dried herbs on the wall, warm lamp light inside, "
             "rich natural details like a real documentary photograph, empty cabin without people",
@@ -768,7 +768,7 @@ SCENES = {
         Scene(
             "campfire_kettle_lake",
             "호숫가 모닥불 · 커피 주전자",
-            "a dark blackened metal camping kettle with a handle hanging over the campfire on a small iron tripod, a simple steaming coffee brewing, a camping mug on a flat rock nearby, a calm mountain lake in Korea behind, "
+            "a dark blackened metal camping kettle with a handle hanging over the campfire on a small iron tripod, coffee brewing inside it, a camping mug on a flat rock nearby, a calm mountain lake in Korea behind, "
             "a real wood campfire with tall lively orange flames and glowing embers on a ring of stones, small split logs stacked in the fire, warm firelight lighting the ground and nearby objects, "
             "real documentary photograph of a Korean mountain campsite, ordinary Korean mountain scenery: rounded ridges covered with mixed oak, pine and other deciduous trees, individual tree crowns of different heights and greens, ridgelines layered one behind another fading into soft haze, natural irregular details, no fantasy, no alpine peaks, dry clear air with no precipitation, empty campsite without people",
             [
@@ -800,7 +800,7 @@ SCENES = {
         Scene(
             "campfire_tent_kettle",
             "텐트 앞 모닥불 + 커피 주전자",
-            "a dome tent with a soft warm glow from inside, in front of it a campfire with a blackened camping kettle on a grill grate over the flames and a steaming mug on a log, a calm mountain lake in Korea behind, "
+            "a dome tent with a soft warm glow from inside, in front of it a campfire with a blackened camping kettle on a grill grate over the flames and a mug of hot coffee on a log, a calm mountain lake in Korea behind, "
             "a real wood campfire with tall lively orange flames and glowing embers on a ring of stones, small split logs stacked in the fire, warm firelight lighting the ground and nearby objects, "
             "real documentary photograph of a Korean mountain campsite, ordinary Korean mountain scenery: rounded ridges covered with mixed oak, pine and other deciduous trees, individual tree crowns of different heights and greens, ridgelines layered one behind another fading into soft haze, natural irregular details, no fantasy, no alpine peaks, dry clear air with no precipitation, empty campsite without people",
             [

@@ -605,7 +605,7 @@ class Steam:
             bw = max(10.0, x1 - x0)
             rng = np.random.RandomState((seed * 131 + i * 17) % (2 ** 31 - 1))
             ox, oy = (x0 + x1) / 2.0, y0 + 0.35 * (y1 - y0)              # 김이 나오는 점
-            hp = float(np.clip(max(0.17 * H, 5.5 * bw), 0.12 * H, 0.34 * H)) * (0.8 + 0.4 * amount)   # 김이 올라가는 높이(px)
+            hp = float(np.clip(max(0.11 * H, 4.0 * bw), 0.09 * H, 0.24 * H)) * (0.8 + 0.4 * amount)   # 김이 올라가는 높이(px)
             hw0 = 0.5 * bw                                               # 처음 폭의 절반
             hw1 = max(hw0 * 3.0, 0.15 * hp)                              # 맨 위에서의 폭의 절반
             lean = float(rng.choice([-1.0, 1.0]) * rng.uniform(0.25, 0.6))   # 바람에 살짝 기울어지는 방향 (정해진 한쪽)
@@ -614,7 +614,7 @@ class Steam:
             ry0, ry1 = int(max(0, oy - hp - 8)), int(min(H, oy + 6))
             if rx1 - rx0 < 8 or ry1 - ry0 < 8:
                 continue
-            v_px = hp / 11.0                                             # 초당 올라가는 거리(px): 맨 위까지 약 11초 (천천히)
+            v_px = hp / 8.0                                             # 초당 올라가는 거리(px): 맨 위까지 약 11초 (천천히)
             P = int(max(2.4 * hp, 160))                                  # 무늬 세로 길이 (김 높이보다 훨씬 길어 같은 무늬가 반복돼 보이지 않음)
             k = int(round(v_px * sec / P))
             if k < 1:                                                    # 루프가 짧으면 무늬를 길게 늘려서 속도를 지킴
@@ -626,7 +626,7 @@ class Steam:
                 t1 = _torus_noise(rng, P, Q, sy, sx, cv2)
                 t2 = _torus_noise(rng, P, Q, sy, sx, cv2)
                 kk = max(1, int(round(k * mult))) if P > 0 else k
-                layers.append({"t1": t1, "t2": t2, "k": kk, "off": float(rng.uniform(0, P)), "mix": int(rng.randint(1, 3)), "ph": float(rng.uniform(0, 6.28))})
+                layers.append({"t1": t1, "t2": t2, "w1": _torus_noise(rng, P, Q, 0.55 * hp, 0.45 * hp, cv2), "w2": _torus_noise(rng, P, Q, 0.55 * hp, 0.45 * hp, cv2), "k": kk, "off": float(rng.uniform(0, P)), "mix": int(rng.randint(1, 3)), "ph": float(rng.uniform(0, 6.28))})
             yy, xx = np.mgrid[ry0:ry1, rx0:rx1].astype(np.float32)
             hf = np.clip((oy - yy) / hp, 0.0, 1.0)                       # 0 = 입구, 1 = 맨 위
             item = {"box": (rx0, ry0, rx1, ry1), "ox": ox, "oy": oy, "hp": hp, "hw0": hw0, "hw1": hw1, "lean": lean,
@@ -684,7 +684,7 @@ class Steam:
             hw = it["hw0"] + (hw1 - it["hw0"]) * hf ** 0.7
             dx = (xx - cx) / np.maximum(hw, 1.0)
             lat = np.exp(-dx * dx * 1.2)
-            env = _smooth(hf / 0.12) * (1.0 - _smooth((hf - 0.30) / 0.70)) ** 1.1      # 입구에서 서서히 생겼다가 위에서 사라짐
+            env = _smooth(hf / 0.07) * (1.0 - _smooth((hf - 0.10) / 0.90)) ** 1.6      # 입구에서 서서히 생겼다가 위에서 사라짐
             wob = 0.30 * hw1 * np.sin(tp * it["m3"] + it["ph3"] + 7.0 * hf)         # 무늬 자체도 굽이쳐서 곧은 줄로 보이지 않게
             dens = np.zeros_like(hf)
             P, Q = it["P"], it["Q"]
@@ -693,11 +693,18 @@ class Steam:
                 my = np.mod(yy - y0 + s, P).astype(np.float32)
                 mx = np.mod((xx - cx + wob) * 0.8 + Q / 2.0, Q).astype(np.float32)
                 ph = tp * ly["mix"] + ly["ph"]                           # 두 무늬를 섞는 비율도 정수 번 반복 → 김 모양이 서서히 변함
-                tex = np.cos(ph) * cv2.remap(ly["t1"], mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP) \
-                    + np.sin(ph) * cv2.remap(ly["t2"], mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
-                dens += np.clip(0.34 + 0.75 * tex, 0.0, 1.0) ** 1.4 / len(it["layers"])
+                wy = np.mod(yy - y0 + max(1, (ly["k"] + 1) // 2) * P * t + ly["off"], P).astype(np.float32)     # 소용돌이 치듯 굽이치게 하는 변위 무늬 (절반 속도로 올라감)
+                wx = np.mod((xx - cx) * 0.8 + Q / 2.0, Q).astype(np.float32)
+                ux = cv2.remap(ly["w1"], wx, wy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP) * (0.55 * hw1) * (0.3 + hf)
+                uy = cv2.remap(ly["w2"], wx, wy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP) * (0.25 * hp) * (0.3 + hf)
+                mx2 = np.mod(mx + ux * 0.8, Q).astype(np.float32)
+                my2 = np.mod(my + uy, P).astype(np.float32)
+                tex = np.cos(ph) * cv2.remap(ly["t1"], mx2, my2, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP) \
+                    + np.sin(ph) * cv2.remap(ly["t2"], mx2, my2, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
+                ribbon = np.clip(1.0 - np.abs(tex) * 1.7, 0.0, 1.0) ** 2.2                  # 0 선 근처가 가는 리본 모양 → 연기 덩어리가 아니라 가는 김 가닥
+                dens += (0.65 * ribbon + 0.35 * np.clip(0.3 + 0.7 * tex, 0.0, 1.0) ** 1.5) / len(it["layers"])
             edge = _smooth(np.minimum(xx - x0, x1 - 1 - xx) / 14.0) * _smooth(np.minimum(yy - y0, y1 - 1 - yy) / 10.0)      # 잘라낸 사각형 경계가 보이지 않게
-            a = np.clip(dens * lat * env * edge * 0.95 * it["amount"], 0.0, 0.5)[..., None]
+            a = np.clip(dens * lat * env * edge * 1.35 * it["amount"], 0.0, 0.5)[..., None]
             luma = reg.mean(axis=2, keepdims=True)
             glow = cv2.GaussianBlur(luma, (0, 0), max(6.0, hw1 * 0.8))
             if glow.ndim == 2:

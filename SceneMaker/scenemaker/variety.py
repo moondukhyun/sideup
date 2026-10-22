@@ -77,7 +77,7 @@ ROOM_STYLES = [
     "elegant classic study style room with dark green walls, built-in bookshelves and a velvet sofa",
 ]
 PROPS = [
-    "a stack of books with plain covers, a steaming ceramic teacup and a small brass clock",
+    "a stack of books with plain covers, a ceramic teacup and a small brass clock",
     "a potted fern, a woven basket with a knitted blanket and a framed forest painting",
     "a glass vase of dried flowers, a pile of cushions and an antique wooden globe",
     "a leather-bound journal with a fountain pen, a small wooden stool and a hanging plant",
@@ -125,7 +125,7 @@ FOREGROUNDS = ["mossy stones in the foreground", "wet fallen leaves on the groun
 PALETTE_NATURE = ["natural muted greens", "calm cool grey-blue tones", "natural olive and brown tones", "soft grey-green tones", "warm earthy tones", "subtle desaturated tones"]
 VEGETATION = ["dominant tall pine and fir trees", "mixed oak and maple trees", "slender birch trees with white trunks", "ordinary Korean mountain forest with oak and hornbeam trees",
               "tall zelkova and elm trees", "a plain mixed forest of conifers and deciduous trees"]
-CAMP_PROPS = ["a camp lantern glowing warmly", "a pair of muddy hiking boots and a backpack", "a steaming enamel mug on a folding table",
+CAMP_PROPS = ["a camp lantern glowing warmly", "a pair of muddy hiking boots and a backpack", "an enamel mug on a folding table",
               "a hammock and a folding camp chair", "string lights under the tarp", "a small portable stove with a kettle"]
 CANDLE_HOLDERS = ["a brass candle holder", "a rustic ceramic saucer", "a clear glass jar", "a wooden plate", "an antique iron holder", "a small stone dish"]
 CANDLE_SURFACES = ["a dark wooden table", "a rough stone ledge", "a linen tablecloth", "a worn wooden shelf", "an old window sill", "a smooth slate slab"]
