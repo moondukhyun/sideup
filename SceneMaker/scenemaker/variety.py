@@ -136,7 +136,34 @@ URBAN_SCENES = {"city_night", "cafe_window", "hanok_cafe"}
 AUTUMN_SCENES = {"autumn_forest_path", "autumn_temple"}
 VEGETATION_SCENES = {"forest_path", "valley_stream", "forest_lake", "thunder_forest", "tent", "tent_by_stream", "tent_view_mountains",
                      "tent_view_stream", "tent_view_valley", "cabin_window"}
-TENT_SCENES = {"tent", "tent_by_stream", "tent_view_mountains", "tent_view_stream", "tent_view_valley"}
+TENT_SCENES = {"tent", "tent_by_stream", "tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_meadow", "tent_pine_grove", "tent_lakeside", "tent_car_camp"}
+NATURE_FOREGROUND_SCENES |= TENT_SCENES
+TERRAIN_FREE = {"tent", "tent_view_mountains", "tent_car_camp"}          # 풍경이 장면에 고정되지 않은 장면만 지형을 바꿈 (초원·솔숲·호수·개울 장면은 그대로)
+TENT_EXTERIOR = {"tent", "tent_by_stream", "tent_meadow", "tent_pine_grove", "tent_lakeside"}          # 텐트를 밖에서 보는 장면
+TENT_INSIDE = {"tent_view_mountains", "tent_view_stream", "tent_view_valley"}                          # 텐트 안에서 바깥을 보는 장면
+# v11.24: 산속 캠핑 장면이 비슷비슷하다는 의견 → 지형·텐트·터·차양·안쪽 소품을 이미지마다 크게 바꿈
+_TER_TAIL = ", individual tree crowns of different heights and greens, natural irregular details, no fantasy, no alpine peaks"
+TERRAINS = [
+    "ordinary Korean mountain scenery: rounded ridges covered with dense mixed oak, pine and other deciduous trees, ridgelines layered one behind another fading into mist and low clouds" + _TER_TAIL,
+    "ordinary Korean mountain scenery: a broad open highland meadow of short grass with a few scattered trees, gentle rolling hills and a wide soft sky" + _TER_TAIL,
+    "ordinary Korean mountain scenery: steep slopes of straight Korean red pines with pale granite boulders and rock outcrops among them" + _TER_TAIL,
+    "ordinary Korean mountain scenery: a plantation of tall straight Korean pine trees with a clean forest floor and soft light between the trunks" + _TER_TAIL,
+    "ordinary Korean mountain scenery: a deciduous forest of zelkova, maple and hornbeam with lighter green undergrowth and a narrow dirt track" + _TER_TAIL,
+    "ordinary Korean mountain scenery: a wide valley with a small river and farm terraces far below, forested ridges receding into haze" + _TER_TAIL,
+    "ordinary Korean mountain scenery: a granite ridgeline with sparse pines and bare rock slabs, low clouds drifting across the ridges" + _TER_TAIL,
+    "ordinary Korean mountain scenery: a forest edge opening to a grassy clearing with birch and oak trees and a dry stream bed at the side" + _TER_TAIL,
+    "ordinary Korean mountain scenery: terraced mountain slopes of oak forest with a few distant village roofs in the haze" + _TER_TAIL,
+    "ordinary Korean mountain scenery: a mountain pass with rows of forested ridges, the nearest covered with tall pines" + _TER_TAIL,
+]
+TENT_KINDS = ["an olive green dome tent", "a beige canvas bell tent", "a grey-blue tunnel tent", "a sand-colored dome tent", "a dark green cabin tent",
+              "a charcoal grey dome tent", "a khaki A-frame tent", "a cream colored cotton tent with a wooden pole frame"]
+TENT_SITES = ["a wooden deck platform", "a flat gravel pad", "short natural grass", "a forest floor with pine needles", "flat rock slabs and gravel", "packed dirt with small stones"]
+TENT_SHELTERS = ["a tarp stretched over the tent door", "the tent door extended into a small porch with poles", "a camp kitchen table with a gas stove beside it",
+                 "a hammock between two trees next to the tent", "no tarp, just the tent and a camping chair", "a small folding table with an enamel mug and a lantern"]
+TENT_INNER = ["a rolled sleeping bag and a lantern at the edge of the frame", "a folded wool blanket and a small lantern at the edge of the frame",
+              "a pair of boots by the door and a headlamp", "a thermos and a mug on the tent floor", "a small book and a lantern near the door", "a sleeping mat and a backpack at the edge of the frame"]
+
+CAMP_FRAMING = ["wide view", "eye-level view", "slightly low angle", "view slightly from the side", "closer view of the camp"]
 
 CLOSEUP_CANDLES = [
     "a thick ivory pillar candle", "a tall hand-poured golden beeswax candle", "a thick white church candle with soft melted edges",
@@ -201,7 +228,8 @@ def diversify(scene_name, seed, rain_level=None):
         if scene_name in ("campfire_tent_lake", "campfire_tent_kettle", "campfire_forest"):
             picks["tent"] = "the tent is " + rng.choice(CAMPFIRE_TENTS)
         picks["vegetation"] = rng.choice(VEGETATION)
-        return ", ".join(picks.values()), picks
+        picks["terrain"] = rng.choice(TERRAINS)
+        return ", ".join(v for k, v in picks.items() if k != "terrain"), picks
     for axis, options in (INTERIOR_AXES if scene_name in INTERIOR_SCENES else AXES).items():
         if axis == "time" and scene_name in FIXED_TIME:
             continue
@@ -238,10 +266,17 @@ def diversify(scene_name, seed, rain_level=None):
             picks["foreground"] = rng.choice(FOREGROUNDS)
             if scene_name not in AUTUMN_SCENES:
                 picks["palette"] = "color palette of " + rng.choice(PALETTE_NATURE)
-        if scene_name in VEGETATION_SCENES:
+        if scene_name in VEGETATION_SCENES and scene_name not in TENT_SCENES:
             picks["vegetation"] = rng.choice(VEGETATION)
         if scene_name in TENT_SCENES:
             picks["camp"] = rng.choice(CAMP_PROPS)
+            if scene_name in TERRAIN_FREE:
+                picks["terrain"] = rng.choice(TERRAINS)
+            if scene_name in TENT_EXTERIOR:
+                picks["tent"] = ("the tent is " + rng.choice(TENT_KINDS) + (" on " + rng.choice(TENT_SITES) if scene_name == "tent" else "")
+                                 + (", with " + rng.choice(TENT_SHELTERS) if scene_name != "tent_pine_grove" else ""))
+            elif scene_name in TENT_INSIDE:
+                picks["inner"] = rng.choice(TENT_INNER)
     if scene_name == "candle_closeup":                                       # 큰 촛불 클로즈업: 양초 종류·받침·뒤에 보이는 소품·빛 색을 이미지마다 다르게
         picks["candle"] = rng.choice(CLOSEUP_CANDLES) + " " + rng.choice(CLOSEUP_SURFACES)
         picks["backdrop"] = rng.choice(CLOSEUP_BACKDROPS)
@@ -251,7 +286,7 @@ def diversify(scene_name, seed, rain_level=None):
     elif scene_name in ("candle_many", "candle_nook"):                       # 촛불 여러 개: 놓인 곳·받침의 재질을 바꿔 분위기를 다르게 (개수는 건드리지 않음)
         picks["holder"] = "candles standing in " + rng.choice(["brass candle holders", "mismatched ceramic saucers", "clear glass jars",
                                                                 "old iron holders", "small stone dishes", "wooden blocks"]) + " on " + rng.choice(CANDLE_SURFACES)
-    text = ", ".join(picks.values())
+    text = ", ".join(v for k, v in picks.items() if k != "terrain")      # terrain 은 adapt_prompt 가 본문 문장을 바꿔 넣음
     return text, picks
 
 
@@ -268,10 +303,14 @@ def _scene_has_fireplace(scene_name):
 
 def adapt_prompt(text, picks):
     """고른 벽난로 종류로 문장 속 '돌 벽난로' 표현을 바꿔서 방 분위기가 확 달라지게."""
+    import re
+    ter = picks.get("terrain")
+    if ter:                                                                    # 모든 텐트·캠핑 장면에 똑같이 들어 있던 '둥근 능선' 문장을 고른 지형 문장으로 바꿔 풍경을 크게 다르게
+        text = re.sub(r"ordinary Korean mountain scenery: rounded ridges.*?no alpine peaks", lambda m: ter, text, count=1, flags=re.S)
+        picks = {k: v for k, v in picks.items() if k != "terrain"}
     fp = picks.get("fireplace")
     if not fp:
         return text
-    import re
     noun = fp.split(" ", 1)[1] if fp.startswith("a ") else fp
     def rep(m):
         return ("the " + noun) if m.group(1) == "the " else fp
