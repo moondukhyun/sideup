@@ -357,6 +357,13 @@ STORY_KINDS = {
     "korean": dict(label_kr="오늘 밤의 문학 낭독", label_en="Tonight's Korean Classic", seo="Korean Classic Reading",
                    core="Tonight's Korean literary reading", multi="{n} Korean literary readings",
                    tags=_TAGS_BASE + ["korean literature", "korean classic reading", "한국 문학 낭독", "고전 문학", "오디오북"]),
+    "absurd": dict(label_kr="오늘 밤의 문학 낭독", label_en="Tonight's Classic Reading", seo="Classic Literature Reading",
+                   core="Tonight's classic literary reading", multi="{n} classic literary readings",
+                   tags=_TAGS_BASE + ["classic literature reading", "kafka", "chekhov", "이상 날개", "카프카 변신", "고전 문학 낭독", "오디오북"]),
+    "guide": dict(label_kr="오늘 밤의 문학 해설", label_en="Tonight's Literature Guide", seo="Literature Guide",
+                  core="Tonight's literature guide (not a reading)", multi="{n} literature guides",
+                  intro_kr="📖 오늘 밤 빗소리와 함께 하는 문학 해설 — 책을 읽어 드리는 낭독이 아니라, 줄거리와 주제를 말로 풀어 소개합니다",
+                  tags=_TAGS_BASE + ["literature guide", "book summary", "the stranger camus", "이방인 해설", "이방인 줄거리", "카뮈 이방인", "책 해설", "문학 해설"]),
     "nature": dict(label_kr="오늘 밤의 산책", label_en="Tonight's Night Walk", seo="Nature Sleep Story",
                    core="Tonight's quiet walk through the forest", multi="{n} quiet nature walks",
                    tags=_TAGS_BASE + ["nature sleep story", "forest walk for sleep", "숲 산책", "자연 이야기"]),
@@ -372,7 +379,7 @@ STORY_KINDS = {
                        tags=["sleep meditation", "guided sleep meditation", "guided relaxation", "rain sleep",
                              "수면 명상", "잠 오는 명상", "불면증", "이완 명상"]),
 }
-_STYLE_TO_KIND = {"lib:folk": "folk", "calm:oldtale": "folk", "lib:world": "world", "lib:cozyclassic": "cozyclassic",
+_STYLE_TO_KIND = {"lib:absurd": "absurd", "lib:guide": "guide", "lib:folk": "folk", "calm:oldtale": "folk", "lib:world": "world", "lib:cozyclassic": "cozyclassic",
                   "lib:korean": "korean", "calm:forest": "nature", "calm:journey": "journey",
                   "calm:shop": "shop", "calm:meditation": "meditation"}
 
@@ -3172,6 +3179,8 @@ NARR_STYLES = {
     "🧸 세계 명작 동화 (안데르센 · 그림 형제 · 이어서 연재)": "lib:world",
     "🌿 포근한 고전 소설 (버드나무에 부는 바람 · 빨강 머리 앤 · 연재)": "lib:cozyclassic",
     "🏯 한국 고전·근대 문학 (구운몽 · 메밀꽃 필 무렵 · 연재)": "lib:korean",
+    "🌫 고독과 부조리의 고전 (이상 날개 · 카프카 변신 · 체호프 · 연재)": "lib:absurd",
+    "📖 이방인 줄거리·주제 해설 (카뮈 · 내 말로 풀이 · 낭독 아님 · 약 2시간)": "lib:guide",
     "🏡 새로 지은 옛이야기 (할머니 이야기 · 창작)": "calm:oldtale",
     "🌲 숲과 호수의 밤 산책 (자연 묘사 · 창작)": "calm:forest",
     "🚂 밤 기차·바닷마을 여행 (잔잔한 여행 · 창작)": "calm:journey",
@@ -3439,6 +3448,63 @@ LIB_KOREAN_DEFAULT = """# 🏯 한국 고전 · 근대 문학 — 위에서부�
 박지원 | 허생전 | 연암 박지원의 한문 소설
 """
 
+LIB_ABSURD_DEFAULT = """# 🌫 고독과 부조리의 고전 — 위에서부터 차례대로, 영상이 바뀌어도 '이어서' 들려줘요
+# 형식: 작가 | 작품 | 메모(선택)   ·  맨 앞에 # 을 붙이면 건너뛰어요  ·  순서를 바꾸거나 작품을 추가해도 돼요
+# ※ 저작권이 끝난 작품만 넣으세요 (작가 사후 70년 경과: 이상·카프카·고골·체호프·도스토옙스키 등). 기존 번역본 문장은 쓰지 않고 원작을 바탕으로 새로 옮겨 써요.
+# ※ 카뮈 『이방인』처럼 사후 70년이 안 지난 작품은 낭독하지 말고, 아래 '이방인 해설' 스타일(내 말로 소개)을 쓰세요.
+이상 | 날개 | 1936년 근대 소설 · 박제가 되어 버린 천재 · 고요하고 낯선 분위기
+프란츠 카프카 | 변신 | 어느 날 아침 벌레로 변한 그레고르 잠자 · 원제 Die Verwandlung
+니콜라이 고골 | 코 | 사라진 코를 찾아다니는 관리 이야기 · 유쾌한 부조리
+안톤 체호프 | 내기 | 십오 년 동안 갇혀 지내기로 한 내기
+안톤 체호프 | 개를 데리고 다니는 부인 | 얄타 해변에서 시작된 조용한 사랑
+안톤 체호프 | 카멜레온 | 시장 광장의 짧고 우스운 이야기
+표도르 도스토옙스키 | 백야 | 페테르부르크의 하얀 밤 · 외로운 몽상가
+이상 | 권태 | 시골 마을의 끝없는 한가함
+김동인 | 감자 | 가난한 마을의 쓸쓸한 이야기
+현진건 | 운수 좋은 날 | 비 내리는 날 인력거꾼의 하루
+"""
+
+# 📖 해설형 서재 — 저작권이 살아 있는 작품(카뮈 『이방인』 등)은 '낭독'이 아니라 '줄거리·주제를 내 말로 풀어 소개'하는 해설만 한다
+LIB_GUIDE_DEFAULT = """# 📖 줄거리·주제 해설 — 위에서부터 차례대로, 영상이 바뀌어도 '이어서' 들려줘요
+# 형식: 작가 | 작품 | 메모(선택)   ·  맨 앞에 # 을 붙이면 건너뛰어요
+# ※ 이 서재는 책을 읽어 주는 것이 아니라 줄거리와 주제를 내 말로 풀어 소개하는 해설입니다. 책(원문·번역본)의 문장을 옮기지 않아요.
+알베르 카뮈 | 이방인 해설 | 1942년 소설 『이방인』의 줄거리·주제·인물·시대를 내 말로 풀어 소개 · 낭독 아님
+"""
+
+GUIDE_PERSONA = """너는 문학 작품을 차분하게 풀어 들려주는 해설자다.
+유튜브 수면·휴식 채널에서 빗소리 위에 성우가 낮고 느리게 낭독할 해설 대본을 쓴다. 이 방송은 책을 읽어 주는 낭독이 아니라, 줄거리와 주제를 네 말로 풀어 소개하는 해설이다.
+
+[원칙]
+1. 책의 문장은 한 줄도 옮기지 않는다. 프랑스어 원문도, 한국어 번역본 문장도 인용하거나 비슷하게 따라 쓰지 않는다. 줄거리는 네 말로 요약하고, 꼭 필요한 짧은 낱말(인물 이름, 핵심 개념)만 쓴다.
+2. 비중은 줄거리 약 40퍼센트, 해설 약 60퍼센트다. 해설에는 시대 배경, 작가의 생각, 인물의 성격, 장면의 의미, 상징, 문체의 특징, 해석이 갈리는 지점을 담는다. 해석은 '이렇게 보는 사람도 있어요'처럼 여러 관점을 공정하게 소개한다.
+3. 확실하지 않은 세부(장 번호, 정확한 날짜, 숫자)는 지어내지 말고 생략하거나 '대략'이라고 말한다. 작품에 없는 사건을 만들어 내지 않는다.
+4. 첫 부분에서 반드시 밝힌다: 이 방송은 책을 읽어 드리는 것이 아니라 줄거리와 주제를 제 말로 풀어 소개하는 해설이며, 원작은 책으로 직접 읽어 보시길 권한다고 말한다.
+5. 죽음, 폭력, 재판 같은 장면은 자세히 묘사하지 않고 사실만 담담하고 부드럽게 전한다. 긴장을 키우지 않고, 듣는 사람이 편안히 들을 수 있는 차분한 해요체로 쓴다 (예: ~했어요, ~라고 볼 수 있어요).
+6. 음성 합성용 대본이다: 괄호, 특수기호, 이모지, 영어 약어를 쓰지 말고 숫자는 한글로 쓴다. 외국 인명과 지명은 한글로 표기한다.
+7. 문단은 세 문장에서 다섯 문장. 같은 말을 반복해서 분량을 채우지 않는다. 각 부분은 앞 부분과 다른 내용을 다룬다. 지정된 표식 형식 외의 말은 출력하지 않는다."""
+
+GUIDE_PLAN_PROMPT = """{persona}
+
+[이번 작업 — 해설 연재 시작]
+- 작품: {author}의 「{work}」 {memo}
+- 이 작품을 처음부터 끝까지 해설한다. 한 부분은 공백 포함 약 {per}자.
+- 전체 부분 수는 서른에서 서른넷 사이로 정한다 (최대 {max_parts}). 순서는 대략 이렇다: 작가와 시대 배경, 작품이 나온 철학적 분위기 → 1부 줄거리와 해설을 사건 흐름대로 여러 부분으로 → 2부 줄거리와 해설을 사건 흐름대로 여러 부분으로 → 주제 해설(여러 관점) → 인물·문체·상징 해설 → 번역과 수용, 후대에 끼친 영향 → 정리와 마무리.
+- 바이블에는 부분별 계획(각 부분이 다룰 줄거리와 해설 주제를 한 줄씩, 번호를 붙여서), 인물 목록, 핵심 개념을 적는다. 이 계획은 여러 날에 걸쳐 이어 쓸 때 기준이 된다. 부분마다 겹치지 않게 주제를 나눈다.
+- 그리고 첫 번째 부분을 쓴다. 작가와 작품을 소개하고, 이 방송이 낭독이 아니라 해설임을 분명히 밝히며 시작한다.
+
+[출력 형식 — 아래 표식을 그대로 사용]
+<<<TITLE>>>
+{work}
+<<<PARTS>>>
+숫자 하나
+<<<BIBLE>>>
+바이블 내용
+<<<SUMMARY>>>
+유튜브 설명란용 해설 소개 한 문장 (공백 포함 {sum_max}자 이내, 낭독이 아니라 해설임이 드러나게)
+<<<STORY>>>
+첫 번째 부분 본문 (문단 사이는 빈 줄 하나)
+<<<END>>>"""
+
 # 서재 등록부: 키 → 목록 파일, 진행상태 파일, 기본 목록, 작가 페르소나
 STORY_LIBS = {
     "classic": dict(label="명작 연재", list=os.path.join(_LIB_DIR, "명작_목록.txt"),
@@ -3453,6 +3519,14 @@ STORY_LIBS = {
     "cozyclassic": dict(label="포근한 고전 소설", list=os.path.join(_LIB_DIR, "포근한고전_목록.txt"),
                         state=os.path.join(_LIB_DIR, "포근한고전_진행상태.json"),
                         default=LIB_COZY_DEFAULT, persona=_SOFT_PERSONA_BASE.format(opening=_OPEN_AUTHOR)),
+    "absurd": dict(label="고독과 부조리의 고전", list=os.path.join(_LIB_DIR, "부조리고전_목록.txt"),
+                   state=os.path.join(_LIB_DIR, "부조리고전_진행상태.json"),
+                   default=LIB_ABSURD_DEFAULT, persona=_SOFT_PERSONA_BASE.format(opening=_OPEN_AUTHOR)),
+    "guide": dict(label="줄거리·주제 해설", list=os.path.join(_LIB_DIR, "해설_목록.txt"),
+                  state=os.path.join(_LIB_DIR, "해설_진행상태.json"),
+                  default=LIB_GUIDE_DEFAULT, persona=GUIDE_PERSONA, plan_prompt=GUIDE_PLAN_PROMPT,
+                  next_rule="바이블의 부분별 계획에서 이 번호에 해당하는 줄거리와 해설 주제만 앞 내용에 이어서 풀어 쓴다. 앞 부분과 같은 내용을 반복하지 않고, 책의 문장을 옮기지 않는다.",
+                  last_rule=" 이 해설의 마지막 부분이다. 전체를 차분히 정리하고, 원작을 책으로 직접 읽어 보시길 권하는 말과 짧은 마무리 인사로 끝낸다."),
     "korean": dict(label="한국 고전·근대 문학", list=os.path.join(_LIB_DIR, "한국문학_목록.txt"),
                    state=os.path.join(_LIB_DIR, "한국문학_진행상태.json"),
                    default=LIB_KOREAN_DEFAULT, persona=_SOFT_PERSONA_BASE.format(opening=_OPEN_AUTHOR)),
@@ -4237,7 +4311,7 @@ class StoryNarrator:
                         break
                     author, title, memo, line = rest[0]
                     self.log(f"  📖 새 작품 연재 시작: {author}의 「{title}」 — 줄거리 설계 + 1부분 쓰는 중...")
-                    out = run_claude_text(log=self.log, prompt=CLASSIC_PLAN_PROMPT.format(
+                    out = run_claude_text(log=self.log, prompt=(lib.get("plan_prompt") or CLASSIC_PLAN_PROMPT).format(
                         persona=lib["persona"], author=author, work=title,
                         memo=f"({memo})" if memo else "", per=CLASSIC_PART_CHARS, max_parts=60,
                         sum_max=STORY_SUMMARY_MAX), timeout=400)
@@ -4265,12 +4339,12 @@ class StoryNarrator:
                     self.log(f"     「{title}」 전체 {parts_n}부분으로 연재 · 1/{parts_n} 완료 ({len(text):,}자)")
                 else:
                     i, n = cur["next_part"], cur["total_parts"]
-                    rule = "바이블의 부분별 계획에서 이 번호에 해당하는 원작 장면을 앞 내용에 이어서 쓴다."
+                    rule = lib.get("next_rule") or "바이블의 부분별 계획에서 이 번호에 해당하는 원작 장면을 앞 내용에 이어서 쓴다."
                     if first_resume and not segs:
                         rule += (" 이번 영상은 지난번에 이어지는 부분이다. 맨 앞에 '지난 이야기에서는' 하고 "
                                  "앞 내용을 두세 문장으로 부드럽게 정리한 뒤 이어서 들려준다.")
                     if i >= n:
-                        rule += " 이 작품의 마지막 부분이다. 원작의 결말까지 충실히 쓰고 짧고 조용한 여운으로 끝낸다. 잠 인사는 하지 않는다."
+                        rule += lib.get("last_rule") or " 이 작품의 마지막 부분이다. 원작의 결말까지 충실히 쓰고 짧고 조용한 여운으로 끝낸다. 잠 인사는 하지 않는다."
                     out = run_claude_text(log=self.log, prompt=NARR_NEXT_PROMPT.format(
                         persona=lib["persona"],
                         bible=f"작품: {cur['author']}의 「{cur['title']}」 (전체 {n}부분)\n{cur['bible']}",
