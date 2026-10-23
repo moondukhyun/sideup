@@ -155,11 +155,47 @@ def opening_mask(depth, polys=None, W=None, H=None):
     return cv2.GaussianBlur(om, (0, 0), max(2.0, 0.004 * W))
 
 
+def opening_mask_cool(bg, depth=None):
+    """텐트 문 같은 '열린 바깥' 찾기 (색 + 깊이): 바깥(자갈·호수·산·하늘)은 푸르스름·회색이고 텐트 천·바닥은 따뜻한 베이지라는 점을 이용.
+    깊이가 있으면 가장 가까운 안쪽 물건(침구·랜턴)은 뺀다. 못 찾으면 None. 반환 0~1 (H×W)."""
+    import cv2
+    H, W = bg.shape[:2]
+    sw = 960
+    s = sw / float(W)
+    sh = max(8, int(round(H * s)))
+    small = np.clip(cv2.resize(np.asarray(bg, np.float32), (sw, sh), interpolation=cv2.INTER_AREA), 0, 1)
+    r, g, b = small[..., 0], small[..., 1], small[..., 2]
+    lum = small @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+    warm = cv2.GaussianBlur(r - b, (0, 0), 1.5)
+    cool = ((warm < 0.045) & (lum < 0.93)).astype(np.uint8)
+    if depth is not None:
+        d = cv2.resize(np.asarray(depth, np.float32), (sw, sh), interpolation=cv2.INTER_AREA)
+        if cool.sum() > 50:
+            thr = min(0.97, float(np.percentile(d[cool > 0], 85)) + 0.06)
+            cool = cool & (d < thr).astype(np.uint8)
+    cool = cv2.morphologyEx(cool, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+    cool = cv2.morphologyEx(cool, cv2.MORPH_CLOSE, np.ones((13, 13), np.uint8))
+    n, lab, st, _ = cv2.connectedComponentsWithStats(cool, connectivity=8)
+    if n <= 1:
+        return None
+    areas = st[1:, cv2.CC_STAT_AREA]
+    big = float(areas.max())
+    keep = np.zeros_like(cool)
+    for i in range(1, n):
+        a = float(st[i, cv2.CC_STAT_AREA])
+        if a >= 0.30 * big and a >= 0.03 * sw * sh:
+            keep[lab == i] = 1
+    if keep.sum() < 0.04 * sw * sh:
+        return None
+    m = cv2.GaussianBlur(keep.astype(np.float32), (0, 0), max(1.5, 0.004 * sw))
+    return np.clip(cv2.resize(m, (W, H), interpolation=cv2.INTER_LINEAR), 0, 1)
+
+
 def outside_maps(maps, om, depth):
     """물 튀김·물방울을 바깥(열린) 영역으로 제한하고, 바깥 땅(자갈·흙)에도 빗방울이 튀게 한다."""
     H, W = om.shape[:2]
     yy = np.linspace(0, 1, H, dtype=np.float32)[:, None]
-    low = np.clip((yy - 0.50) / 0.12, 0, 1) * np.clip((depth - 0.18) / 0.12, 0, 1) * np.clip((0.72 - depth) / 0.12, 0, 1)
+    low = np.clip((yy - 0.45) / 0.12, 0, 1) * np.clip((depth - 0.12) / 0.12, 0, 1) * np.clip((0.95 - depth) / 0.10, 0, 1)      # 열린 바깥 안에서는 가까운 자갈도 포함
     out = dict(maps)
     out["ground"] = np.maximum(maps["ground"] * om, om * low * 0.9)
     out["puddle"] = maps["puddle"] * om

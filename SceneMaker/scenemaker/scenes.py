@@ -573,7 +573,7 @@ SCENES = {
                 "early morning, soft pale light, mist over the view, the lanterns still glowing inside",
                 "dusk, the lanterns glowing warmly inside, the view outside in deep blue mist",
             ],
-            {"intensity": 1.0, "brightness": 0.45, "darken": 0.06, "fog": 0.12, "interior": 1.0},
+            {"intensity": 1.0, "brightness": 0.45, "darken": 0.06, "fog": 0.12, "interior": 1.0, "water_rain": 0.8, "wet": 0.8},
             negative=FOREST_NEGATIVE + ", glamping resort, hotel, fairy lights, bonfire, people, snowy peaks, canada, norway, rain inside the tent, wet floor inside",
         ),
         Scene(

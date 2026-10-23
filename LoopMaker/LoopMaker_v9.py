@@ -4808,7 +4808,7 @@ def _claude_find_marks_raw(img_path):
               "- block: 창 유리 '앞'에서 창을 가리는 물체(턴테이블의 투명 덮개, 스탠드 조명, 화분, 커튼 등) — 창 유리 상자와 겹치는 것만, 물체마다 상자 하나씩. 물방울이 그 위에 내리지 않게 하는 용도\n"
               "- steam: 뜨거운 커피잔·찻잔의 '컵 입구(액체 윗면)' 또는 주전자의 '주둥이 끝' — 김이 시작될 작은 상자 (잔·주전자마다 하나, 상자는 입구 크기만)\n"
               "- lantern: 텐트 천장이나 기둥에 매달려 켜진 등불(랜턴) 전체 — 불빛이 일렁일 곳\n"
-              "- outside: (텐트 안에서 열린 문 밖을 보는 그림일 때만) 텐트 문이 열려 바깥 풍경과 바깥 땅이 보이는 부분 — 텐트 천·천장·안쪽 바닥은 빼고, 열린 입구 안쪽 전체를 한 상자로\n"
+              "- outside: (텐트 안에서 열린 문 밖을 보는 그림일 때만) 텐트 문이 열려 바깥 풍경과 바깥 땅이 보이는 부분 — 텐트 천·천장·안쪽 바닥·안쪽 가구는 빼고, 열린 입구의 모양을 따라 꼭짓점 4~10개의 다각형으로: {\"kind\":\"outside\",\"poly\":[[0.30,0.10],[0.70,0.10],[0.90,0.80],[0.10,0.80]]} (삼각형·아치 모양 입구면 그 모양대로, 바깥 땅이 보이는 아래쪽 가장자리까지)\n"
               "- candle: 켜져 있는 촛불 '불꽃'의 중심 한 점 — 상자 대신 x,y 만 (예: {\"kind\":\"candle\",\"x\":0.52,\"y\":0.60})\n"
               "상자는 대상을 빈틈없이 감싸되 사방으로 약 5% 만 여유를 두세요. 사진에 없는 대상은 빼세요.\n"
               '출력은 JSON 한 덩어리만: {"items":[{"kind":"dog","x0":0.35,"y0":0.80,"x1":0.52,"y1":0.99}]} — 다른 글은 쓰지 마세요.')
@@ -4820,6 +4820,13 @@ def _claude_find_marks_raw(img_path):
     for it in items:
         try:
             k = str(it.get("kind", "")).lower()
+            if k == "outside" and it.get("poly"):               # 텐트 열린 입구: 다각형(윤곽)
+                pts = [[min(max(float(p_[0]), 0.0), 1.0), min(max(float(p_[1]), 0.0), 1.0)] for p_ in it["poly"]]
+                if len(pts) >= 3:
+                    xs_, ys_ = [p_[0] for p_ in pts], [p_[1] for p_ in pts]
+                    if (max(xs_) - min(xs_)) > 0.1 and (max(ys_) - min(ys_)) > 0.1:
+                        res.append({"kind": "outside", "x0": min(xs_), "y0": min(ys_), "x1": max(xs_), "y1": max(ys_), "poly": pts})
+                continue
             if k == "candle":                                   # 점 → 작은 상자
                 cx, cy = min(max(float(it["x"]), 0.0), 1.0), min(max(float(it["y"]), 0.0), 1.0)
                 res.append({"kind": "candle", "x0": max(0.0, cx - 0.008), "y0": max(0.0, cy - 0.012),
@@ -6162,7 +6169,7 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.26 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.27 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
@@ -7405,7 +7412,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.26 시작\n")
+        self.log("🚀 LoopMaker v11.27 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 

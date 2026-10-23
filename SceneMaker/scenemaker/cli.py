@@ -563,28 +563,44 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
     om = None
     if getattr(rs, "outside_only", False) and (real or depth_rain):          # 텐트 안쪽(천·바닥)에는 비가 안 오고 열린 바깥에만 내림
         omarks = [m for m in _load_pets(job, args) if m.get("kind") in ("outside", "glass")]        # 텐트 장면에서는 '창 유리'로 그린 것도 '비 내리는 바깥'으로 읽음 (유리가 아니라 열린 바깥이므로)
-        manual = [m for m in omarks if m.get("poly") or m.get("manual") or not m.get("auto")]
+        manual = [m for m in omarks if m.get("manual") or not m.get("auto")]
         autos = [m for m in omarks if m not in manual]
         if any(m.get("kind") == "glass" for m in omarks):
             print("  텐트 장면: '창 유리'로 그린 표시를 '비 내리는 바깥'으로 처리 (유리 빗방울이 아니라 바깥 비·땅 물튀김)")
+        bgf_ = np.asarray(bg, np.float32) / 255.0
+        how = ""
         if manual:
             polys = [m["poly"] if m.get("poly") else [[m["x0"], m["y0"]], [m["x1"], m["y0"]], [m["x1"], m["y1"]], [m["x0"], m["y1"]]] for m in manual]
             om = details_mod.opening_mask(dfull, polys)
+            how = "직접 그린 윤곽"
+            if not any(m.get("poly") for m in manual):                                  # 네모로만 그렸으면: 상자 모서리에 걸린 텐트 천은 색·깊이로 걸러냄 (문이 삼각형·아치여도 천에 비가 안 내리게)
+                cm = details_mod.opening_mask_cool(bgf_, dfull)
+                if cm is not None:
+                    inter = om * cm
+                    if float(inter.sum()) >= 0.4 * float(om.sum()):
+                        om = inter
+                        how = "직접 그린 상자 안의 열린 바깥만 (천은 색·깊이로 제외)"
+        elif any(m.get("poly") for m in autos):                                         # 자동 찾기(Claude)가 입구 모양을 다각형으로 준 경우
+            om = details_mod.opening_mask(dfull, [m["poly"] for m in autos if m.get("poly")])
+            how = "자동 찾은 입구 윤곽"
         else:
-            om = details_mod.opening_mask(dfull, None)                                  # 깊이로 자동 판별
-            if autos:                                                                   # 자동 찾기가 준 상자 안에서, 깊이로 본 '열린 바깥'만 (천·바닥 제외)
+            cm = details_mod.opening_mask_cool(bgf_, dfull)                             # 색(바깥=푸르스름·회색, 천=베이지) + 깊이
+            om = cm if cm is not None else details_mod.opening_mask(dfull, None)         # 못 찾으면 깊이만
+            how = "색·깊이로 자동 판별" if cm is not None else "깊이로 자동 판별"
+            if autos:                                                                   # 자동 찾은 상자 안으로 한정
                 bx = np.zeros(om.shape, np.float32)
                 for m in autos:
                     bx[int(m["y0"] * om.shape[0]):int(m["y1"] * om.shape[0]), int(m["x0"] * om.shape[1]):int(m["x1"] * om.shape[1])] = 1.0
                 inter = om * bx
                 om = inter if float(inter.sum()) >= 0.25 * float(bx.sum()) else bx
+                how += " + 자동 찾은 상자"
         renderer.set_outside(om)
         base = np.asarray(bg, np.float32) / 255.0
         prev = base * (0.45 + 0.55 * om[..., None])
         prev[..., 2] += 0.25 * om
         Image.fromarray((np.clip(prev, 0, 1) * 255).astype(np.uint8)).resize(
             (1280, int(1280 * renderer.H / renderer.W))).save(Path(job) / "outside_mask.jpg")
-        print(f"  텐트 바깥 영역: 화면의 {float((om > 0.5).mean()):.0%}에만 비를 내림 ({'직접 그린 윤곽' if manual else '깊이로 자동 판별' + (' + 자동 찾은 상자' if autos else '')}) — 확인: outside_mask.jpg (파란 부분)")
+        print(f"  텐트 바깥 영역: 화면의 {float((om > 0.5).mean()):.0%}에만 비를 내림 ({how}) — 확인: outside_mask.jpg (파란 부분)")
     if want_window:
         from .glass import GlassRain, window_mask, window_mask_cool
         wmask = window_mask_cool(renderer.bg, dfull if real else None) if rs.interior > 0 else None     # 실내: 색으로 창 유리만 찾음
@@ -686,7 +702,7 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         renderer.bg = wet_ground(renderer.bg, maps["ground"], maps["puddle"], rs.wet_ground, renderer.res)
         print(f"  젖은 바닥: 바닥 {float((maps['ground'] > 0.5).mean()):.0%} · 웅덩이 {float((maps['puddle'] > 0.5).mean()):.0%} (어두워지고 하늘이 비침)")
     if want_wet and rs.wet > 0:
-        rock = _attach_wet(renderer, job, dfull, rs, stream_mask=stream_info["mask"] if stream_info else None)
+        rock = _attach_wet(renderer, job, dfull, rs, stream_mask=stream_info["mask"] if stream_info else None, region=om)
         if rock is not None and maps is not None:
             maps["puddle"] = maps["puddle"] * (1.0 - np.clip(rock * 1.5, 0, 1))   # 바위가 물처럼 일렁이지 않게
     if want_motion:
@@ -703,10 +719,10 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         if cov < 0.01:
             print("  ! 잎 영역이 거의 없어요 (사진에 잎이 적거나 색이 옅음) — 잎 흔들림이 보이지 않을 수 있어요")
     if want_wet and rs.water_rain > 0:
-        _attach_water(renderer, rs, dfull)
+        _attach_water(renderer, rs, dfull, region=om)
 
 
-def _attach_wet(renderer, job, dfull, rs, stream_mask=None):
+def _attach_wet(renderer, job, dfull, rs, stream_mask=None, region=None):
     """젖은 표면(돌·기와지붕·벽·기둥)을 젖은 질감으로 바꾸고, 표면 위와 대나무·나무·기둥 줄기를 따라 빗물이 흘러내리게 한다.
     확인용: wet_mask.jpg (빨간색 = 젖은 표면, 노란 선 = 줄기 물줄기 경로)"""
     from .motion import foliage_mask
@@ -717,6 +733,11 @@ def _attach_wet(renderer, job, dfull, rs, stream_mask=None):
     rng = np.random.default_rng(rs.seed + 57)
     paths = vertical_edge_paths(renderer.bg, dfull, renderer.res, rng, exclude=stream_mask,
                                 max_paths=int(70 * min(1.5, rs.wet) + 20))
+    if region is not None:                                                  # 텐트 장면: 젖은 표면·줄기 물줄기도 열린 바깥에서만 (텐트 천의 주름·줄을 따라 하얗게 흐르던 문제)
+        m = m * np.clip(region, 0, 1)
+        Hh, Ww = region.shape[:2]
+        paths = [pt for pt in paths if float(region[np.clip(pt[:, 1], 0, Hh - 1), np.clip(pt[:, 0], 0, Ww - 1)].mean()) > 0.5]
+        cov = float((m > 0.5).mean())
     if cov < 0.02 and not paths:
         print("  젖은 표면: 돌·지붕·기둥으로 볼 만한 영역도, 세로 줄기도 거의 없어 사용하지 않음")
         return None
@@ -768,10 +789,12 @@ def _attach_stream(renderer, job, rs, dfull):
     return info
 
 
-def _attach_water(renderer, rs, dfull, extra=None):
+def _attach_water(renderer, rs, dfull, extra=None, region=None):
     """계곡·호수 수면에 떨어지는 빗방울 물결 (waterrain.py). extra: Wan 이 움직인 물 영역도 수면으로 인정."""
     from .waterrain import WaterRain, water_mask
     m = water_mask(renderer.bg, dfull, extra)
+    if region is not None:                                                  # 텐트 장면: 열린 바깥의 호수에만 빗방울 물결
+        m = m * np.clip(region, 0, 1)
     cov = float(m.mean())
     if cov < 0.02:
         print("  수면 빗방울: 물 영역이 거의 없어 사용하지 않음")
