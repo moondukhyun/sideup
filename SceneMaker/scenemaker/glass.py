@@ -320,10 +320,19 @@ class GlassRain:
         t = (f / self.N + ph) % 1.0
         return float(_smoothstep(0.0, 0.34, t) * (1.0 - _smoothstep(0.90, 1.0, t)))
 
+    def _sweep_buf(self):
+        import threading
+        tls = self.__dict__.setdefault("_tls", threading.local())
+        b = getattr(tls, "b", None)
+        if b is None:
+            b = np.zeros_like(self._sweep)
+            tls.b = b
+        return b
+
     def _sweep_map(self, f):
         """미끄러진 방울이 지나가며 쓸어 담은 자리(정지 방울이 사라진 길). 시간이 지나면 다시 맺힌다."""
         cv2 = self.cv2
-        buf = self._sweep
+        buf = self._sweep_buf()                               # 스레드마다 따로 (여러 프레임을 동시에 그려도 서로 덮어쓰지 않게)
         buf.fill(0)
         fade = 6.0 * self.fps
         for s in self.sliders:

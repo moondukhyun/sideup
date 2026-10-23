@@ -198,6 +198,15 @@ class WetRocks:
         return self.trail_dark
 
     # ---------- 프레임 ----------
+    def _thread_buf(self):
+        import threading
+        tls = self.__dict__.setdefault("_tls", threading.local())
+        b = getattr(tls, "b", None)
+        if b is None:
+            b = np.zeros_like(self._buf)
+            tls.b = b
+        return b
+
     def apply(self, out, f):
         """out: float RGB (H,W,3) 0..1 제자리 수정 후 반환."""
         cv2 = self.cv2
@@ -210,7 +219,7 @@ class WetRocks:
         out += ((1.0 - out) * (sheen * self.sheen_gain)[..., None])
         # 흘러내리는 물방울: 밝은 머리(방울) + 늘어진 꼬리
         if self.rivulets:
-            buf = self._buf
+            buf = self._thread_buf()                          # 스레드마다 따로 (여러 프레임 동시 렌더링 안전)
             buf.fill(0)
             tail = ((255, 2), (205, 2), (150, 2), (100, 2), (60, 2), (30, 2))     # (밝기, 구간 길이=경로 점 수)
             for r in self.rivulets:

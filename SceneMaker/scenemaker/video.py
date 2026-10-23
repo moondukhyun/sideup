@@ -6,6 +6,7 @@
 """
 
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -59,6 +60,19 @@ def _rate_args(v, kbps):
             "-profile:v", "high", "-x264-params", "open-gop=0", *common]
 
 
+def render_threads(renderer):
+    """프레임을 동시에 그릴 스레드 수. 환경변수 LOOPMAKER_THREADS 로 지정(1 = 끔), 없으면 CPU 코어 수에 맞춰 자동.
+    Wan(AI 움직임)을 쓰는 경우는 안전을 위해 한 프레임씩."""
+    import os as _os
+    env = _os.environ.get("LOOPMAKER_THREADS", "").strip()
+    if env.isdigit():
+        return max(1, min(16, int(env)))
+    if getattr(renderer, "wan_room", None) is not None or "wan" in type(getattr(renderer, "motion", None)).__name__.lower():
+        return 1
+    n = _os.cpu_count() or 2
+    return max(1, min(6, n - 1))
+
+
 def render_master(renderer, out_path, v):
     """빗줄기 합성 프레임을 거의 무손실 마스터로 1회 렌더 (길이별 인코딩의 원본)."""
     out_path = Path(out_path)
@@ -71,15 +85,40 @@ def render_master(renderer, out_path, v):
     ]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     t0 = time.time()
+    workers = render_threads(renderer)
+    if workers > 1:
+        print(f"  렌더링 스레드 {workers}개로 여러 프레임을 동시에 그려요 (CPU 코어 {os.cpu_count()}개)")
     try:
-        for f in range(renderer.N):
-            proc.stdin.write(renderer.frame(f).tobytes())
+        if workers <= 1:
+            frames = (renderer.frame(f) for f in range(renderer.N))
+            pool = None
+        else:
+            from concurrent.futures import ThreadPoolExecutor
+            pool = ThreadPoolExecutor(workers)
+            ahead = workers * 2                                  # 앞서 그려 둘 프레임 수 (메모리: 프레임당 약 11MB @1440p)
+            futs = {}
+            nxt = 0
+
+            def _gen():
+                nonlocal nxt
+                for f in range(renderer.N):
+                    while nxt < renderer.N and nxt < f + ahead:
+                        futs[nxt] = pool.submit(renderer.frame, nxt)
+                        nxt += 1
+                    yield futs.pop(f).result()
+            frames = _gen()
+        for f, fr in enumerate(frames):
+            proc.stdin.write(fr.tobytes())
             if f % max(1, renderer.N // 20) == 0 or f == renderer.N - 1:
                 pct = (f + 1) / renderer.N
                 eta = (time.time() - t0) / pct * (1 - pct)
                 sys.stdout.write(f"\r  루프 구간 렌더링 {f + 1}/{renderer.N} ({pct:4.0%}, 남은 시간 ~{eta:.0f}s)")
                 sys.stdout.flush()
+        if pool is not None:
+            pool.shutdown(wait=True)
     finally:
+        if workers > 1 and 'pool' in locals() and pool is not None:
+            pool.shutdown(wait=False, cancel_futures=True)
         proc.stdin.close()
         rc = proc.wait()
     print()
