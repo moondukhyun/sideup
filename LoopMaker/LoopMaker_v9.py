@@ -6169,7 +6169,7 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.27 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.28 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
@@ -6675,6 +6675,24 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(yscrollcommand=logsb.set)
         logsb.pack(side="right", fill="y")
         self.log_box.pack(side="left", fill="both", expand=True, padx=(6, 0), pady=6)
+        # v11.28: 진행 상황 글자를 선택·복사할 수 있게 (Ctrl+C, 우클릭 메뉴, 복사·저장 버튼)
+        self.log_box.bind("<Button-1>", lambda e: self.log_box.focus_set(), add="+")
+        self.log_box.bind("<Control-c>", lambda e: (self._log_copy(False), "break")[1])
+        self.log_box.bind("<Control-C>", lambda e: (self._log_copy(False), "break")[1])
+        self.log_box.bind("<Control-a>", lambda e: (self.log_box.tag_add("sel", "1.0", "end-1c"), "break")[1])
+        self.log_box.bind("<Control-A>", lambda e: (self.log_box.tag_add("sel", "1.0", "end-1c"), "break")[1])
+        self._log_menu = tk.Menu(self, tearoff=0)
+        self._log_menu.add_command(label="선택한 글자 복사 (선택이 없으면 전체)", command=lambda: self._log_copy(False))
+        self._log_menu.add_command(label="전체 복사", command=lambda: self._log_copy(True))
+        self._log_menu.add_command(label="마지막 80줄 복사", command=lambda: self._log_copy(True, last=80))
+        self._log_menu.add_command(label="로그를 파일로 저장", command=self._log_save)
+        self.log_box.bind("<Button-3>", lambda e: self._log_menu.tk_popup(e.x_root, e.y_root))
+        logbtn = ttk.Frame(logf)
+        logbtn.pack(side="bottom", fill="x", padx=6, pady=(0, 4))
+        ttk.Button(logbtn, text="📋 전체 복사", command=lambda: self._log_copy(True)).pack(side="left", padx=(0, 4))
+        ttk.Button(logbtn, text="📋 마지막 80줄 복사", command=lambda: self._log_copy(True, last=80)).pack(side="left", padx=4)
+        ttk.Button(logbtn, text="💾 파일로 저장", command=self._log_save).pack(side="left", padx=4)
+        ttk.Label(logbtn, text="(글자를 드래그해서 Ctrl+C 로도 복사돼요)", foreground="#666666").pack(side="left", padx=8)
 
         self._install_edit_support()
 
@@ -7238,6 +7256,38 @@ class App(SceneTabMixin, tk.Tk):
     def log(self, msg):
         self.log_q.put(msg)
 
+    # ---------- v11.28: 진행 상황 복사·저장 ----------
+    def _log_copy(self, whole=False, last=0):
+        try:
+            if not whole:
+                try:
+                    txt = self.log_box.get("sel.first", "sel.last")
+                except tk.TclError:
+                    txt = ""
+                if not txt:
+                    txt = self.log_box.get("1.0", "end-1c")
+            else:
+                txt = self.log_box.get("1.0", "end-1c")
+            if last:
+                txt = "\n".join(txt.splitlines()[-last:])
+            self.clipboard_clear()
+            self.clipboard_append(txt)
+            self.update()
+            messagebox.showinfo("복사됨", f"진행 상황 {len(txt.splitlines())}줄을 복사했어요.\n붙여넣기(Ctrl+V) 하세요.", parent=self)
+        except Exception as ex:
+            messagebox.showerror("복사 실패", str(ex), parent=self)
+
+    def _log_save(self):
+        try:
+            d = os.path.dirname(os.path.abspath(__file__))
+            path = os.path.join(d, time.strftime("로그_%m%d_%H%M%S.txt"))
+            with open(path, "w", encoding="utf-8-sig") as f:
+                f.write(self.log_box.get("1.0", "end-1c"))
+            self._open_path(path)
+            messagebox.showinfo("저장됨", f"진행 상황을 파일로 저장했어요:\n{path}", parent=self)
+        except Exception as ex:
+            messagebox.showerror("저장 실패", str(ex), parent=self)
+
     # ---------- 입력란 편집 지원 (v8.4): 한글 상태에서도 Ctrl+C/V/X/A + 우클릭 메뉴 ----------
     def _install_edit_support(self):
         for cls in ("TEntry", "Entry", "TCombobox"):
@@ -7412,7 +7462,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.27 시작\n")
+        self.log("🚀 LoopMaker v11.28 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 
