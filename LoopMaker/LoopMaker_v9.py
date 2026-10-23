@@ -6169,7 +6169,7 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.28 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.29 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
@@ -6677,8 +6677,9 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.pack(side="left", fill="both", expand=True, padx=(6, 0), pady=6)
         # v11.28: 진행 상황 글자를 선택·복사할 수 있게 (Ctrl+C, 우클릭 메뉴, 복사·저장 버튼)
         self.log_box.bind("<Button-1>", lambda e: self.log_box.focus_set(), add="+")
-        self.log_box.bind("<Control-c>", lambda e: (self._log_copy(False), "break")[1])
-        self.log_box.bind("<Control-C>", lambda e: (self._log_copy(False), "break")[1])
+        self.log_box.bind("<ButtonRelease-1>", lambda e: self._log_autocopy(), add="+")      # 마우스로 드래그해서 선택하면 바로 복사됨 (Ctrl+V 로 붙여넣기)
+        self.log_box.bind("<Control-c>", lambda e: (self._log_copy(False, quiet=True), "break")[1])
+        self.log_box.bind("<Control-C>", lambda e: (self._log_copy(False, quiet=True), "break")[1])
         self.log_box.bind("<Control-a>", lambda e: (self.log_box.tag_add("sel", "1.0", "end-1c"), "break")[1])
         self.log_box.bind("<Control-A>", lambda e: (self.log_box.tag_add("sel", "1.0", "end-1c"), "break")[1])
         self._log_menu = tk.Menu(self, tearoff=0)
@@ -6692,7 +6693,7 @@ class App(SceneTabMixin, tk.Tk):
         ttk.Button(logbtn, text="📋 전체 복사", command=lambda: self._log_copy(True)).pack(side="left", padx=(0, 4))
         ttk.Button(logbtn, text="📋 마지막 80줄 복사", command=lambda: self._log_copy(True, last=80)).pack(side="left", padx=4)
         ttk.Button(logbtn, text="💾 파일로 저장", command=self._log_save).pack(side="left", padx=4)
-        ttk.Label(logbtn, text="(글자를 드래그해서 Ctrl+C 로도 복사돼요)", foreground="#666666").pack(side="left", padx=8)
+        ttk.Label(logbtn, text="(글자를 마우스로 드래그해서 선택하면 바로 복사돼요 → Ctrl+V 로 붙여넣기)", foreground="#666666").pack(side="left", padx=8)
 
         self._install_edit_support()
 
@@ -7257,7 +7258,21 @@ class App(SceneTabMixin, tk.Tk):
         self.log_q.put(msg)
 
     # ---------- v11.28: 진행 상황 복사·저장 ----------
-    def _log_copy(self, whole=False, last=0):
+    def _log_autocopy(self):
+        """진행 상황에서 글자를 마우스로 드래그해 선택하면 그 선택한 부분만 자동으로 클립보드에 복사 (알림 없이)."""
+        try:
+            txt = self.log_box.get("sel.first", "sel.last")
+        except tk.TclError:
+            return
+        if txt.strip():
+            try:
+                self.clipboard_clear()
+                self.clipboard_append(txt)
+                self.update_idletasks()
+            except Exception:
+                pass
+
+    def _log_copy(self, whole=False, last=0, quiet=False):
         try:
             if not whole:
                 try:
@@ -7273,7 +7288,8 @@ class App(SceneTabMixin, tk.Tk):
             self.clipboard_clear()
             self.clipboard_append(txt)
             self.update()
-            messagebox.showinfo("복사됨", f"진행 상황 {len(txt.splitlines())}줄을 복사했어요.\n붙여넣기(Ctrl+V) 하세요.", parent=self)
+            if not quiet:
+                messagebox.showinfo("복사됨", f"진행 상황 {len(txt.splitlines())}줄을 복사했어요.\n붙여넣기(Ctrl+V) 하세요.", parent=self)
         except Exception as ex:
             messagebox.showerror("복사 실패", str(ex), parent=self)
 
@@ -7462,7 +7478,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.28 시작\n")
+        self.log("🚀 LoopMaker v11.29 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 
