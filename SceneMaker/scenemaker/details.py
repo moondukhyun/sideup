@@ -277,6 +277,8 @@ class WeatherDetails:
                 dr.ellipse((x - s_ * 0.35, y - s_ * 0.08, x + s_ * 0.35, y + s_ * 0.08), fill=a)
                 continue
             t = min(1.0, age / 5)
+            if self.gain < 0.4:                            # 아주 잔잔한 물튀김: 왕관·물기둥 없이 작은 점만 (자갈 위 하얀 물방울이 눈에 띄지 않게)
+                continue
             # 위로 솟는 짧은 물기둥 (가까운 것만)
             if near > 0.6 and age <= 1:
                 dr.line((x, y, x, y - s_ * (0.9 - 0.3 * age)), fill=int(a * 0.8), width=lw)

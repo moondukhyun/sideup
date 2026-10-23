@@ -199,7 +199,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
     W, H = RESOLUTIONS[v["resolution"]]
     bg = fit_cover(Image.open(image).convert("RGB"), W, H)
     rs = _rain_settings(cfg, scene_name, args, meta.get("rain_override"))
-    print(f"  적용된 설정 (v11.37 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
+    print(f"  적용된 설정 (v11.38 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
           f"실내 효과 {rs.interior:g} · 수면 {rs.water_rain:g}x{rs.water_boost:g} · 바깥만 {'예' if getattr(rs, 'outside_only', False) else '아니오'}")
     if variety.warn_similar(bg, "이 배경은"):
         print("  → 다른 배경을 쓰거나, 그대로 쓰려면 무시하세요.")
@@ -304,7 +304,7 @@ def _attach_interior(renderer, job, rs, args):
         zone = _mark_zone([fpoly], ("fire",), Wp, Hp).astype(np.float32)
         info["fire"]["mask"] = info["fire"]["mask"] * cv2.GaussianBlur(zone, (0, 0), 3.0)           # 창밖 불빛은 촛불이 아님 / Claude 가 알려준 불·촛불 위치가 있으면 활용
     it = Interior(renderer.bg, renderer.N, renderer.fps, strength=rs.interior, fire_strength=rs.fire,
-                  seed=rs.seed, info=info, fire_speed=float(getattr(args, "fire_speed", None) or 0.65))
+                  seed=rs.seed, info=info, fire_speed=float(getattr(args, "fire_speed", None) or 0.65), calm=rs.flicker)
     pets = [p for p in marks if p.get("kind", "dog") in ("dog", "cat")]
     fans = [p for p in marks if p.get("kind") == "fan"]
     recs = [p for p in marks if p.get("kind") == "record"]

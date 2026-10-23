@@ -46,6 +46,7 @@ class RainSettings:
     fire_sound: bool = False  # v11.22: True 면 벽난로 타닥거리는 소리를 자동으로 합성해 섞음
     outside_only: bool = False  # v11.23: True 면 텐트 안쪽(천·바닥)에는 비를 그리지 않고 열린 바깥 풍경에만 내림
     free_fire: bool = False    # True 면 자동 찾기(Claude)가 준 불 상자는 무시하고 화면에서 가장 크고 뜨거운 불을 스스로 찾음 (야외 모닥불: 상자가 작게 잡히면 일부만 움직이고 나머지는 멈춰 보임)
+    flicker: float = 1.0       # 촛불·등불 일렁임 배율 (작을수록 잔잔). 등불이 많은 장면은 0.3~0.5
     wet_streams: float = 1.0   # 젖은 표면의 흘러내리는 굵은 물줄기(자갈·기둥 위 흰 줄) 배율. 0 = 끔 (젖은 질감·반짝임은 유지)
     water_boost: float = 1.0   # 수면 빗방울 물결 크기·세기 배율 (먼 호수에서 물결이 안 보일 때 키움)
     splash_gain: float = 1.0   # 바닥 물 튀김의 밝기·크기 배율 (텐트 문 아래 가까운 자갈에서 하얗고 크게 튀어 이상할 때 낮춤)

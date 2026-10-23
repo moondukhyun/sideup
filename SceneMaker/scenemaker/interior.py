@@ -236,13 +236,14 @@ def _smooth(x):
 
 # ---------------------------------------------------------------- 렌더러
 class Interior:
-    def __init__(self, bg, N, fps, strength=1.0, fire_strength=1.0, pets=None, seed=7, info=None, fire_speed=0.45):
+    def __init__(self, bg, N, fps, strength=1.0, fire_strength=1.0, pets=None, seed=7, info=None, fire_speed=0.45, calm=1.0):
         import cv2
         self.cv2 = cv2
         H, W = bg.shape[:2]
         self.H, self.W, self.N, self.fps = H, W, N, fps
         self.res = H / 1080.0
         self.strength = float(strength)
+        calm = float(np.clip(calm, 0.1, 1.0))      # 1 = 기본, 작을수록 촛불·등불이 느리고 작게 일렁임 (등불이 여러 개인 장면용)
         self.fire_strength = float(fire_strength)
         self.procedural = True                     # False 면 불꽃·촛불 모양 움직임은 Wan 이 만들므로 방 안 불빛 일렁임만 담당
         self.wan_mix = 0.0                         # >0 이면 Wan 이 만든 불꽃·촛불 위에 수식 일렁임을 이 비율만큼 덧입힘 (Wan 이 거의 안 움직인 불꽃·촛불도 살아 움직이게)
@@ -264,14 +265,14 @@ class Interior:
         nc = max(1, len(self.candles))
         self.candle_sigs = []
         for c in self.candles:
-            own = _sig_hz(rng, N, fps, 0.25, 1.6, 6)                # 촛불 밝기: 초당 한두 번 정도로 느긋하게
+            own = _sig_hz(rng, N, fps, 0.25 * calm, 0.25 * calm + 1.35 * calm, 6)                # 촛불 밝기: 초당 한두 번 정도로 느긋하게
             sig = 0.78 * own + 0.45 * shared
             sig /= (sig.std() + 1e-6)
             self.candle_sigs.append(sig)
             cx, cy = c["x"] / W * self.lw, c["y"] / H * self.lh
             sx = (0.15 if nc <= 2 else 0.10) * self.lw * (1.0 + 0.15 * min(c["h"] / (0.05 * H), 3))
             sy = sx * 0.85
-            amp = (0.045 if nc <= 2 else 0.030 if nc <= 6 else 0.022) * self.strength       # 촛불 불빛 일렁임: 방 전체가 어두워졌다 밝아지지 않게 아주 작게
+            amp = (0.045 if nc <= 2 else 0.030 if nc <= 6 else 0.022) * self.strength * calm       # 촛불 불빛 일렁임: 방 전체가 어두워졌다 밝아지지 않게 아주 작게
             maps.append(amp * np.exp(-(((xx - cx) / sx) ** 2 + ((yy - cy) / sy) ** 2) / 2.0))
             sigs.append(sig)
         self.fire_sig = None
@@ -310,13 +311,13 @@ class Interior:
             above = np.clip((base_y - yy_) / max(fh, 4.0), 0, 1.2) ** 1.4                 # 불꽃 끝으로 갈수록 더 흔들림
             core = np.exp(-(((xx_ - c["x"]) / (0.9 * fw + 2)) ** 2 + ((yy_ - c["y"]) / (0.7 * fh + 2)) ** 2)) * edge
             halo = np.exp(-(((xx_ - c["x"]) / (2.0 * fw + 5 * res)) ** 2 + ((yy_ - c["y"]) / (1.7 * fh + 5 * res)) ** 2) / 2) * edge
-            sway = 0.80 * _sig_hz(rng, N, fps, 0.15, 0.9, 4) + 0.45 * shared
+            sway = 0.80 * _sig_hz(rng, N, fps, 0.15 * calm, 0.9 * calm, 4) + 0.45 * shared
             sway /= (sway.std() + 1e-6)
             sway = 1.6 * np.tanh(sway / 1.6)                                               # 가끔 크게 휘어도 한계가 있음
             self.flames.append({
                 "idx": i, "box": (x0, y0, x1, y1), "win": win.astype(np.float32), "above2": above.astype(np.float32),
                 "core": core.astype(np.float32), "halo": halo.astype(np.float32),
-                "amp": (0.11 * fw + 0.9 * res) * (2.4 if fh > 70 * res else 1.0) * self.strength,      # 화면 가득한 큰 불꽃은 크기에 맞게 더 크게 일렁임
+                "amp": (0.11 * fw + 0.9 * res) * (2.4 if fh > 70 * res else 1.0) * self.strength * calm,      # 화면 가득한 큰 불꽃은 크기에 맞게 더 크게 일렁임
                 "sway": sway, "sig": self.candle_sigs[i],
                 "xx": xx_ - x0, "yy": yy_ - y0,
             })
