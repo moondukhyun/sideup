@@ -277,18 +277,17 @@ class WeatherDetails:
                 dr.ellipse((x - s_ * 0.35, y - s_ * 0.08, x + s_ * 0.35, y + s_ * 0.08), fill=a)
                 continue
             t = min(1.0, age / 5)
-            if self.gain < 0.4:                            # 아주 잔잔한 물튀김: 왕관·물기둥 없이 작은 점만 (자갈 위 하얀 물방울이 눈에 띄지 않게)
-                continue
+            soft = self.gain < 0.4                         # 잔잔한 물튀김: 물기둥 없이 작고 흐린 방울 1~2개 (자갈 위 하얀 물방울이 눈에 띄지 않게)
             # 위로 솟는 짧은 물기둥 (가까운 것만)
-            if near > 0.6 and age <= 1:
+            if near > 0.6 and age <= 1 and not soft:
                 dr.line((x, y, x, y - s_ * (0.9 - 0.3 * age)), fill=int(a * 0.8), width=lw)
             # 왕관처럼 사방으로 튀는 방울 (수·각도 제각각)
-            n = int(rng.integers(2, 5))
+            n = int(rng.integers(1, 3)) if soft else int(rng.integers(2, 5))
             for ang, dd in zip(rng.uniform(0.08, 0.92, n) * np.pi, rng.uniform(0.6, 1.2, n)):
                 cx = x + np.cos(ang) * s_ * dd * (0.3 + 0.9 * t)
                 cy = y - np.sin(ang) * s_ * dd * (1.4 * t - 1.1 * t * t)
                 dot = max(0.7, lw * 0.8 * rng.uniform(0.6, 1.1))
-                dr.ellipse((cx - dot, cy - dot, cx + dot, cy + dot), fill=a)
+                dr.ellipse((cx - dot, cy - dot, cx + dot, cy + dot), fill=int(a * (0.6 if soft else 1.0)))
             # 바닥에 번지는 얇은 고리 (가까운 것만, 불완전하게)
             if near > 0.45:
                 rr = s_ * (0.4 + 0.8 * t)

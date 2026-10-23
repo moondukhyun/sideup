@@ -187,6 +187,8 @@ def make_loop(cfg, image, scene_name, args, job=None):
     for key in ("loop_seconds", "encoder", "resolution", "max_size_gb"):
         if getattr(args, key, None):
             v[key] = getattr(args, key)
+    if getattr(args, "sample", False):                                       # 샘플: 1080p · 짧은 루프 한 번만 렌더 (효과 위치·세기 확인용)
+        v["resolution"], v["loop_seconds"] = "1080p", 4
     durations = parse_durations(getattr(args, "duration", None) or v["duration"], parse_duration)
 
     if job is None:
@@ -199,7 +201,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
     W, H = RESOLUTIONS[v["resolution"]]
     bg = fit_cover(Image.open(image).convert("RGB"), W, H)
     rs = _rain_settings(cfg, scene_name, args, meta.get("rain_override"))
-    print(f"  적용된 설정 (v11.38 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
+    print(f"  적용된 설정 (v11.39 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
           f"실내 효과 {rs.interior:g} · 수면 {rs.water_rain:g}x{rs.water_boost:g} · 바깥만 {'예' if getattr(rs, 'outside_only', False) else '아니오'}")
     if variety.warn_similar(bg, "이 배경은"):
         print("  → 다른 배경을 쓰거나, 그대로 쓰려면 무시하세요.")
@@ -212,7 +214,13 @@ def make_loop(cfg, image, scene_name, args, job=None):
 
     renderer.frame_image(0).save(job / "preview.png")
     print(f"미리보기: {job / 'preview.png'}  ({W}x{H})")
+    _write_check_overlay(renderer, job)
     master = render_master(renderer, job / "loop_master.mp4", v)
+    if getattr(args, "sample", False):
+        shutil.copy(master, job / "sample.mp4")
+        print(f"샘플 영상: {job / 'sample.mp4'}  (짧은 샘플 — 마음에 들면 같은 이미지로 긴 영상을 만드세요)")
+        print(f"영상 저장 위치: {job / 'sample.mp4'}")
+        return []
     _write_meta(job, rain=vars(rs), video={k: v[k] for k in ("fps", "loop_seconds", "encoder", "resolution",
                                                              "max_size_gb")})
 
@@ -243,6 +251,32 @@ def make_loop(cfg, image, scene_name, args, job=None):
     n = variety.mark_used(job / "background.png", note=", ".join(f["file"] for f in finals))
     print(f"완료: {len(finals)}개 영상  (사용 기록 {n}개)")
     return finals
+
+
+def _write_check_overlay(renderer, job):
+    """렌더링 전 확인용 한 장: 파랑=비 내리는 바깥, 하늘색=호수 빗방울, 빨강=젖은 표면, 노랑 원=촛불·등불."""
+    from PIL import ImageDraw
+    W, H = 1280, int(1280 * renderer.H / renderer.W)
+    base = np.asarray(renderer.frame_image(0).convert("RGB").resize((W, H)), np.float32)
+
+    def layer(m, col, k):
+        nonlocal base
+        if m is None:
+            return
+        mm = np.asarray(Image.fromarray((np.clip(m, 0, 1) * 255).astype(np.uint8)).resize((W, H)), np.float32)[..., None] / 255.0
+        base = base * (1 - k * mm) + np.array(col, np.float32) * k * mm
+    layer(getattr(renderer, "outside", None), (60, 110, 255), 0.35)
+    layer(getattr(renderer, "water_area", None), (0, 255, 255), 0.5)
+    wet = getattr(renderer, "wet", None)
+    layer(getattr(wet, "mask", None) if wet is not None else None, (255, 40, 40), 0.35)
+    img = Image.fromarray(np.clip(base, 0, 255).astype(np.uint8))
+    d = ImageDraw.Draw(img)
+    it = getattr(renderer, "interior", None)
+    for c in (getattr(it, "candles", None) or []):
+        x, y = c["x"] / renderer.W * W, c["y"] / renderer.H * H
+        d.ellipse((x - 9, y - 9, x + 9, y + 9), outline=(255, 230, 0), width=3)
+    img.save(Path(job) / "영역확인.jpg")
+    print("  영역 확인 한 장: 영역확인.jpg (파랑=비 내리는 곳 · 하늘색=호수 빗방울 · 빨강=젖은 표면 · 노란 원=촛불/등불)")
 
 
 def _load_pets(job, args):
@@ -801,6 +835,7 @@ def _attach_water(renderer, rs, dfull, extra=None, region=None):
     if cov < 0.02:
         print("  수면 빗방울: 물 영역이 거의 없어 사용하지 않음")
         return
+    renderer.water_area = m
     renderer.water = WaterRain(m, dfull, renderer.W, renderer.H, renderer.N, renderer.fps,
                                intensity=rs.intensity * rs.water_rain, seed=rs.seed, boost=rs.water_boost)
     print(f"  수면 빗방울: 물 영역 {cov:.0%} · 루프당 {renderer.water.count}개")
@@ -1120,6 +1155,7 @@ def _add_video_args(p):
     p.add_argument("--resolution", choices=list(RESOLUTIONS), help="출력 해상도 (기본 1440p)")
     p.add_argument("--max-size-gb", type=float, help="최종 파일 용량 상한 (기본 40)")
     p.add_argument("--audio", help="반복 재생할 빗소리 오디오 파일")
+    p.add_argument("--sample", action="store_true", help="짧은 샘플(1080p, 4초 루프)만 만들어 효과를 확인")
     p.add_argument("--loop-seconds", type=float, help="루프 구간 길이(초)")
     p.add_argument("--encoder", help="hevc_nvenc | h264_nvenc | libx265 | libx264")
     p.add_argument("--segment-only", action="store_true", help="루프 구간만 만들고 장시간 조립은 생략")

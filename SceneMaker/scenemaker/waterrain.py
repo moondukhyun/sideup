@@ -30,7 +30,7 @@ def water_mask(bg, depth, extra=None, relaxed=False):
     if relaxed:                                                   # 텐트 문 너머 먼 호수: 깊이 변화가 거의 없어서 '수평면' 판정이 약함 → 푸르스름·회색에 매끈한 곳이면 물로 인정
         rws = np.linspace(0, 1, sh, dtype=np.float32)[:, None]
         flat = np.maximum(flat, np.clip((gy + 0.0005) / 0.004, 0, 1) * 0.9)
-        flat = np.maximum(flat, np.clip((rws - 0.33) / 0.08, 0, 1) * np.clip((0.72 - rws) / 0.06, 0, 1))      # 화면 가운데쯤의 매끈한 면 = 호수 (자갈·산은 결이 많아 아래 '매끈함'에서 걸러짐)
+        flat = np.maximum(flat, np.clip((rws - 0.38) / 0.07, 0, 1) * np.clip((0.72 - rws) / 0.06, 0, 1))      # 화면 가운데쯤의 매끈한 면 = 호수 (자갈·산은 결이 많아 아래 '매끈함'에서 걸러짐)
     not_green = np.clip(1 - (rgb[..., 1] - np.maximum(rgb[..., 0], rgb[..., 2])) * 12, 0, 1)
     mean = cv2.GaussianBlur(lum, (0, 0), 2)
     var = cv2.GaussianBlur((lum - mean) ** 2, (0, 0), 2) * 40
