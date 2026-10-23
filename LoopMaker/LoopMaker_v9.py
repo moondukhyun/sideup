@@ -3111,7 +3111,9 @@ NARR_LEN = [
     ("3분", 180),
     ("10분", 600),
     ("30분", 1800),
+    ("45분", 2700),
     ("1시간 (2편)", 3600),
+    ("1시간 30분 (3편)", 5400),
     ("2시간 (4편)", 7200),
     ("2시간 30분 (5편)", 9000),
     ("3시간 (6편)", 10800),
@@ -6160,7 +6162,7 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.25 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.26 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
@@ -7403,7 +7405,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.25 시작\n")
+        self.log("🚀 LoopMaker v11.26 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 
