@@ -50,7 +50,8 @@ INTERIOR_NEGATIVE = (
     "oversaturated, text, watermark, melted wax, floating candles, extra limbs, deformed animal, people"
 )
 INTERIOR_RAIN = {"sway": False, "wet": 0.0, "wet_ground": 0.0, "water_rain": 0.0, "splashes": False, "wan_ok": False,
-                 "grade": 0.3, "darken": 0.0, "bloom": 1.3, "fog": 0.0}
+                 "grade": 0.3, "darken": 0.0, "bloom": 1.3, "fog": 0.0,
+                 "veil": 0.0}                    # 창밖 먼 비 '장막'(1초마다 위에서 아래로 훑는 검은·뿌연 띠)을 모든 실내 창 장면에서 끔
 
 # 원시림·판타지 숲 방지 (실제 한국 산은 가는 참나무·소나무 + 낙엽 흙길)
 FOREST_NEGATIVE = (
