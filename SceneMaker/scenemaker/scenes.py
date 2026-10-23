@@ -114,7 +114,7 @@ _DRY_RULES = [
 ]
 
 
-CAMPFIRE_RAIN = {"brightness": 0.45, "wet": 0.0, "wan_hint": "the lake surface moves very slightly in the breeze, the campfire flames flicker, no rain"}
+CAMPFIRE_RAIN = {"free_fire": True, "brightness": 0.45, "wet": 0.0, "wan_hint": "the lake surface moves very slightly in the breeze, the campfire flames flicker, no rain"}
 CAMPFIRE_NEGATIVE = ("steam, vapor, steam rising from the kettle or the mug, wisps of smoke above the kettle, mist above the kettle, people, person, human, man, woman, figure, rain, raindrops, rain streaks, wet ground, puddles, snow, fog bank, "
                      "jungle, rainforest, fantasy, fairy tale, painting, illustration, 3d render, oversaturated, neon, glowing magical light, "
                      "cartoon flames, fireworks, sparks flying everywhere, huge bonfire tower, bonfire pile, house, cabin, buildings, text, logo, watermark")

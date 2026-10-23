@@ -605,7 +605,7 @@ class Steam:
             bw = min(max(10.0, x1 - x0), 0.05 * W)
             rng = np.random.RandomState((seed * 131 + i * 17) % (2 ** 31 - 1))
             ox, oy = (x0 + x1) / 2.0, y0 + 0.2 * (y1 - y0)
-            hp = float(np.clip(max(0.07 * H, 2.4 * bw), 0.06 * H, 0.17 * H)) * (0.8 + 0.4 * amount)    # 올라가는 높이
+            hp = float(np.clip(2.6 * bw, 0.035 * H, 0.17 * H)) * (0.8 + 0.4 * amount)      # 컵·주둥이 크기에 비례 (작은 컵에서 컵보다 훨씬 높이 올라가지 않게)    # 올라가는 높이
             life0 = 7.0 / max(0.3, float(speed))                                  # 한 덩어리가 사라지기까지(초)
             cycles = max(1, int(round(sec / life0)))
             life = sec / cycles                                                   # 루프 길이를 정확히 나누는 수명

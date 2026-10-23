@@ -45,6 +45,7 @@ class RainSettings:
     vinyl_sound: bool = False # v11.22: True 면 레코드판 특유의 지직거리는 소리를 자동으로 합성해 섞음
     fire_sound: bool = False  # v11.22: True 면 벽난로 타닥거리는 소리를 자동으로 합성해 섞음
     outside_only: bool = False  # v11.23: True 면 텐트 안쪽(천·바닥)에는 비를 그리지 않고 열린 바깥 풍경에만 내림
+    free_fire: bool = False    # True 면 자동 찾기(Claude)가 준 불 상자는 무시하고 화면에서 가장 크고 뜨거운 불을 스스로 찾음 (야외 모닥불: 상자가 작게 잡히면 일부만 움직이고 나머지는 멈춰 보임)
     veil: float = 1.0          # 창밖 먼 비 '장막'(세로 결이 아래로 흐르는 옅은 막) 세기 배율. 큰 어두운 창에서는 검은 띠·뿌연 띠가 번갈아 내려와 보이므로 0 으로 끔
     big_flame: bool = False   # v11.23: True 면 화면 가득한 큰 촛불 클로즈업용 불꽃 감지·움직임 (일반 촛불 감지는 작은 불꽃만 인정)
     dof: float = 0.0          # 깊이 기반 피사계심도 (0 = 끔). 가을 씬은 1.0 (2026-10-02 Cowork: 잘린 종이 느낌 해소)

@@ -291,7 +291,8 @@ def _attach_interior(renderer, job, rs, args):
     from .interior import FanSpin, Interior, PetBreath, RecordSpin, Steam, TonearmBob, find_lights
     marks = _load_pets(job, args)
     Wp, Hp = renderer.W, renderer.H
-    fbox = next(((m["x0"] * Wp, m["y0"] * Hp, m["x1"] * Wp, m["y1"] * Hp) for m in marks if m.get("kind") == "fire"), None)
+    fbox = next(((m["x0"] * Wp, m["y0"] * Hp, m["x1"] * Wp, m["y1"] * Hp) for m in marks
+                 if m.get("kind") == "fire" and not (getattr(rs, "free_fire", False) and m.get("auto") and not m.get("poly"))), None)   # 야외 모닥불은 자동 상자 대신 직접 찾음
     cpts = [((m["x0"] + m["x1"]) / 2 * Wp, (m["y0"] + m["y1"]) / 2 * Hp) for m in marks if m.get("kind") in ("candle", "lantern")]      # 텐트 천장 등불도 은은히 일렁이는 불빛으로
     info = find_lights(renderer.bg, exclude=renderer.glass.mask if renderer.glass is not None else None,
                        fire_box=fbox, candle_pts=cpts or None, big_flame=bool(getattr(rs, "big_flame", False)))
