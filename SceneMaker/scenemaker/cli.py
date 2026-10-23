@@ -537,7 +537,7 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
     no_motion = getattr(args, "no_motion", False)
     no_wet = getattr(args, "no_wet", False)
     gm_marks = [m for m in _load_pets(job, args) if m.get("kind") == "glass"]
-    if gm_marks and not rs.window:                                            # 창 유리를 직접 표시했으면 그 장면 설정과 상관없이 '표시한 곳에만' 비를 내림
+    if gm_marks and not rs.window and not getattr(rs, "outside_only", False):                                            # 창 유리를 직접 표시했으면 그 장면 설정과 상관없이 '표시한 곳에만' 비를 내림
         rs.window = True
         print(f"  창 유리 표시 {len(gm_marks)}개를 읽음 → 표시한 곳에만 비가 내리도록 설정")
     want_window = rs.window                                                   # 창 비는 '디테일' 옵션과 무관 (꺼도 비가 방 전체에 내리면 안 됨)
@@ -562,16 +562,29 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         renderer.set_depth(dfull)
     om = None
     if getattr(rs, "outside_only", False) and (real or depth_rain):          # 텐트 안쪽(천·바닥)에는 비가 안 오고 열린 바깥에만 내림
-        polys = [m["poly"] if m.get("poly") else [[m["x0"], m["y0"]], [m["x1"], m["y0"]], [m["x1"], m["y1"]], [m["x0"], m["y1"]]]
-                 for m in _load_pets(job, args) if m.get("kind") == "outside"]
-        om = details_mod.opening_mask(dfull, polys or None)
+        omarks = [m for m in _load_pets(job, args) if m.get("kind") in ("outside", "glass")]        # 텐트 장면에서는 '창 유리'로 그린 것도 '비 내리는 바깥'으로 읽음 (유리가 아니라 열린 바깥이므로)
+        manual = [m for m in omarks if m.get("poly") or m.get("manual") or not m.get("auto")]
+        autos = [m for m in omarks if m not in manual]
+        if any(m.get("kind") == "glass" for m in omarks):
+            print("  텐트 장면: '창 유리'로 그린 표시를 '비 내리는 바깥'으로 처리 (유리 빗방울이 아니라 바깥 비·땅 물튀김)")
+        if manual:
+            polys = [m["poly"] if m.get("poly") else [[m["x0"], m["y0"]], [m["x1"], m["y0"]], [m["x1"], m["y1"]], [m["x0"], m["y1"]]] for m in manual]
+            om = details_mod.opening_mask(dfull, polys)
+        else:
+            om = details_mod.opening_mask(dfull, None)                                  # 깊이로 자동 판별
+            if autos:                                                                   # 자동 찾기가 준 상자 안에서, 깊이로 본 '열린 바깥'만 (천·바닥 제외)
+                bx = np.zeros(om.shape, np.float32)
+                for m in autos:
+                    bx[int(m["y0"] * om.shape[0]):int(m["y1"] * om.shape[0]), int(m["x0"] * om.shape[1]):int(m["x1"] * om.shape[1])] = 1.0
+                inter = om * bx
+                om = inter if float(inter.sum()) >= 0.25 * float(bx.sum()) else bx
         renderer.set_outside(om)
         base = np.asarray(bg, np.float32) / 255.0
         prev = base * (0.45 + 0.55 * om[..., None])
         prev[..., 2] += 0.25 * om
         Image.fromarray((np.clip(prev, 0, 1) * 255).astype(np.uint8)).resize(
             (1280, int(1280 * renderer.H / renderer.W))).save(Path(job) / "outside_mask.jpg")
-        print(f"  텐트 바깥 영역: 화면의 {float((om > 0.5).mean()):.0%}에만 비를 내림 ({'직접 그린 윤곽' if polys else '깊이로 자동 판별'}) — 확인: outside_mask.jpg (파란 부분)")
+        print(f"  텐트 바깥 영역: 화면의 {float((om > 0.5).mean()):.0%}에만 비를 내림 ({'직접 그린 윤곽' if manual else '깊이로 자동 판별' + (' + 자동 찾은 상자' if autos else '')}) — 확인: outside_mask.jpg (파란 부분)")
     if want_window:
         from .glass import GlassRain, window_mask, window_mask_cool
         wmask = window_mask_cool(renderer.bg, dfull if real else None) if rs.interior > 0 else None     # 실내: 색으로 창 유리만 찾음

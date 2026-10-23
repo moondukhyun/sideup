@@ -564,7 +564,7 @@ SCENES = {
             "tent_interior_view",
             "아늑하게 꾸민 텐트 안 + 바깥 멋진 풍경 (비)",
             "a beautifully decorated cozy tent interior seen from inside, the wide tent door open and framing a stunning view of Korean nature outside on a rainy day, "
-            "warm tasteful lantern light inside the tent, the tent fabric frames the opening, the floor inside is dry, wet ground only outside, no people, natural unposed composition, sharp focus, "
+            "warm tasteful lantern light inside the tent, the tent fabric frames the opening, the floor inside is dry, just outside the door a small wooden deck or gravel and grass ground is clearly visible below the door opening with the view beyond it, wet ground only outside, no people, natural unposed composition, sharp focus, "
             "real documentary photograph, ordinary Korean mountain scenery: rounded ridges covered with dense mixed oak, pine and other deciduous trees, individual tree crowns of different heights, shapes, greens and textures, ridgelines layered one behind another fading into mist and low clouds, natural irregular details, no fantasy, no alpine peaks",
             [
                 "wide view from deep inside the tent: the cozy interior in the foreground and the big open door showing the whole view",

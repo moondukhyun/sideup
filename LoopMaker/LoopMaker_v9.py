@@ -4732,6 +4732,7 @@ def _claude_find_marks_raw(img_path):
               "- block: 창 유리 '앞'에서 창을 가리는 물체(턴테이블의 투명 덮개, 스탠드 조명, 화분, 커튼 등) — 창 유리 상자와 겹치는 것만, 물체마다 상자 하나씩. 물방울이 그 위에 내리지 않게 하는 용도\n"
               "- steam: 뜨거운 커피잔·찻잔의 '컵 입구(액체 윗면)' 또는 주전자의 '주둥이 끝' — 김이 시작될 작은 상자 (잔·주전자마다 하나, 상자는 입구 크기만)\n"
               "- lantern: 텐트 천장이나 기둥에 매달려 켜진 등불(랜턴) 전체 — 불빛이 일렁일 곳\n"
+              "- outside: (텐트 안에서 열린 문 밖을 보는 그림일 때만) 텐트 문이 열려 바깥 풍경과 바깥 땅이 보이는 부분 — 텐트 천·천장·안쪽 바닥은 빼고, 열린 입구 안쪽 전체를 한 상자로\n"
               "- candle: 켜져 있는 촛불 '불꽃'의 중심 한 점 — 상자 대신 x,y 만 (예: {\"kind\":\"candle\",\"x\":0.52,\"y\":0.60})\n"
               "상자는 대상을 빈틈없이 감싸되 사방으로 약 5% 만 여유를 두세요. 사진에 없는 대상은 빼세요.\n"
               '출력은 JSON 한 덩어리만: {"items":[{"kind":"dog","x0":0.35,"y0":0.80,"x1":0.52,"y1":0.99}]} — 다른 글은 쓰지 마세요.')
@@ -4752,8 +4753,8 @@ def _claude_find_marks_raw(img_path):
         except (KeyError, TypeError, ValueError):
             continue
         area = (x1 - x0) * (y1 - y0)
-        if k in ("dog", "cat", "fan", "record", "fire", "glass", "tonearm", "block", "steam", "lantern") and x1 - x0 > 0.01 and y1 - y0 > 0.004 \
-                and 0.0002 < area < (0.12 if k in ("fan", "fire") else 0.06 if k == "record" else 0.03 if k in ("tonearm", "steam", "lantern") else 0.5 if k == "glass" else 0.35):
+        if k in ("dog", "cat", "fan", "record", "fire", "glass", "tonearm", "block", "steam", "lantern", "outside") and x1 - x0 > 0.01 and y1 - y0 > 0.004 \
+                and 0.0002 < area < (0.12 if k == "fan" else 0.35 if k == "fire" else 0.9 if k == "outside" else 0.06 if k == "record" else 0.03 if k in ("tonearm", "steam", "lantern") else 0.5 if k == "glass" else 0.35):
             if k == "record" and (x1 - x0) < 1.15 * (y1 - y0):               # 비스듬히 본 LP 는 가로로 납작한 타원 → 세로로 긴 상자는 턴테이블 본체·덮개를 잘못 잡은 것
                 continue
             res.append({"kind": k, "x0": x0, "y0": y0, "x1": x1, "y1": y1})
@@ -4764,7 +4765,7 @@ def claude_verify_marks(img_path, marks, rounds=2):
     """v11.23: 찾은 위치 상자를 그림 위에 번호와 함께 그려서 Claude 에게 '맞게 잡혔나' 다시 확인시키고, 틀린 상자는 고친 값으로 바꾼다.
     (위치가 어긋나면 레코드가 엉뚱한 곳이 돌거나 책장이 흔들리는 문제가 생기므로, 영상 만들기 전에 최대 2번 바로잡음). 실패하면 원래 값을 그대로 돌려줌."""
     colors = {"dog": (0, 170, 255), "cat": (0, 170, 255), "fan": (170, 0, 255), "record": (255, 140, 0), "tonearm": (255, 0, 120),
-              "fire": (255, 40, 0), "glass": (0, 200, 120), "candle": (255, 230, 0), "block": (255, 255, 255), "steam": (200, 200, 255), "lantern": (255, 200, 80)}
+              "fire": (255, 40, 0), "glass": (0, 200, 120), "candle": (255, 230, 0), "block": (255, 255, 255), "steam": (200, 200, 255), "lantern": (255, 200, 80), "outside": (0, 200, 255)}
     marks = [dict(m) for m in marks]
     for _ in range(rounds):
         try:
@@ -4792,7 +4793,7 @@ def claude_verify_marks(img_path, marks, rounds=2):
                       "그림 위에 색 상자(또는 촛불은 동그라미)와 번호가 그려져 있습니다. 각 번호의 상자가 그 이름의 대상을 정확히 감싸는지 검사해 주세요:\n"
                       f"{lines}\n\n"
                       "기준: record=LP 판의 타원 전체(가장자리까지, 가운데 라벨 포함, 톤암·받침대 제외), tonearm=톤암(바늘 달린 팔)만 — 뒤의 책장·벽·판은 최대한 넣지 말 것, "
-                      "fire=벽난로·모닥불에서 불꽃이 보이는 부분, block=창 앞을 가리는 물체(덮개·스탠드 등) 하나, glass=창 유리(창틀 안쪽), dog/cat=자는 동물 몸 전체, candle=불꽃 위치, fan=선풍기 날개 전체, steam=컵 입구·주전자 주둥이 부분만의 작은 상자, lantern=켜진 등불 전체.\n"
+                      "fire=벽난로·모닥불에서 불꽃이 보이는 부분, block=창 앞을 가리는 물체(덮개·스탠드 등) 하나, glass=창 유리(창틀 안쪽), dog/cat=자는 동물 몸 전체, candle=불꽃 위치, fan=선풍기 날개 전체, steam=컵 입구·주전자 주둥이 부분만의 작은 상자, lantern=켜진 등불 전체, outside=텐트 열린 문으로 바깥이 보이는 부분.\n"
                       "상자가 대상을 많이 벗어나거나(절반 이상 어긋남) 다른 물체를 크게 포함하거나 대상을 놓치면 틀린 것입니다. 약간의 여유는 허용.\n"
                       '출력은 JSON 한 덩어리만: {"items":[{"id":0,"ok":true},{"id":1,"ok":false,"x0":0.1,"y0":0.2,"x1":0.3,"y1":0.4}]} '
                       "— 틀린 상자만 ok:false 와 고친 값(이미지 전체를 가로·세로 0~1 로 본 비율, candle 은 x,y 한 점)을 주세요. 다른 글은 쓰지 마세요.")
