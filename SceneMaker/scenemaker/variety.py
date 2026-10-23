@@ -186,7 +186,7 @@ CLOSEUP_GLOWS = ["warm golden glow", "deep amber glow", "soft orange glow", "gen
 
 # 씬 이름에 시간이 정해진 경우 시간 축을 쓰지 않음
 # v11.24: 모닥불 캠핑 장면 — 비 없는 저녁·밤. 호수·텐트·장작·소품·계절을 이미지마다 다르게
-CAMPFIRE_SCENES = {"campfire_lake", "campfire_kettle_lake", "campfire_tent_lake", "campfire_tent_kettle", "campfire_forest", "campfire_only"}
+CAMPFIRE_SCENES = {"campfire_lake", "campfire_kettle_lake", "campfire_tent_lake", "campfire_tent_kettle", "campfire_forest", "campfire_only", "campfire_car_camp"}
 CAMPFIRE_AXES = {
     "time": ["dusk just after sunset", "blue hour twilight", "late evening with a last glow in the sky", "deep blue night with a few stars", "calm early night"],
     "season": ["late spring", "early summer", "late summer", "early autumn with a few yellowing leaves"],
@@ -199,6 +199,19 @@ CAMPFIRE_EXTRAS = ["a folding wooden camp chair beside the fire", "a canvas back
                    "a hanging camp lantern on a pole (unlit)", "a blanket folded over a log seat", "an enamel cooking pot beside the fire", "nothing else, only the fire and the nature"]
 CAMPFIRE_TENTS = ["an olive green dome tent", "a beige canvas bell tent", "a grey-blue dome tent", "a sand-colored tunnel tent", "a dark green cabin tent"]
 
+# v11.24: 차박 장면 — 차 종류·덮개(타프/차량 연결 텐트)·식탁 소품을 이미지마다 크게 바꾸고, 식탁·식기는 반드시 덮개 아래에 놓이게
+CAR_SCENES = {"tent_car_camp", "campfire_car_camp"}
+CAR_TYPES = ["a dark green rugged 4x4 SUV with roof rails and a rooftop cargo box", "a white mid-size SUV with roof rails and light mud on the lower doors",
+             "a silver crossover wagon with a roof rack carrying a rolled-up tent", "a black station wagon with the tailgate lifted",
+             "a beige camper van with the sliding side door open", "a dark blue pickup truck with a camping canopy on the bed",
+             "a grey minivan with the rear hatch open and a mattress inside", "an olive green SUV with a rooftop tent unfolded"]
+CAR_SHELTERS = ["a tall olive canvas tailgate tent connected to the open tailgate of the car", "a large beige canvas side awning attached to the car roof and held up by two aluminum poles",
+                "a big sand-colored tarp pitched high on poles as a lean-to roof beside the car", "a screen shelter tent with open side flaps standing next to the car",
+                "a wide dark green awning rolled out from the roof rack with a front pole"]
+CAR_PROPS = ["a wooden folding table under the shelter with an enamel kettle, two enamel mugs and a cast iron skillet, two olive canvas folding chairs",
+             "an aluminum roll-up table under the shelter with a gas stove, a coffee pot and a cutting board, a cooler box and a lantern",
+             "a low camping table under the shelter with a lantern, a stack of plates and a woven basket, two wooden camp chairs and a wool blanket over one chair",
+             "a camp kitchen under the shelter with a gas burner, a pot, a water container and a hanging lantern"]
 FIXED_TIME = {"forest_night", "night_park", "city_night"}
 
 RAIN_JITTER = {"intensity": 0.25, "angle": 4.0, "fog": 0.06, "brightness": 0.08}
@@ -234,6 +247,10 @@ def diversify(scene_name, seed, rain_level=None):
             picks["tent"] = "the tent is " + rng.choice(CAMPFIRE_TENTS)
         picks["vegetation"] = rng.choice(VEGETATION)
         picks["terrain"] = rng.choice(TERRAINS)
+        if scene_name in CAR_SCENES:
+            picks["car"] = "the vehicle is " + rng.choice(CAR_TYPES)
+            picks["shelter"] = "its shelter is " + rng.choice(CAR_SHELTERS)
+            picks["carprops"] = "all fully under the shelter roof: " + rng.choice(CAR_PROPS)
         return ", ".join(v for k, v in picks.items() if k != "terrain"), picks
     for axis, options in (INTERIOR_AXES if scene_name in INTERIOR_SCENES else AXES).items():
         if axis == "time" and scene_name in FIXED_TIME:
@@ -282,6 +299,10 @@ def diversify(scene_name, seed, rain_level=None):
                                  + (", with " + rng.choice(TENT_SHELTERS) if scene_name != "tent_pine_grove" else ""))
             elif scene_name in TENT_INSIDE:
                 picks["inner"] = rng.choice(TENT_INNER)
+    if scene_name in CAR_SCENES:
+        picks["car"] = "the vehicle is " + rng.choice(CAR_TYPES)
+        picks["shelter"] = "its shelter is " + rng.choice(CAR_SHELTERS)
+        picks["carprops"] = "all fully under the shelter roof: " + rng.choice(CAR_PROPS)
     if scene_name == "candle_closeup":                                       # 큰 촛불 클로즈업: 양초 종류·받침·뒤에 보이는 소품·빛 색을 이미지마다 다르게
         picks["candle"] = rng.choice(CLOSEUP_CANDLES) + " " + rng.choice(CLOSEUP_SURFACES)
         picks["backdrop"] = rng.choice(CLOSEUP_BACKDROPS)

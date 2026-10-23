@@ -546,17 +546,19 @@ SCENES = {
         Scene(
             "tent_car_camp",
             "차박 캠핑 (SUV + 타프)",
-            "a dark grey SUV parked at a Korean mountain campsite with its tailgate open under a large tarp, a folding table with a gas stove and a kettle, two camping chairs and a lantern, on a rainy day, "
+            "a car camping site at a Korean mountain campground on a rainy day, a vehicle parked beside a covered camp area, "
+            "the camp table, dishes, stove and chairs are all placed fully under the shelter roof, clearly protected from the rain, the wet ground and puddles only outside the shelter, "
+            "natural unposed composition, sharp focus, "
             "real documentary photograph, ordinary Korean mountain scenery: rounded ridges covered with dense mixed oak, pine and other deciduous trees, individual tree crowns of different heights, shapes, greens and textures, ridgelines layered one behind another fading into mist and low clouds, natural irregular details, no fantasy, no alpine peaks",
             [
-                "wide view of the SUV and tarp with forested hills behind",
-                "a view from under the tarp out at the rainy forest, the table and chairs in front",
-                "the open tailgate with a mattress and blankets, a lantern glowing, trees behind",
-                "early morning, mist on the hills behind the tarp",
-                "dusk, lantern and string of small warm lights glowing under the tarp",
+                "wide view: the car and its shelter in the left third, a broad open mountain view in the right two thirds",
+                "wide view: the car and its shelter in the right third, a broad open mountain view in the left two thirds",
+                "a view from under the shelter roof out at the rainy forest, the table with dishes and the chairs in front, dry under the roof",
+                "a closer view of the covered camp kitchen beside the open car with a lantern glowing, rain-wet trees behind",
+                "dusk, a lantern and a string of small warm lights glowing under the shelter roof, the mountains in blue mist behind",
             ],
             {"intensity": 1.0, "brightness": 0.45, "darken": 0.08, "fog": 0.1},
-            negative=FOREST_NEGATIVE + ", glamping, fairy lights, bonfire, people, snowy peaks, canada, norway",
+            negative=FOREST_NEGATIVE + ", glamping, fairy lights, bonfire, people, snowy peaks, canada, norway, table in the open rain, dishes outside the tarp, no roof over the table",
         ),
         Scene(
             "tent_by_stream",
@@ -849,6 +851,21 @@ SCENES = {
             style=NATURAL_STYLE, negative=CAMPFIRE_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
         ),
         Scene(
+            "campfire_car_camp",
+            "차박 캠핑 · 차 앞 큰 장작불",
+            "a car camping site at a Korean mountain campground, a vehicle parked beside a covered camp area with a table, dishes and chairs under a shelter roof, and out in the open in front of it a big campfire burning on a ring of stones, natural unposed composition, sharp focus, "
+            "a real wood campfire with tall lively orange flames and glowing embers on a ring of stones, small split logs stacked in the fire, warm firelight lighting the ground and nearby objects, real documentary photograph of a Korean mountain campsite, ordinary Korean mountain scenery: rounded ridges covered with mixed oak, pine and other deciduous trees, individual tree crowns of different heights and greens, ridgelines layered one behind another fading into soft haze, natural irregular details, no fantasy, no alpine peaks, dry clear air with no precipitation, empty campsite without people",
+            [
+                "wide view: the car and its shelter on the left, the big campfire in the middle foreground, the mountains behind",
+                "wide view: the car and its shelter on the right, the big campfire in the middle foreground, the mountains behind",
+                "a closer view of the big campfire with the car and its glowing lantern softly behind it",
+                "the campfire in the foreground, a kettle on a grill over the flames, the car and the shelter behind",
+                "blue hour dusk view across the fire toward the car, the shelter and the dim mountains",
+            ],
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "fire": 1.0, "water_rain": 0.0, **CAMPFIRE_RAIN},
+            style=NATURAL_STYLE, negative=CAMPFIRE_NEGATIVE + ", dome tent, people", comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
             "campfire_forest",
             "숲속 캠핑 모닥불",
             "a campfire in a clearing of a Korean mountain forest, tall pine and oak trees around, a simple tent and a camp lantern at the edge of the firelight, logs for sitting around the fire, "
@@ -1092,7 +1109,7 @@ for _name in NATURAL_SCENES:
 # v11.22: 사실적인 질감이 필요한 산·숲·개울 장면은 Z-Image (SDXL 은 나무·산이 AI 같고 흐림)
 for _name in ("tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_by_stream", "tent_meadow", "tent_pine_grove", "tent_lakeside", "tent_car_camp"):
     SCENES[_name].comfy = {**SCENES[_name].comfy, "family": "zimage"}
-for _name in ("tent", "tent_view_mountains", "tent_view_stream", "tent_view_valley"):      # v11.23: 텐트 안에서 바깥을 보는 장면 — 비는 열린 바깥에만, 바깥 땅에는 빗방울이 튀게
+for _name in ("tent", "tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_car_camp"):      # v11.23: 텐트 안에서 바깥을 보는 장면 — 비는 열린 바깥에만, 바깥 땅에는 빗방울이 튀게
     SCENES[_name].rain = {**SCENES[_name].rain, "outside_only": True, "splashes": True}
 
 
