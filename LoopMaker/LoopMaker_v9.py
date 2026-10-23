@@ -5122,7 +5122,7 @@ class SceneTabMixin:
         self.sm_dur_var = tk.StringVar(value=cfg.get("duration", SM_DURATIONS[0][0]))
         self.sm_res_var = tk.StringVar(value=cfg.get("resolution", SM_RES[0][0]))                  # v11.32: 해상도 (시험은 1080p 로 빠르게)
         self.sm_motion_var = tk.BooleanVar(value=cfg.get("motion", True))
-        self.sm_sample_var = tk.BooleanVar(value=False)               # v11.39: 4초 샘플만 (효과 위치·세기 확인용)
+        self.sm_sample_var = tk.BooleanVar(value=False)               # v11.40: 4초 샘플만 (효과 위치·세기 확인용)
         self.sm_details_var = tk.BooleanVar(value=cfg.get("details", True))
         self.sm_wan_var = tk.BooleanVar(value=cfg.get("wan", False))
         self.sm_wet_var = tk.BooleanVar(value=cfg.get("wet", True))      # v11.19: 젖은 바위·물줄기·수면 빗방울
@@ -5247,7 +5247,8 @@ class SceneTabMixin:
         ttk.Combobox(v1, textvariable=self.sm_res_var, width=30, state="readonly",
                      values=[n for n, _ in SM_RES]).pack(side="left", padx=4)
         ttk.Label(v1, text="(40GB 이하 자동)", foreground="#666666").pack(side="left", padx=2)
-        ttk.Checkbutton(v1, text="🔍 4초 샘플만 (효과·영역 확인, 1~2분)", variable=self.sm_sample_var).pack(side="left", padx=10)
+        vs = ttk.Frame(v); vs.pack(fill="x", padx=8, pady=2)                       # 한 줄이 길어 잘리지 않게 별도 줄
+        ttk.Checkbutton(vs, text="🔍 4초 샘플만 만들기 (효과·영역 확인용, 1~2분 — 체크하면 긴 영상은 만들지 않아요)", variable=self.sm_sample_var).pack(side="left")
         v2 = ttk.Frame(v); v2.pack(fill="x", padx=8, pady=2)
         ttk.Label(v2, text="🎵 빗소리:").pack(side="left")
         ttk.Entry(v2, textvariable=self.sm_audio_var, width=46).pack(side="left", padx=4)
@@ -6182,7 +6183,7 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.39 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.40 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
@@ -7492,7 +7493,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.39 시작\n")
+        self.log("🚀 LoopMaker v11.40 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 
