@@ -6176,13 +6176,14 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.33 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.34 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
         self.geometry("700x1000")
         self.minsize(660, 760)
         self.resizable(True, True)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)          # v11.34: 창을 닫으면 하던 작업·자식 프로그램(ffmpeg 등)까지 확실히 끝내고 완전히 종료
 
         self.video_var = tk.StringVar()
         self.audio_var = tk.StringVar()
@@ -7485,7 +7486,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.33 시작\n")
+        self.log("🚀 LoopMaker v11.34 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 
@@ -7648,6 +7649,30 @@ class App(SceneTabMixin, tk.Tk):
 
         threading.Thread(target=work, daemon=True).start()
 
+    def _on_close(self):
+        """창 닫기: 하던 작업 중단 → 자식 프로그램(ffmpeg·SceneMaker·ComfyUI 요청 등) 종료 → 완전히 종료."""
+        try:
+            for ev in ("stop_flag", "sm_stop_flag", "narr_stop_flag"):
+                e = getattr(self, ev, None)
+                if e is not None and hasattr(e, "set"):
+                    e.set()
+            if getattr(self, "pipeline", None):
+                self.pipeline.kill_current()
+            if getattr(self, "narrator", None):
+                self.narrator.kill()
+            pr = getattr(self, "sm_proc", None)
+            if pr is not None and pr.poll() is None:
+                if os.name == "nt":
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pr.pid)], capture_output=True)
+                else:
+                    pr.kill()
+        except Exception:
+            pass
+        try:
+            self.destroy()
+        finally:
+            os._exit(0)                                          # 남은 작업 스레드가 있어도 프로세스를 확실히 끝냄
+
     def stop(self):
         self.stop_flag.set()
         if self.pipeline:
@@ -7657,5 +7682,31 @@ class App(SceneTabMixin, tk.Tk):
         self.log("⏹ 중단 요청됨... 정리 중")
 
 
+def _single_instance_guard():
+    """v11.34: LoopMaker 를 이미 켜 둔 채 또 켜면 창이 겹쳐 쌓여서, 하나를 닫아도 '또 켜지는' 것처럼 보임 → 한 번에 하나만 실행."""
+    import socket
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if os.name == "nt":
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        sock.bind(("127.0.0.1", 47213))
+        sock.listen(1)
+        return sock                                             # 프로그램이 끝날 때까지 들고 있음
+    except OSError:
+        return False
+    except Exception:
+        return None
+
+
 if __name__ == "__main__":
+    _guard = _single_instance_guard()
+    if _guard is False:
+        try:
+            _r = tk.Tk()
+            _r.withdraw()
+            messagebox.showwarning("LoopMaker", "LoopMaker 가 이미 켜져 있어요.\n\n작업 표시줄에서 열려 있는 LoopMaker 창을 찾아 쓰시거나,\n그 창을 먼저 닫은 뒤 다시 실행하세요.", parent=_r)
+            _r.destroy()
+        except Exception:
+            pass
+        sys.exit(0)
     App().mainloop()
