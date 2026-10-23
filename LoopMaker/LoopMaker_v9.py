@@ -4732,6 +4732,7 @@ SM_FILTERS = ["전체 보기", "🎬 영상 만든 것만", "영상 아직 안 �
 SM_FIREDB = [("작게 (-18dB)", -18), ("보통 (-12dB)", -12), ("크게 (-6dB)", -6)]
 SM_FIRESPEED = [("느리게", 0.4), ("보통", 0.65), ("조금 빠르게", 0.85), ("빠르게", 1.05)]      # 불꽃·촛불 일렁이는 속도
 SM_RAIN_SPEED = [("장면 기본", None), ("아주 느리게", 0.4), ("느리게", 0.6), ("보통", 1.0), ("빠르게", 1.4)]          # 비 떨어지는 속도
+SM_RES = [("1440p (기본 · 유튜브용)", "1440p"), ("1080p (빠른 테스트 · 렌더링 약 2배 빠름)", "1080p"), ("2160p (4K · 아주 느림)", "2160p")]
 SM_STEAM_AMOUNT = [("보통", 1.0), ("아주 옅게", 0.45), ("옅게", 0.7), ("진하게", 1.4)]               # 김 진하기
 SM_STEAM_SPEED = [("보통", 1.0), ("아주 느리게", 0.45), ("느리게", 0.7), ("빠르게", 1.4)]            # 김 올라오는 속도
 SM_BREATH = [("아주 작게", 0.3), ("작게", 0.6), ("보통", 0.9), ("크게", 1.3)]                      # 강아지·고양이 숨쉬는 크기
@@ -5098,7 +5099,7 @@ class SceneTabMixin:
     def _sm_save_cfg(self):
         cfg = dict(scene=self.sm_scene_var.get(), count=self._sm_count(), rain=self.sm_rain_var.get(),
                    model=self.sm_model_var.get(), audio=self.sm_audio_var.get(),
-                   duration=self.sm_dur_var.get(), motion=self.sm_motion_var.get(),
+                   duration=self.sm_dur_var.get(), resolution=self.sm_res_var.get(), motion=self.sm_motion_var.get(),
                    details=self.sm_details_var.get(), wan=self.sm_wan_var.get(), wet=self.sm_wet_var.get(),
                    interior=self.sm_interior_var.get(), fire_sound_v2=self.sm_fire_var.get(), vinyl_sound_v2=self.sm_vinyl_var.get(), out_dir=self.sm_outdir_var.get(),
                    scene_only=self.sm_scene_only_var.get(), firedb=self.sm_firedb_var.get(), firespeed=self.sm_firespeed_var.get(), breath=self.sm_breath_var.get(), rain_spd=self.sm_rain_spd_var.get(), steam_amt=self.sm_steam_amt_var.get(), steam_spd=self.sm_steam_spd_var.get(), autoqc=self.sm_autoqc_var.get(),
@@ -5119,6 +5120,7 @@ class SceneTabMixin:
         self.sm_image_var = tk.StringVar()
         self.sm_audio_var = tk.StringVar(value=cfg.get("audio", ""))
         self.sm_dur_var = tk.StringVar(value=cfg.get("duration", SM_DURATIONS[0][0]))
+        self.sm_res_var = tk.StringVar(value=cfg.get("resolution", SM_RES[0][0]))                  # v11.32: 해상도 (시험은 1080p 로 빠르게)
         self.sm_motion_var = tk.BooleanVar(value=cfg.get("motion", True))
         self.sm_details_var = tk.BooleanVar(value=cfg.get("details", True))
         self.sm_wan_var = tk.BooleanVar(value=cfg.get("wan", False))
@@ -5240,7 +5242,10 @@ class SceneTabMixin:
         ttk.Label(v1, text="⏱ 길이:").pack(side="left")
         ttk.Combobox(v1, textvariable=self.sm_dur_var, width=26, state="readonly",
                      values=[n for n, _ in SM_DURATIONS]).pack(side="left", padx=4)
-        ttk.Label(v1, text="1440p · 40GB 이하 자동", foreground="#666666").pack(side="left", padx=6)
+        ttk.Label(v1, text="해상도:").pack(side="left", padx=(10, 0))
+        ttk.Combobox(v1, textvariable=self.sm_res_var, width=30, state="readonly",
+                     values=[n for n, _ in SM_RES]).pack(side="left", padx=4)
+        ttk.Label(v1, text="(40GB 이하 자동)", foreground="#666666").pack(side="left", padx=2)
         v2 = ttk.Frame(v); v2.pack(fill="x", padx=8, pady=2)
         ttk.Label(v2, text="🎵 빗소리:").pack(side="left")
         ttk.Entry(v2, textvariable=self.sm_audio_var, width=46).pack(side="left", padx=4)
@@ -5750,6 +5755,7 @@ class SceneTabMixin:
     def _sm_video_args(self, img, scene, wan):
         """영상 만들기 인자 (③ 의 설정 그대로). sm_make_video 와 같은 규칙, 확인 창은 없음."""
         args = ["loop", img, "--duration", dict(SM_DURATIONS).get(self.sm_dur_var.get(), "3m")]
+        args += ["--resolution", dict(SM_RES).get(self.sm_res_var.get(), "1440p")]
         audio = self.sm_audio_var.get().strip()
         if audio and os.path.isfile(audio):
             args += ["--audio", audio]
@@ -5952,6 +5958,7 @@ class SceneTabMixin:
                 return
         dur = dict(SM_DURATIONS).get(self.sm_dur_var.get(), "3m")
         args = ["loop", img, "--duration", dur]
+        args += ["--resolution", dict(SM_RES).get(self.sm_res_var.get(), "1440p")]
         if audio:
             args += ["--audio", audio]
         if not os.path.isfile(os.path.join(os.path.dirname(img), "meta.json")):
@@ -6169,7 +6176,7 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.31 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.32 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
@@ -7478,7 +7485,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.31 시작\n")
+        self.log("🚀 LoopMaker v11.32 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 
