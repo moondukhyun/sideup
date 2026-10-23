@@ -141,9 +141,10 @@ URBAN_SCENES = {"city_night", "cafe_window", "hanok_cafe"}
 AUTUMN_SCENES = {"autumn_forest_path", "autumn_temple"}
 VEGETATION_SCENES = {"forest_path", "valley_stream", "forest_lake", "thunder_forest", "tent", "tent_by_stream", "tent_view_mountains",
                      "tent_view_stream", "tent_view_valley", "cabin_window"}
-TENT_SCENES = {"tent", "tent_by_stream", "tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_meadow", "tent_pine_grove", "tent_lakeside", "tent_car_camp"}
-NATURE_FOREGROUND_SCENES |= TENT_SCENES
-TERRAIN_FREE = {"tent", "tent_view_mountains", "tent_car_camp"}          # 풍경이 장면에 고정되지 않은 장면만 지형을 바꿈 (초원·솔숲·호수·개울 장면은 그대로)
+TENT_SCENES = {"tent_interior_view", "tent", "tent_by_stream", "tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_meadow", "tent_pine_grove", "tent_lakeside", "tent_car_camp"}
+COMPOSED_SCENES = {"tent_interior_view", "tent_car_camp"}          # 구도·소품을 장면과 전용 목록이 정하므로 일반 카메라·바닥·소품 문구를 섞지 않음
+NATURE_FOREGROUND_SCENES |= TENT_SCENES - COMPOSED_SCENES
+TERRAIN_FREE = {"tent", "tent_view_mountains", "tent_car_camp", "tent_interior_view"}          # 풍경이 장면에 고정되지 않은 장면만 지형을 바꿈 (초원·솔숲·호수·개울 장면은 그대로)
 TENT_EXTERIOR = {"tent", "tent_by_stream", "tent_meadow", "tent_pine_grove", "tent_lakeside"}          # 텐트를 밖에서 보는 장면
 TENT_INSIDE = {"tent_view_mountains", "tent_view_stream", "tent_view_valley"}                          # 텐트 안에서 바깥을 보는 장면
 # v11.24: 산속 캠핑 장면이 비슷비슷하다는 의견 → 지형·텐트·터·차양·안쪽 소품을 이미지마다 크게 바꿈
@@ -199,19 +200,39 @@ CAMPFIRE_EXTRAS = ["a folding wooden camp chair beside the fire", "a canvas back
                    "a hanging camp lantern on a pole (unlit)", "a blanket folded over a log seat", "an enamel cooking pot beside the fire", "nothing else, only the fire and the nature"]
 CAMPFIRE_TENTS = ["an olive green dome tent", "a beige canvas bell tent", "a grey-blue dome tent", "a sand-colored tunnel tent", "a dark green cabin tent"]
 
-# v11.24: 차박 장면 — 차 종류·덮개(타프/차량 연결 텐트)·식탁 소품을 이미지마다 크게 바꾸고, 식탁·식기는 반드시 덮개 아래에 놓이게
+# v11.24: 차박·텐트 장면 — '경치 좋은 곳 + 멋진 텐트 + 멋진 소품' (이전 목록은 평범해서 쓰기 어렵다는 의견 반영)
+SCENIC_PLACES = [
+    "beautiful but realistic Korean scenery: a calm mountain lake with layered forested mountains reflected in the still water and a smooth pebble shore, soft natural light, individual trees clearly visible, natural irregular details, no fantasy, no alpine peaks",
+    "beautiful but realistic Korean scenery: a wide highland meadow of short grass above a sea of low clouds filling the valleys far below, layered ridges in the distance, soft natural light, natural irregular details, no fantasy, no alpine peaks",
+    "beautiful but realistic Korean scenery: a quiet east-coast shore with old pine trees overlooking calm turquoise water and distant rocky islets, soft natural light, natural irregular details, no fantasy",
+    "beautiful but realistic Korean scenery: a high ridge viewpoint with many layered mountain ridges fading into blue haze and a flat grass clearing, soft natural light, individual tree crowns visible, natural irregular details, no fantasy, no alpine peaks",
+    "beautiful but realistic Korean scenery: a clear river bend with smooth white pebbles and rocks, forested mountains rising behind in soft mist, soft natural light, natural irregular details, no fantasy, no alpine peaks",
+    "beautiful but realistic Korean scenery: a quiet reservoir surrounded by green hills with a wooden deck by the water and thin mist over the surface, soft natural light, natural irregular details, no fantasy, no alpine peaks",
+    "beautiful but realistic Korean scenery: a broad valley with a winding river and several rows of misty forested ridges, soft natural light, individual tree crowns visible, natural irregular details, no fantasy, no alpine peaks",
+]
+PREMIUM_TENTS = ["a large cream canvas bell tent with a wooden door frame and a small front porch", "a spacious olive green tunnel tent with a covered front porch and a big mesh window",
+                 "a modern warm-beige A-frame cabin tent with a wide door and a built-in awning", "a dark grey geodesic dome tent with an extended vestibule and neat guy lines",
+                 "a classic khaki canvas wall tent with a stovepipe and a wooden pole frame"]
+PREMIUM_TABLES = ["a walnut table with a linen runner, a brass lantern, ceramic mugs, a small vase of wildflowers, a wooden tray and a French press",
+                  "a wooden folding table with a copper kettle, enamel mugs, a woven basket of bread and fruit and a glass hurricane lantern",
+                  "a low teak table with a tea set, a stack of books, a lantern and a wool throw over a rattan chair",
+                  "a camp kitchen table with a neat gas stove, a cast iron pot, a wooden cutting board with vegetables, ceramic cups and a hanging lantern"]
+PREMIUM_CHAIRS = ["two stylish olive canvas camp chairs with wooden arms", "two rattan lounge chairs with wool blankets", "two folding wooden director chairs with canvas seats"]
+TENT_INTERIORS = [
+    "thick layered wool rugs on the floor, a low wooden bed with linen bedding and knitted blankets, plump cushions, a small wooden side table with a tea set and a book",
+    "a vintage kilim rug, a cozy daybed with sheepskin and wool throws, a wooden crate table with a ceramic teapot and cups, a woven basket",
+    "a soft cream rug, a low folding bed with a quilted blanket and linen pillows, a leather trunk used as a table with a lantern and a stack of books",
+    "layered patterned rugs, floor cushions and a wool blanket, a small teak table with a brass tray, a thermos and mugs"]
+TENT_LANTERNS = ["several beautiful brass and glass lanterns hung from the ridge pole and standing on the floor, glowing with warm light",
+                 "a large vintage hurricane lantern hanging at the center and two small candle lanterns on the table, glowing warmly",
+                 "two woven rattan pendant lanterns hanging from the tent ceiling and a lit brass lantern by the door, glowing softly",
+                 "a cluster of glass candle lanterns on the table and a hanging iron lantern, all glowing with warm light"]
 CAR_SCENES = {"tent_car_camp", "campfire_car_camp"}
-CAR_TYPES = ["a dark green rugged 4x4 SUV with roof rails and a rooftop cargo box", "a white mid-size SUV with roof rails and light mud on the lower doors",
-             "a silver crossover wagon with a roof rack carrying a rolled-up tent", "a black station wagon with the tailgate lifted",
-             "a beige camper van with the sliding side door open", "a dark blue pickup truck with a camping canopy on the bed",
-             "a grey minivan with the rear hatch open and a mattress inside", "an olive green SUV with a rooftop tent unfolded"]
-CAR_SHELTERS = ["a tall olive canvas tailgate tent connected to the open tailgate of the car", "a large beige canvas side awning attached to the car roof and held up by two aluminum poles",
-                "a big sand-colored tarp pitched high on poles as a lean-to roof beside the car", "a screen shelter tent with open side flaps standing next to the car",
-                "a wide dark green awning rolled out from the roof rack with a front pole"]
-CAR_PROPS = ["a wooden folding table under the shelter with an enamel kettle, two enamel mugs and a cast iron skillet, two olive canvas folding chairs",
-             "an aluminum roll-up table under the shelter with a gas stove, a coffee pot and a cutting board, a cooler box and a lantern",
-             "a low camping table under the shelter with a lantern, a stack of plates and a woven basket, two wooden camp chairs and a wool blanket over one chair",
-             "a camp kitchen under the shelter with a gas burner, a pot, a water container and a hanging lantern"]
+CAR_TYPES = ["a clean, well-kept dark green 4x4 SUV with roof rails", "a clean white SUV with roof rails and a rooftop cargo box", "a clean silver crossover wagon with a roof rack",
+             "a clean black station wagon with the tailgate lifted", "a retro-styled beige camper van with the sliding door open", "a clean dark blue pickup truck with a matching canopy",
+             "a clean olive green SUV with a rooftop tent", "a clean grey SUV with a bike rack and roof rails"]
+CAR_SHELTERS = PREMIUM_TENTS + ["a large cream canvas awning attached to the car roof and held by two wooden poles, forming a covered lounge", "a big sand-colored tarp pitched high on poles forming a stylish covered lounge beside the car"]
+CAR_PROPS = PREMIUM_TABLES
 FIXED_TIME = {"forest_night", "night_park", "city_night"}
 
 RAIN_JITTER = {"intensity": 0.25, "angle": 4.0, "fog": 0.06, "brightness": 0.08}
@@ -248,12 +269,15 @@ def diversify(scene_name, seed, rain_level=None):
         picks["vegetation"] = rng.choice(VEGETATION)
         picks["terrain"] = rng.choice(TERRAINS)
         if scene_name in CAR_SCENES:
+            picks["terrain"] = rng.choice(SCENIC_PLACES)                                  # 차박은 경치 좋은 곳
             picks["car"] = "the vehicle is " + rng.choice(CAR_TYPES)
             picks["shelter"] = "its shelter is " + rng.choice(CAR_SHELTERS)
-            picks["carprops"] = "all fully under the shelter roof: " + rng.choice(CAR_PROPS)
+            picks["carprops"] = "all fully under the shelter roof: " + rng.choice(CAR_PROPS) + ", " + rng.choice(PREMIUM_CHAIRS)
         return ", ".join(v for k, v in picks.items() if k != "terrain"), picks
     for axis, options in (INTERIOR_AXES if scene_name in INTERIOR_SCENES else AXES).items():
         if axis == "time" and scene_name in FIXED_TIME:
+            continue
+        if axis == "camera" and scene_name in COMPOSED_SCENES:
             continue
         if axis == "season" and scene_name in SEASON_OVERRIDE:
             options = SEASON_OVERRIDE[scene_name]
@@ -291,18 +315,22 @@ def diversify(scene_name, seed, rain_level=None):
         if scene_name in VEGETATION_SCENES and scene_name not in TENT_SCENES:
             picks["vegetation"] = rng.choice(VEGETATION)
         if scene_name in TENT_SCENES:
-            picks["camp"] = rng.choice(CAMP_PROPS)
+            if scene_name not in COMPOSED_SCENES:
+                picks["camp"] = rng.choice(CAMP_PROPS)
             if scene_name in TERRAIN_FREE:
-                picks["terrain"] = rng.choice(TERRAINS)
+                picks["terrain"] = rng.choice(SCENIC_PLACES if scene_name in ("tent_car_camp", "tent_interior_view") else TERRAINS)
             if scene_name in TENT_EXTERIOR:
                 picks["tent"] = ("the tent is " + rng.choice(TENT_KINDS) + (" on " + rng.choice(TENT_SITES) if scene_name == "tent" else "")
                                  + (", with " + rng.choice(TENT_SHELTERS) if scene_name != "tent_pine_grove" else ""))
             elif scene_name in TENT_INSIDE:
                 picks["inner"] = rng.choice(TENT_INNER)
-    if scene_name in CAR_SCENES:
+            elif scene_name == "tent_interior_view":
+                picks["inner"] = "inside the tent: " + rng.choice(TENT_INTERIORS)
+                picks["lanterns"] = rng.choice(TENT_LANTERNS)
+    if scene_name in CAR_SCENES and scene_name != "campfire_car_camp":
         picks["car"] = "the vehicle is " + rng.choice(CAR_TYPES)
         picks["shelter"] = "its shelter is " + rng.choice(CAR_SHELTERS)
-        picks["carprops"] = "all fully under the shelter roof: " + rng.choice(CAR_PROPS)
+        picks["carprops"] = "all fully under the shelter roof: " + rng.choice(CAR_PROPS) + ", " + rng.choice(PREMIUM_CHAIRS)
     if scene_name == "candle_closeup":                                       # 큰 촛불 클로즈업: 양초 종류·받침·뒤에 보이는 소품·빛 색을 이미지마다 다르게
         picks["candle"] = rng.choice(CLOSEUP_CANDLES) + " " + rng.choice(CLOSEUP_SURFACES)
         picks["backdrop"] = rng.choice(CLOSEUP_BACKDROPS)

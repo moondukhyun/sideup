@@ -4665,10 +4665,10 @@ SM_ANIMAL_SCENES = {"living_fireplace_storm", "living_fireplace_big_window", "li
 SM_TURNTABLE_SCENES = {"living_turntable_fireplace", "turntable_candles_windowless", "turntable_window_rain"}
 SM_ANIMAL_SCENES = SM_ANIMAL_SCENES | {"living_turntable_fireplace", "turntable_window_rain"}
 SM_STEAM_SCENES = {"living_coffee_fireplace_rain", "living_tea_fireplace_rain", "campfire_kettle_lake", "campfire_tent_kettle",
-                   "campfire_lake", "campfire_tent_lake", "campfire_forest", "campfire_only", "campfire_car_camp"}      # 김이 올라오는 장면
+                   "campfire_lake", "campfire_tent_lake", "campfire_forest", "campfire_only", "campfire_car_camp", "tent_interior_view"}      # 김이 올라오는 장면 · 텐트 안 등불 위치 찾기
 SM_WINDOW_CANDLE_SCENES = {"candle_rain_window", "candle_bookshelf_rain_window"}       # 창 유리 위치를 찾아야 비가 창에만 내림
 SM_MARK_SCENES = SM_ANIMAL_SCENES | SM_TURNTABLE_SCENES | SM_STEAM_SCENES | SM_WINDOW_CANDLE_SCENES          # 위치 표시(반려동물·선풍기·레코드판)가 필요한 장면
-SM_INTERIOR_SCENES = SM_MARK_SCENES | {"candle_bookshelf", "candle_bookshelf_rain_window", "campfire_lake", "campfire_kettle_lake", "campfire_tent_lake", "campfire_tent_kettle", "campfire_forest", "campfire_only", "campfire_car_camp", "candle_closeup", "candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "candle_nook"}
+SM_INTERIOR_SCENES = SM_MARK_SCENES | {"candle_bookshelf", "candle_bookshelf_rain_window", "campfire_lake", "campfire_kettle_lake", "campfire_tent_lake", "campfire_tent_kettle", "campfire_forest", "campfire_only", "campfire_car_camp", "tent_interior_view", "candle_closeup", "candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "candle_nook"}
 
 
 def sm_python():

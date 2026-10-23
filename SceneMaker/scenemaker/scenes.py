@@ -546,9 +546,9 @@ SCENES = {
         Scene(
             "tent_car_camp",
             "차박 캠핑 (SUV + 타프)",
-            "a car camping site at a Korean mountain campground on a rainy day, a vehicle parked beside a covered camp area, "
-            "the camp table, dishes, stove and chairs are all placed fully under the shelter roof, clearly protected from the rain, the wet ground and puddles only outside the shelter, "
-            "natural unposed composition, sharp focus, "
+            "a beautiful car camping site in Korean nature on a rainy day with a stunning view, a stylish vehicle parked beside a handsome tent or covered lounge, "
+            "a stylish camp table with beautiful props and comfortable chairs placed fully under the shelter roof, clearly protected from the rain, the wet ground and puddles only outside the shelter, "
+            "tasteful warm lantern light, natural unposed composition, sharp focus, "
             "real documentary photograph, ordinary Korean mountain scenery: rounded ridges covered with dense mixed oak, pine and other deciduous trees, individual tree crowns of different heights, shapes, greens and textures, ridgelines layered one behind another fading into mist and low clouds, natural irregular details, no fantasy, no alpine peaks",
             [
                 "wide view: the car and its shelter in the left third, a broad open mountain view in the right two thirds",
@@ -559,6 +559,22 @@ SCENES = {
             ],
             {"intensity": 1.0, "brightness": 0.45, "darken": 0.08, "fog": 0.1},
             negative=FOREST_NEGATIVE + ", glamping, fairy lights, bonfire, people, snowy peaks, canada, norway, table in the open rain, dishes outside the tarp, no roof over the table",
+        ),
+        Scene(
+            "tent_interior_view",
+            "아늑하게 꾸민 텐트 안 + 바깥 멋진 풍경 (비)",
+            "a beautifully decorated cozy tent interior seen from inside, the wide tent door open and framing a stunning view of Korean nature outside on a rainy day, "
+            "warm tasteful lantern light inside the tent, the tent fabric frames the opening, the floor inside is dry, wet ground only outside, no people, natural unposed composition, sharp focus, "
+            "real documentary photograph, ordinary Korean mountain scenery: rounded ridges covered with dense mixed oak, pine and other deciduous trees, individual tree crowns of different heights, shapes, greens and textures, ridgelines layered one behind another fading into mist and low clouds, natural irregular details, no fantasy, no alpine peaks",
+            [
+                "wide view from deep inside the tent: the cozy interior in the foreground and the big open door showing the whole view",
+                "a view from the bed looking out through the open tent door, lanterns glowing at both sides of the opening",
+                "a close view of the lantern-lit table inside the tent with the rainy view softly visible through the door",
+                "early morning, soft pale light, mist over the view, the lanterns still glowing inside",
+                "dusk, the lanterns glowing warmly inside, the view outside in deep blue mist",
+            ],
+            {"intensity": 1.0, "brightness": 0.45, "darken": 0.06, "fog": 0.12, "interior": 1.0},
+            negative=FOREST_NEGATIVE + ", glamping resort, hotel, fairy lights, bonfire, people, snowy peaks, canada, norway, rain inside the tent, wet floor inside",
         ),
         Scene(
             "tent_by_stream",
@@ -853,7 +869,7 @@ SCENES = {
         Scene(
             "campfire_car_camp",
             "차박 캠핑 · 차 앞 큰 장작불",
-            "a car camping site at a Korean mountain campground, a vehicle parked beside a covered camp area with a table, dishes and chairs under a shelter roof, and out in the open in front of it a big campfire burning on a ring of stones, natural unposed composition, sharp focus, "
+            "a beautiful car camping site in Korean nature with a stunning view, a stylish vehicle parked beside a handsome tent or covered lounge with a stylish table and comfortable chairs under its roof, and out in the open in front of it a big campfire burning on a ring of stones, tasteful warm lantern light, natural unposed composition, sharp focus, "
             "a real wood campfire with tall lively orange flames and glowing embers on a ring of stones, small split logs stacked in the fire, warm firelight lighting the ground and nearby objects, real documentary photograph of a Korean mountain campsite, ordinary Korean mountain scenery: rounded ridges covered with mixed oak, pine and other deciduous trees, individual tree crowns of different heights and greens, ridgelines layered one behind another fading into soft haze, natural irregular details, no fantasy, no alpine peaks, dry clear air with no precipitation, empty campsite without people",
             [
                 "wide view: the car and its shelter on the left, the big campfire in the middle foreground, the mountains behind",
@@ -863,7 +879,7 @@ SCENES = {
                 "blue hour dusk view across the fire toward the car, the shelter and the dim mountains",
             ],
             {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "fire": 1.0, "water_rain": 0.0, **CAMPFIRE_RAIN},
-            style=NATURAL_STYLE, negative=CAMPFIRE_NEGATIVE + ", dome tent, people", comfy={"family": "zimage"}, post=NATURAL_POST,
+            style=NATURAL_STYLE, negative=CAMPFIRE_NEGATIVE + ", people", comfy={"family": "zimage"}, post=NATURAL_POST,
         ),
         Scene(
             "campfire_forest",
@@ -1098,7 +1114,7 @@ NATURAL_SCENES = ["cafe_window", "hanok_courtyard", "hanok_eaves", "hanok_cafe",
                   "rain_leaves", "country_house", "forest_night", "forest_path", "cabin_window",
                   "tent", "forest_lake", "valley_stream", "temple_path", "thunder_forest",
                   "tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_by_stream",
-                  "tent_meadow", "tent_pine_grove", "tent_lakeside", "tent_car_camp"]
+                  "tent_meadow", "tent_pine_grove", "tent_lakeside", "tent_car_camp", "tent_interior_view"]
 for _name in NATURAL_SCENES:
     _s = SCENES[_name]
     _s.style = NATURAL_STYLE
@@ -1107,9 +1123,9 @@ for _name in NATURAL_SCENES:
     _s.negative = ", ".join(x for x in (_s.negative, NATURAL_NEGATIVE) if x)
 
 # v11.22: 사실적인 질감이 필요한 산·숲·개울 장면은 Z-Image (SDXL 은 나무·산이 AI 같고 흐림)
-for _name in ("tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_by_stream", "tent_meadow", "tent_pine_grove", "tent_lakeside", "tent_car_camp"):
+for _name in ("tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_by_stream", "tent_meadow", "tent_pine_grove", "tent_lakeside", "tent_car_camp", "tent_interior_view"):
     SCENES[_name].comfy = {**SCENES[_name].comfy, "family": "zimage"}
-for _name in ("tent", "tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_car_camp"):      # v11.23: 텐트 안에서 바깥을 보는 장면 — 비는 열린 바깥에만, 바깥 땅에는 빗방울이 튀게
+for _name in ("tent", "tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_car_camp", "tent_interior_view"):      # v11.23: 텐트 안에서 바깥을 보는 장면 — 비는 열린 바깥에만, 바깥 땅에는 빗방울이 튀게
     SCENES[_name].rain = {**SCENES[_name].rain, "outside_only": True, "splashes": True}
 
 
