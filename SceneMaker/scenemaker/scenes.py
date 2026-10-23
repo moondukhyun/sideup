@@ -574,7 +574,7 @@ SCENES = {
                 "early morning, soft pale light, mist over the view, the lanterns still glowing inside",
                 "dusk, the lanterns glowing warmly inside, the view outside in deep blue mist",
             ],
-            {"intensity": 1.0, "brightness": 0.45, "darken": 0.06, "fog": 0.12, "interior": 1.0, "water_rain": 0.8, "wet": 0.8},
+            {"intensity": 1.0, "brightness": 0.45, "darken": 0.06, "fog": 0.12, "interior": 0.4, "water_rain": 1.6, "water_boost": 2.0, "wet": 0.8, "veil": 0.0, "splash_gain": 0.5},
             negative=FOREST_NEGATIVE + ", glamping resort, hotel, fairy lights, bonfire, people, snowy peaks, canada, norway, rain inside the tent, wet floor inside",
         ),
         Scene(
@@ -1127,7 +1127,8 @@ for _name in NATURAL_SCENES:
 for _name in ("tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_by_stream", "tent_meadow", "tent_pine_grove", "tent_lakeside", "tent_car_camp", "tent_interior_view"):
     SCENES[_name].comfy = {**SCENES[_name].comfy, "family": "zimage"}
 for _name in ("tent", "tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_car_camp", "tent_interior_view"):      # v11.23: 텐트 안에서 바깥을 보는 장면 — 비는 열린 바깥에만, 바깥 땅에는 빗방울이 튀게
-    SCENES[_name].rain = {**SCENES[_name].rain, "outside_only": True, "splashes": True}
+    SCENES[_name].rain = {**SCENES[_name].rain, "outside_only": True, "splashes": True,
+                          **({"veil": 0.0, "splash_gain": 0.6} if _name in ("tent_view_mountains", "tent_view_stream", "tent_view_valley") else {})}
 
 
 # v11.20: 물·안개가 거의 없는 씬은 Wan(AI 물 움직임)을 기본으로 건너뜀 (실행해도 '움직임 없음'이라 시간만 2~15분 낭비)

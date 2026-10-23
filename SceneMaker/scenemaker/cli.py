@@ -690,7 +690,7 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         maps = details_mod.outside_maps(maps, om, dfull)                    # 물 튀김·물방울도 바깥에서만, 바깥 땅에도 빗방울이 튀게
     if want_details and real:
         renderer.details = details_mod.WeatherDetails(maps, renderer.W, renderer.H, renderer.N, renderer.fps,
-                                                      intensity=rs.intensity, seed=rs.seed)
+                                                      intensity=rs.intensity, seed=rs.seed, gain=rs.splash_gain)
         d = renderer.details
         print(f"  디테일: 물 튀김 {len(d.splashes)} · 물결 {len(d.ripples)} · 물방울 {len(d.drips)} (루프당)")
     renderer._depth_full = dfull
@@ -792,7 +792,7 @@ def _attach_stream(renderer, job, rs, dfull):
 def _attach_water(renderer, rs, dfull, extra=None, region=None):
     """계곡·호수 수면에 떨어지는 빗방울 물결 (waterrain.py). extra: Wan 이 움직인 물 영역도 수면으로 인정."""
     from .waterrain import WaterRain, water_mask
-    m = water_mask(renderer.bg, dfull, extra)
+    m = water_mask(renderer.bg, dfull, extra, relaxed=region is not None)
     if region is not None:                                                  # 텐트 장면: 열린 바깥의 호수에만 빗방울 물결
         m = m * np.clip(region, 0, 1)
     cov = float(m.mean())
@@ -800,7 +800,7 @@ def _attach_water(renderer, rs, dfull, extra=None, region=None):
         print("  수면 빗방울: 물 영역이 거의 없어 사용하지 않음")
         return
     renderer.water = WaterRain(m, dfull, renderer.W, renderer.H, renderer.N, renderer.fps,
-                               intensity=rs.intensity * rs.water_rain, seed=rs.seed)
+                               intensity=rs.intensity * rs.water_rain, seed=rs.seed, boost=rs.water_boost)
     print(f"  수면 빗방울: 물 영역 {cov:.0%} · 루프당 {renderer.water.count}개")
 
 

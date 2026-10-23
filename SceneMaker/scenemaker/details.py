@@ -206,8 +206,9 @@ def outside_maps(maps, om, depth):
 
 # ---------- 이벤트 (루프 안에서 반복) ----------
 class WeatherDetails:
-    def __init__(self, maps, W, H, N, fps, intensity=1.0, seed=7):
+    def __init__(self, maps, W, H, N, fps, intensity=1.0, seed=7, gain=1.0):
         self.W, self.H, self.N, self.fps = W, H, N, fps
+        self.gain = float(gain)
         self.res = H / 1080.0
         rng = np.random.default_rng(seed + 11)
         self.depth = maps["depth"]
@@ -267,10 +268,10 @@ class WeatherDetails:
                 # 땅에 닿기 직전: 위에서 내려오는 짧은 빗줄기 (한 프레임에 줄 길이만큼 이동) → 점이 '생기는' 게 아니라 '떨어지는' 것으로 보임
                 L = (12 + 40 * near) * r0
                 head_y = y - L * (pre - 1) * 1.15 - L * 0.1
-                dr.line((x - 0.08 * L, head_y - L, x, head_y), fill=int(55 + 70 * near), width=max(1, round(0.7 * r0)))
+                dr.line((x - 0.08 * L, head_y - L, x, head_y), fill=int((55 + 70 * near) * self.gain), width=max(1, round(0.7 * r0)))
                 continue
-            s_ = (1.5 + 10.0 * near ** 2) * r0 * rng.uniform(0.6, 1.2)           # 가까우면 최대 약 10px
-            a = int((120 + 110 * near) * (1 - age / 6) * rng.uniform(0.6, 1.0))
+            s_ = (1.5 + 10.0 * near ** 2) * r0 * rng.uniform(0.6, 1.2) * (0.55 + 0.45 * self.gain)           # 가까우면 최대 약 10px (gain 이 낮으면 더 작게)
+            a = int((120 + 110 * near) * (1 - age / 6) * rng.uniform(0.6, 1.0) * self.gain)
             lw = max(1, round((0.5 + 0.8 * near) * r0))
             if age == 0:                                   # 부딪힌 순간: 납작한 밝은 점
                 dr.ellipse((x - s_ * 0.35, y - s_ * 0.08, x + s_ * 0.35, y + s_ * 0.08), fill=a)
