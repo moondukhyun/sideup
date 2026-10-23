@@ -6176,7 +6176,7 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.34 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.35 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
@@ -7486,7 +7486,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.34 시작\n")
+        self.log("🚀 LoopMaker v11.35 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 
@@ -7668,6 +7668,7 @@ class App(SceneTabMixin, tk.Tk):
                     pr.kill()
         except Exception:
             pass
+        _run_log("종료(창 닫기)")
         try:
             self.destroy()
         finally:
@@ -7680,6 +7681,24 @@ class App(SceneTabMixin, tk.Tk):
         if self.narrator:
             self.narrator.kill()
         self.log("⏹ 중단 요청됨... 정리 중")
+
+
+RUN_LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "실행기록.txt")
+
+
+def _run_log(msg):
+    """v11.35: 켜질 때·꺼질 때를 기록 (창이 여러 번 다시 켜지는 문제를 숫자로 확인하기 위한 진단용). 최근 200줄만 유지."""
+    try:
+        line = f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg} PID={os.getpid()}\n"
+        lines = []
+        if os.path.exists(RUN_LOG_PATH):
+            with open(RUN_LOG_PATH, encoding="utf-8") as f:
+                lines = f.readlines()[-199:]
+        lines.append(line)
+        with open(RUN_LOG_PATH, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except Exception:
+        pass
 
 
 def _single_instance_guard():
@@ -7700,6 +7719,7 @@ def _single_instance_guard():
 
 if __name__ == "__main__":
     _guard = _single_instance_guard()
+    _run_log("시작" + (" (이미 켜져 있어 종료)" if _guard is False else ""))
     if _guard is False:
         try:
             _r = tk.Tk()
@@ -7709,4 +7729,9 @@ if __name__ == "__main__":
         except Exception:
             pass
         sys.exit(0)
-    App().mainloop()
+    try:
+        App().mainloop()
+        _run_log("종료(정상)")
+    except Exception as _ex:
+        _run_log(f"종료(오류: {_ex!r})")
+        raise
