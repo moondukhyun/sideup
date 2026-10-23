@@ -199,7 +199,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
     W, H = RESOLUTIONS[v["resolution"]]
     bg = fit_cover(Image.open(image).convert("RGB"), W, H)
     rs = _rain_settings(cfg, scene_name, args, meta.get("rain_override"))
-    print(f"  적용된 설정 (v11.36 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
+    print(f"  적용된 설정 (v11.37 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
           f"실내 효과 {rs.interior:g} · 수면 {rs.water_rain:g}x{rs.water_boost:g} · 바깥만 {'예' if getattr(rs, 'outside_only', False) else '아니오'}")
     if variety.warn_similar(bg, "이 배경은"):
         print("  → 다른 배경을 쓰거나, 그대로 쓰려면 무시하세요.")
@@ -747,7 +747,7 @@ def _attach_wet(renderer, job, dfull, rs, stream_mask=None, region=None):
         renderer.bg = wet_look(renderer.bg, m, rs.wet, renderer.res)
     else:
         m = np.zeros_like(m)
-    renderer.wet = WetRocks(renderer.bg, m, renderer.N, renderer.fps, wet=rs.wet, seed=rs.seed, paths=paths)
+    renderer.wet = WetRocks(renderer.bg, m, renderer.N, renderer.fps, wet=rs.wet, seed=rs.seed, paths=paths, streams=rs.wet_streams)
     w = renderer.wet
     tint = (np.clip(renderer.bg, 0, 1) * 255).astype(np.float32)
     tint[..., 0] = tint[..., 0] * (1 - m * 0.5) + 255 * m * 0.5

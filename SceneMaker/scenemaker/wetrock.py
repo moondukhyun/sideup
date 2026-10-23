@@ -117,7 +117,7 @@ def vertical_edge_paths(bg, depth, res, rng, exclude=None, max_paths=80):
 
 
 class WetRocks:
-    def __init__(self, bg, mask, N, fps, wet=1.0, seed=7, paths=None):
+    def __init__(self, bg, mask, N, fps, wet=1.0, seed=7, paths=None, streams=1.0):
         """bg: wet_look 이 이미 적용된 float RGB (H,W,3). mask: rock_mask 결과 (젖은 표면).
         paths: vertical_edge_paths 가 찾은 대나무·기둥 줄기 물줄기 경로."""
         import cv2
@@ -142,9 +142,9 @@ class WetRocks:
         self.sheen_gain = 0.42 * wet
 
         # (2) 흘러내리는 물줄기: 젖은 표면(돌·지붕·벽) 위 + 세로 줄기(대나무·기둥)를 따라
-        self.rivulets = self._make_rivulets(mask, rng, wet)
+        self.rivulets = self._make_rivulets(mask, rng, wet) if streams > 0 else []        # streams 0: 돌·자갈 위 굵은 흰 물줄기·세로 줄기 물줄기를 그리지 않음 (젖은 질감·반짝임만)
         self.n_surface = len(self.rivulets)
-        for pts in (paths or []):
+        for pts in ((paths or []) if streams > 0 else []):
             self.rivulets.append({"pts": pts, "k": int(rng.integers(1, 4)), "phase": float(rng.uniform(0, 1)),
                                   "w": max(1, int(round(rng.uniform(1.0, 1.9) * self.res)))})
         self.n_edge = len(self.rivulets) - self.n_surface
