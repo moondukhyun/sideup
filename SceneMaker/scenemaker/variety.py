@@ -187,7 +187,7 @@ CLOSEUP_GLOWS = ["warm golden glow", "deep amber glow", "soft orange glow", "gen
 
 # 씬 이름에 시간이 정해진 경우 시간 축을 쓰지 않음
 # v11.24: 모닥불 캠핑 장면 — 비 없는 저녁·밤. 호수·텐트·장작·소품·계절을 이미지마다 다르게
-CAMPFIRE_SCENES = {"campfire_lake", "campfire_kettle_lake", "campfire_tent_lake", "campfire_tent_kettle", "campfire_forest", "campfire_only", "campfire_car_camp"}
+CAMPFIRE_SCENES = {"campfire_lake", "campfire_kettle_lake", "campfire_tent_lake", "campfire_tent_kettle", "campfire_valley_table", "campfire_forest", "campfire_only", "campfire_car_camp"}
 CAMPFIRE_AXES = {
     "time": ["dusk just after sunset", "blue hour twilight", "late evening with a last glow in the sky", "deep blue night with a few stars", "calm early night"],
     "season": ["late spring", "early summer", "late summer", "early autumn with a few yellowing leaves"],
@@ -198,6 +198,7 @@ CAMPFIRE_WOODS = ["split pine logs with a few thin branches", "stacked oak logs 
 CAMPFIRE_GROUND = ["fine gravel and pebbles", "short natural grass", "flat dry sand and small stones", "packed dirt with a few pine needles"]
 CAMPFIRE_EXTRAS = ["a folding wooden camp chair beside the fire", "a canvas backpack leaning on a log", "a steel camping mug on a flat rock", "a stack of firewood under a small tarp",
                    "a hanging camp lantern on a pole (unlit)", "a blanket folded over a log seat", "an enamel cooking pot beside the fire", "nothing else, only the fire and the nature"]
+TABLE_MEALS = ["grilled sausages and vegetables on a steel plate, bread and a bowl of fruit", "a pot of stew, rice bowls and a plate of kimchi and side dishes", "grilled fish and corn, a basket of bread and sliced fruit", "skewers of grilled meat and mushrooms, a salad bowl and rice", "sandwiches, boiled eggs, fruit and a thermos"]
 CAMPFIRE_TENTS = ["an olive green dome tent", "a beige canvas bell tent", "a grey-blue dome tent", "a sand-colored tunnel tent", "a dark green cabin tent"]
 
 # v11.24: 차박·텐트 장면 — '경치 좋은 곳 + 멋진 텐트 + 멋진 소품' (이전 목록은 평범해서 쓰기 어렵다는 의견 반영)
@@ -264,8 +265,10 @@ def diversify(scene_name, seed, rain_level=None):
         picks["pit"] = "campfire inside " + rng.choice(CAMPFIRE_PITS) + " with " + rng.choice(CAMPFIRE_WOODS)
         picks["ground"] = rng.choice(CAMPFIRE_GROUND) + " on the ground"
         picks["extra"] = rng.choice(CAMPFIRE_EXTRAS)
-        if scene_name in ("campfire_tent_lake", "campfire_tent_kettle", "campfire_forest"):
+        if scene_name in ("campfire_tent_lake", "campfire_tent_kettle", "campfire_valley_table", "campfire_forest"):
             picks["tent"] = "the tent is " + rng.choice(CAMPFIRE_TENTS)
+        if scene_name == "campfire_valley_table":
+            picks["table"] = "the table holds " + rng.choice(TABLE_MEALS)
         picks["vegetation"] = rng.choice(VEGETATION)
         picks["terrain"] = rng.choice(TERRAINS)
         if scene_name in CAR_SCENES:

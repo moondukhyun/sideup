@@ -868,6 +868,23 @@ SCENES = {
             style=NATURAL_STYLE, negative=CAMPFIRE_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
         ),
         Scene(
+            "campfire_valley_table",
+            "산·계곡 캠핑 · 텐트 + 장작불 + 먹거리 테이블",
+            "a campsite beside a clear mountain stream in a Korean valley, a dome tent with a soft warm glow from inside, a wooden camp table set with a meal in front of the tent, a real wood campfire burning nearby, "
+            "on the table a steel plate of grilled food, a loaf of bread, a bowl of fruit, enamel cups and one full cup of dark coffee at the front edge of the table, the coffee cup is plain and full with no steam and no smoke above it, "
+            "a real wood campfire with tall lively orange flames and glowing embers on a ring of stones, small split logs stacked in the fire, warm firelight lighting the table and the ground, "
+            "real documentary photograph of a Korean mountain campsite, ordinary Korean mountain scenery: steep valley walls covered with mixed oak, pine and other deciduous trees, individual tree crowns of different heights and greens, ridgelines layered one behind another fading into soft haze, a shallow stream over smooth stones, natural irregular details, no fantasy, no alpine peaks, dry clear air with no precipitation, empty campsite without people",
+            [
+                "wide view: the tent on the left, the table with the meal in the middle, the campfire on the right, the valley and stream behind",
+                "wide view: the tent on the right, the table with the meal in the middle, the campfire on the left, the valley and stream behind",
+                "the table with the meal and the coffee cup large in the foreground, the campfire and the glowing tent softly visible behind",
+                "a low angle across the campfire flames toward the table and the tent, the valley dim behind",
+                "dusk wide view, the fire and the lamp-lit table are the brightest lights, the tent glowing, the valley in deep blue haze",
+            ],
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "fire": 1.0, "water_rain": 0.0, **CAMPFIRE_RAIN},
+            style=NATURAL_STYLE, negative=CAMPFIRE_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
             "campfire_car_camp",
             "차박 캠핑 · 차 앞 큰 장작불",
             "a beautiful car camping site in Korean nature with a stunning view, a stylish vehicle parked beside a handsome tent or covered lounge with a stylish table and comfortable chairs under its roof, and out in the open in front of it a big campfire burning on a ring of stones, tasteful warm lantern light, natural unposed composition, sharp focus, "
