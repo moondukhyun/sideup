@@ -4470,6 +4470,14 @@ class StoryNarrator:
         return titles[0], "\n\n".join(bibles), "\n\n".join(parts), titles
 
     # ---------- 믹싱 ----------
+    def _playable_problem(self, path, dur):
+        """영상의 앞·초반·중간·끝을 실제로 디코딩해 본다. 문제 없으면 "", 있으면 어디서 실패했는지 설명."""
+        for ss in (0.0, 8.0, dur * 0.5, max(0.0, dur - 9.0)):
+            rc, _, err = self._ff([FFMPEG, "-v", "error", "-ss", f"{ss:.2f}", "-t", "5", "-i", path, "-f", "null", "-"])
+            if rc != 0 or err.strip():
+                return f"{ss:.0f}초 부근: " + err.decode("utf-8", "ignore").strip()[-160:]
+        return ""
+
     def mix(self, video, narr_wav, narr_len, start_sec, duck_key, vdur, out_path, vin=None):
         """v11.6: 입력 0 = 영상(원본 또는 제목카드 앞부분+나머지를 이어붙인 concat 목록),
         입력 1 = 원본 영상의 빗소리, 입력 2 = 내레이션. 결과 파일을 한 번에 새로 써서
@@ -4699,6 +4707,15 @@ class StoryNarrator:
             ndur = self.probe_duration(out_path)
             if abs(ndur - vdur) > 2.0:
                 raise RuntimeError(f"완성 영상 길이가 원본과 다릅니다 (원본 {vdur:.0f}초 / 결과 {ndur:.0f}초)")
+            bad = self._playable_problem(out_path, vdur)                 # v11.42: 실제로 재생(디코딩)되는지 앞·중간·끝을 검사
+            if bad and card_ok:
+                self.log(f"  ⚠️ 제목 카드가 들어간 영상이 재생 검사를 통과하지 못했어요 ({bad}) — 제목 카드 없이 다시 합칩니다")
+                card_ok = False
+                self.mix(video, narr_wav, narr_len, start_sec, duck_key, vdur, out_path, vin=None)
+                bad = self._playable_problem(out_path, vdur)
+            if bad:
+                raise RuntimeError(f"완성 영상이 정상 재생되지 않아요: {bad}")
+            self.log("  ✅ 재생 검사 통과 (앞·중간·끝 부분을 실제로 읽어 확인)")
 
             # 5) 유튜브 패키지 연동용 이야기 정보 (제목 부제목 + 설명란 요약 + 타임라인)
             info = {"title": title, "summary": fit_summary(self.summary),
@@ -5133,7 +5150,7 @@ class SceneTabMixin:
         self.sm_dur_var = tk.StringVar(value=cfg.get("duration", SM_DURATIONS[0][0]))
         self.sm_res_var = tk.StringVar(value=cfg.get("resolution", SM_RES[0][0]))                  # v11.32: 해상도 (시험은 1080p 로 빠르게)
         self.sm_motion_var = tk.BooleanVar(value=cfg.get("motion", True))
-        self.sm_sample_var = tk.BooleanVar(value=False)               # v11.41: 4초 샘플만 (효과 위치·세기 확인용)
+        self.sm_sample_var = tk.BooleanVar(value=False)               # v11.42: 4초 샘플만 (효과 위치·세기 확인용)
         self.sm_details_var = tk.BooleanVar(value=cfg.get("details", True))
         self.sm_wan_var = tk.BooleanVar(value=cfg.get("wan", False))
         self.sm_wet_var = tk.BooleanVar(value=cfg.get("wet", True))      # v11.19: 젖은 바위·물줄기·수면 빗방울
@@ -6194,7 +6211,7 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.41 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.42 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
@@ -6608,7 +6625,7 @@ class App(SceneTabMixin, tk.Tk):
         self.narr_work_cb = ttk.Combobox(wr, textvariable=self.narr_work_var, width=44, state="readonly")
         self.narr_work_cb.pack(side="left", padx=4)
         ttk.Button(wr, text="이 작품부터", command=self.pick_next_work).pack(side="left", padx=4)
-        ttk.Button(wr, text="↩ 처음부터 다시", command=self.restart_work).pack(side="left", padx=4)       # v11.41: 테스트로 진행된 작품을 1부분부터 다시
+        ttk.Button(wr, text="↩ 처음부터 다시", command=self.restart_work).pack(side="left", padx=4)       # v11.42: 테스트로 진행된 작품을 1부분부터 다시
         self._work_lines = []
         self.narr_style_var.trace_add("write", lambda *_: self._refresh_works())
         self._refresh_works()
@@ -7522,7 +7539,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.41 시작\n")
+        self.log("🚀 LoopMaker v11.42 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 
