@@ -3810,6 +3810,17 @@ def classic_set_next(line, abandon_current=False):
     return next((it[1] for it in _classic_items() if it[3] == line), line)
 
 
+def classic_restart(line):
+    """고른 작품을 1부분부터 다시 시작: 진행 기록(몇 부분까지 들려줬는지)을 지우고 목록 맨 위로 올린다. → 작품 제목"""
+    title = classic_set_next(line, abandon_current=True)
+    st = load_classic_state()
+    cur = st.get("current")
+    if cur and cur.get("line") == line:
+        st["current"] = None
+    save_classic_state(st)
+    return title
+
+
 def run_claude_text(prompt, timeout=300, allow_read=False, retries=3, log=None):
     """v11.13: 일시적인 실패(시간 초과·네트워크·잠깐의 사용량 제한)에 대비해 최대 3번 재시도.
     v11.19: 로그인 만료·사용량 한도는 기다려도 풀리지 않으므로 재시도 없이 바로 멈춘다."""
@@ -5122,7 +5133,7 @@ class SceneTabMixin:
         self.sm_dur_var = tk.StringVar(value=cfg.get("duration", SM_DURATIONS[0][0]))
         self.sm_res_var = tk.StringVar(value=cfg.get("resolution", SM_RES[0][0]))                  # v11.32: 해상도 (시험은 1080p 로 빠르게)
         self.sm_motion_var = tk.BooleanVar(value=cfg.get("motion", True))
-        self.sm_sample_var = tk.BooleanVar(value=False)               # v11.40: 4초 샘플만 (효과 위치·세기 확인용)
+        self.sm_sample_var = tk.BooleanVar(value=False)               # v11.41: 4초 샘플만 (효과 위치·세기 확인용)
         self.sm_details_var = tk.BooleanVar(value=cfg.get("details", True))
         self.sm_wan_var = tk.BooleanVar(value=cfg.get("wan", False))
         self.sm_wet_var = tk.BooleanVar(value=cfg.get("wet", True))      # v11.19: 젖은 바위·물줄기·수면 빗방울
@@ -6183,7 +6194,7 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.40 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.41 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
@@ -6597,6 +6608,7 @@ class App(SceneTabMixin, tk.Tk):
         self.narr_work_cb = ttk.Combobox(wr, textvariable=self.narr_work_var, width=44, state="readonly")
         self.narr_work_cb.pack(side="left", padx=4)
         ttk.Button(wr, text="이 작품부터", command=self.pick_next_work).pack(side="left", padx=4)
+        ttk.Button(wr, text="↩ 처음부터 다시", command=self.restart_work).pack(side="left", padx=4)       # v11.41: 테스트로 진행된 작품을 1부분부터 다시
         self._work_lines = []
         self.narr_style_var.trace_add("write", lambda *_: self._refresh_works())
         self._refresh_works()
@@ -6812,6 +6824,23 @@ class App(SceneTabMixin, tk.Tk):
             cb.current(pick)
         else:
             self.narr_work_var.set("")
+
+    def restart_work(self):
+        style = NARR_STYLES.get(self.narr_style_var.get(), "classic")
+        idx = self.narr_work_cb.current()
+        if not is_lib_style(style) or idx < 0 or idx >= len(self._work_lines):
+            messagebox.showinfo("확인", "다시 시작할 작품을 먼저 골라주세요")
+            return
+        set_active_lib(style)
+        if not messagebox.askyesno("처음부터 다시", "고른 작품을 1부분부터 다시 시작할까요?\n(지금까지 들려준 진행 기록이 지워져요. 만들어 둔 영상·대본 파일은 그대로예요)"):
+            return
+        try:
+            title = classic_restart(self._work_lines[idx])
+        except Exception as ex:
+            self.log(f"❌ 처음부터 다시 시작하지 못했어요: {ex}")
+            return
+        self.log(f"↩ 「{title}」을(를) 1부분부터 다시 시작해요  ·  {classic_status_text()}")
+        self._refresh_works()
 
     def pick_next_work(self):
         style = NARR_STYLES.get(self.narr_style_var.get(), "classic")
@@ -7493,7 +7522,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.40 시작\n")
+        self.log("🚀 LoopMaker v11.41 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 
