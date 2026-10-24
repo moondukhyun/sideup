@@ -105,3 +105,85 @@ class StreamFlow:
         glint = 0.08 * self.strength * np.clip(patt - 0.6, 0, None) * m
         out[self.y0:self.y1, self.x0:self.x1] = np.clip(cur * mod + glint, 0, 1)
         return out
+
+
+class RiverFlow:
+    """v11.44: 직접 표시한 계곡·개울 물이 정해진 방향으로 흐르게 한다.
+
+    표시한 영역 안의 물결 무늬(흐름 방향으로 길쭉한 줄무늬)를 흐름 방향으로 굴려 보내며,
+    줄무늬 주기 P 를 루프 동안 정수 번 이동하므로 N 프레임 뒤 정확히 제자리 → 이음새 없음.
+    가까운(화면 아래) 물일수록 일렁임이 크다. 프레임마다 새 배열만 만들어 스레드에 안전.
+    """
+
+    DIRS = {"l": (-1, 0), "r": (1, 0), "d": (0, 1), "u": (0, -1)}
+
+    def __init__(self, bg, zones, N, fps, strength=1.0, seed=7, speed=1.0):
+        import cv2
+        self.cv2 = cv2
+        H, W = bg.shape[:2]
+        self.H, self.W, self.N, self.fps = H, W, N, fps
+        self.strength = float(strength)
+        res = H / 1080.0
+        self.items = []
+        self.mask = np.zeros((H, W), np.float32)
+        for zi, (d, zone) in enumerate(zones):
+            m = cv2.GaussianBlur(zone.astype(np.float32), (0, 0), 3.0 * res + 1.0)
+            ys, xs = np.nonzero(m > 0.02)
+            if len(ys) < 40:
+                continue
+            pad = int(10 * res) + 3
+            y0, y1 = max(0, int(ys.min()) - pad), min(H, int(ys.max()) + pad)
+            x0, x1 = max(0, int(xs.min()) - pad), min(W, int(xs.max()) + pad)
+            h, w = y1 - y0, x1 - x0
+            horiz = d in ("l", "r")
+            P = max(48, int(110 * res))
+            rng = np.random.default_rng(seed + 977 + zi)
+            pats = []
+            for sa, sc in ((10.0, 2.2), (16.0, 3.4), (7.0, 1.6)):                  # 흐름 방향으로 길쭉한 줄무늬 3겹
+                shape = (h, P) if horiz else (P, w)
+                base = rng.normal(0, 1, shape).astype(np.float32)
+                tiled = np.tile(base, (1, 3) if horiz else (3, 1))
+                sx, sy = (sa, sc) if horiz else (sc, sa)
+                tiled = cv2.GaussianBlur(tiled, (0, 0), sigmaX=sx * res, sigmaY=sy * res)
+                pat = tiled[:, P:2 * P] if horiz else tiled[P:2 * P, :]
+                pat = pat / (float(pat.std()) + 1e-6)
+                reps = ((w if horiz else h) + 2 * P) // P + 2
+                pats.append(np.tile(pat, (1, reps) if horiz else (reps, 1)).astype(np.float32))
+            v_px = 130.0 * res * float(speed) / fps                                  # 먼 개울이 천천히 흐르는 정도
+            k = max(1, int(round(v_px * N / P)))
+            near = (0.45 + 1.1 * (np.arange(y0, y1, dtype=np.float32) / H))[:, None]     # 아래(가까움)일수록 크게 일렁
+            self.items.append({"d": d, "box": (x0, y0, x1, y1), "P": P, "k": k, "pats": pats,
+                               "m": m[y0:y1, x0:x1, None].astype(np.float32), "near": near,
+                               "gx": np.tile(np.arange(w, dtype=np.float32), (h, 1)),                 # 잘라낸 조각 안의 좌표 (remap 은 조각 기준)
+                               "gy": np.tile(np.arange(h, dtype=np.float32)[:, None], (1, w))})
+            self.mask = np.maximum(self.mask, m)
+
+    def apply(self, out, f):
+        cv2 = self.cv2
+        res = self.H / 1080.0
+        for it in self.items:
+            x0, y0, x1, y1 = it["box"]
+            h, w = y1 - y0, x1 - x0
+            P = it["P"]
+            s = int(round(it["k"] * P * f / self.N)) % P
+            horiz = it["d"] in ("l", "r")
+            sign = 1 if it["d"] in ("r", "d") else -1
+
+            def cut(pat):
+                o = (P - s) if sign > 0 else s
+                return (pat[:, o:o + w] if horiz else pat[o:o + h, :])
+            p1, p2, p3 = (cut(p) for p in it["pats"])
+            amp = 1.8 * res * self.strength
+            along = amp * p1 * it["near"]
+            cross = 0.6 * amp * p2 * it["near"]
+            if horiz:
+                mx, my = it["gx"] + along, it["gy"] + cross
+            else:
+                mx, my = it["gx"] + cross, it["gy"] + along
+            reg = np.ascontiguousarray(out[y0:y1, x0:x1])
+            warped = cv2.remap(reg, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+            mod = 1.0 + 0.10 * self.strength * p3[..., None]
+            glint = 0.06 * self.strength * np.clip(p2 - 0.8, 0, None)[..., None]
+            a = it["m"] * min(1.0, 0.95 * self.strength)
+            out[y0:y1, x0:x1] = np.clip(reg * (1 - a) + (warped * mod + glint) * a, 0, 1)
+        return out

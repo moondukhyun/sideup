@@ -145,6 +145,7 @@ class RainRenderer:
         self.steam = None            # interior.Steam (커피잔·주전자 김, v11.24)
         self.fans = None             # interior.FanSpin (천장 선풍기 회전, v11.22)
         self.pets = None             # interior.PetBreath (반려동물 숨쉬기, v11.22)
+        self.river = None            # streamflow.RiverFlow (직접 표시한 계곡·개울 물 흐름, v11.44)
         self.stream = None           # streamflow.StreamFlow (대롱·폭포 물줄기 흐름, v11.21)
         self.detail_color = np.array([235, 240, 245], dtype=np.float32) / 255.0
         self.haze = None             # set_depth(): 먼 곳이 빗속 공기에 묻히는 원근감 (depth 방식)
@@ -371,6 +372,8 @@ class RainRenderer:
             out += self.bloom                                # 밝은 빛 번짐 (halation)
         if self.water is not None:
             out = self.water.apply(out, f)                  # 수면 굴절 → 그 위에 안개·빗줄기
+        if self.river is not None:
+            out = self.river.apply(out, f)                  # 표시한 계곡·개울 물이 정해진 방향으로 흐름 (v11.44)
         if self.stream is not None:
             out = self.stream.apply(out, f)                 # 대롱·폭포 물줄기가 위에서 아래로 흐름 (v11.21)
         if self.wet is not None:

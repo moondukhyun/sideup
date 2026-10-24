@@ -236,13 +236,14 @@ def _smooth(x):
 
 # ---------------------------------------------------------------- 렌더러
 class Interior:
-    def __init__(self, bg, N, fps, strength=1.0, fire_strength=1.0, pets=None, seed=7, info=None, fire_speed=0.45, calm=1.0):
+    def __init__(self, bg, N, fps, strength=1.0, fire_strength=1.0, pets=None, seed=7, info=None, fire_speed=0.45, calm=1.0, tips=False):
         import cv2
         self.cv2 = cv2
         H, W = bg.shape[:2]
         self.H, self.W, self.N, self.fps = H, W, N, fps
         self.res = H / 1080.0
         self.strength = float(strength)
+        self.tips = bool(tips)                     # 야외 모닥불: 어두운 하늘 쪽으로 뻗은 불꽃 끝(핵보다 어두움)까지 같이 일렁이게
         calm = float(np.clip(calm, 0.1, 1.0))      # 1 = 기본, 작을수록 촛불·등불이 느리고 작게 일렁임 (등불이 여러 개인 장면용)
         self.fire_strength = float(fire_strength)
         self.procedural = True                     # False 면 불꽃·촛불 모양 움직임은 Wan 이 만들므로 방 안 불빛 일렁임만 담당
@@ -327,7 +328,7 @@ class Interior:
         if self.fire is not None:
             bx0, by0, bx1, by1 = self.fire["box"]
             pad = int(26 * res)
-            fx0, fy0 = max(0, int(bx0) - pad), max(0, int(by0 - 0.42 * (by1 - by0)) - pad)
+            fx0, fy0 = max(0, int(bx0) - pad), max(0, int(by0 - (1.0 if self.tips else 0.42) * (by1 - by0)) - pad)
             fx1, fy1 = min(W, int(bx1) + pad), min(H, int(by1) + pad // 2)
             bh, bw = fy1 - fy0, fx1 - fx0
             if bh > 16 and bw > 16:
@@ -340,6 +341,15 @@ class Interior:
                 reps = (bh + 2 * P) // P + 2
                 self.fn1, self.fn2, self.fn3 = [np.tile(a, (reps, 1)) for a in (self.fn1, self.fn2, self.fn3)]
                 m = self.fire["mask"][fy0:fy1, fx0:fx1]
+                if self.tips:                                   # 불꽃 끝: 따뜻하고 밝은 픽셀을 일렁임 영역에 추가 (핵 위쪽, 불 폭 안쪽)
+                    reg = bg[fy0:fy1, fx0:fx1]
+                    lum_ = reg @ LUMA
+                    warm = np.clip((reg[..., 0] - reg[..., 2] - 0.06) / 0.15, 0, 1) * np.clip((lum_ - 0.22) / 0.25, 0, 1)
+                    xs_ = np.arange(fx0, fx1, dtype=np.float32)[None, :]
+                    wbox = bx1 - bx0
+                    hz = _smooth((xs_ - (bx0 - 0.25 * wbox)) / (0.2 * wbox + 1.0)) * _smooth(((bx1 + 0.25 * wbox) - xs_) / (0.2 * wbox + 1.0))
+                    up = _smooth((self.fire["base"] - fy0 - np.arange(bh, dtype=np.float32)[:, None]) / max(1.0, 0.1 * (by1 - by0)))
+                    m = np.maximum(m, cv2.GaussianBlur(warm * hz * up, (0, 0), 2.0 * res + 0.5)).astype(np.float32)
                 yy_, xx_ = np.mgrid[0:bh, 0:bw].astype(np.float32)
                 topw = _smooth((self.fire["base"] - fy0 - yy_) / max(1.0, (self.fire["base"] - by0) * 0.9))   # 위로 갈수록 크게 일렁
                 self.fx = {"box": (fx0, fy0, fx1, fy1), "mask": m[..., None].astype(np.float32), "topw": topw.astype(np.float32),
@@ -606,7 +616,7 @@ class Steam:
             bw = min(max(10.0, x1 - x0), 0.05 * W)
             rng = np.random.RandomState((seed * 131 + i * 17) % (2 ** 31 - 1))
             ox, oy = (x0 + x1) / 2.0, y0 + 0.2 * (y1 - y0)
-            hp = float(np.clip(2.6 * bw, 0.035 * H, 0.17 * H)) * (0.8 + 0.4 * amount)      # 컵·주둥이 크기에 비례 (작은 컵에서 컵보다 훨씬 높이 올라가지 않게)    # 올라가는 높이
+            hp = float(np.clip(1.7 * bw, 0.03 * H, 0.085 * H)) * (0.8 + 0.4 * amount)      # 컵·주둥이 크기에 비례 (작은 컵에서 컵보다 훨씬 높이 올라가지 않게)    # 올라가는 높이
             life0 = 7.0 / max(0.3, float(speed))                                  # 한 덩어리가 사라지기까지(초)
             cycles = max(1, int(round(sec / life0)))
             life = sec / cycles                                                   # 루프 길이를 정확히 나누는 수명
@@ -650,7 +660,7 @@ class Steam:
         xs = it["ox"] + it["wob_a"] * np.sin(2 * np.pi * (it["wob_c"] * age) + it["wob_p"]) * (0.25 + age) \
             + (it["lean"] * 0.8 + wind) * age ** 1.3 + wind * 0.6 * age
         ys = it["oy"] - hp * rise
-        rad = (0.45 * bw + (0.14 * hp) * age ** 0.8) * it["size_j"]       # 올라가며 퍼짐
+        rad = (0.40 * bw + (0.11 * hp) * age ** 0.8) * it["size_j"]       # 올라가며 퍼짐
         alpha = (np.clip(age / 0.12, 0, 1) ** 1.5) * ((1.0 - age) ** 1.4) * it["br"]
         for k in range(it["n"]):
             a = alpha[k]

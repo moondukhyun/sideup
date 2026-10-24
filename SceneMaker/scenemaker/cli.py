@@ -201,7 +201,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
     W, H = RESOLUTIONS[v["resolution"]]
     bg = fit_cover(Image.open(image).convert("RGB"), W, H)
     rs = _rain_settings(cfg, scene_name, args, meta.get("rain_override"))
-    print(f"  적용된 설정 (v11.43 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
+    print(f"  적용된 설정 (v11.44 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
           f"실내 효과 {rs.interior:g} · 수면 {rs.water_rain:g}x{rs.water_boost:g} · 바깥만 {'예' if getattr(rs, 'outside_only', False) else '아니오'}")
     if variety.warn_similar(bg, "이 배경은"):
         print("  → 다른 배경을 쓰거나, 그대로 쓰려면 무시하세요.")
@@ -209,6 +209,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
     v["loop_seconds"] = renderer.N / v["fps"]
     _attach_details(cfg, renderer, job, bg, rs, args)
     _attach_interior(renderer, job, rs, args)
+    _attach_river(renderer, job, args)
     if getattr(args, "wan", False):
         _attach_wan(cfg, renderer, job, bg, meta, args)
 
@@ -253,6 +254,24 @@ def make_loop(cfg, image, scene_name, args, job=None):
     return finals
 
 
+def _attach_river(renderer, job, args):
+    """v11.44: [위치 지정]에서 '흐르는 물'로 표시한 곳(방향별)이 있으면 그 안의 물이 그 방향으로 흐르게."""
+    marks = _load_pets(job, args)
+    kinds = {"river_l": "l", "river_r": "r", "river_d": "d", "river_u": "u"}
+    if not any(m.get("kind") in kinds for m in marks):
+        return
+    from .streamflow import RiverFlow
+    zones = [(d, _mark_zone(marks, (k,), renderer.W, renderer.H)) for k, d in kinds.items()]
+    zones = [(d, z) for d, z in zones if z.any()]
+    rf = RiverFlow(renderer.bg, zones, renderer.N, renderer.fps, strength=1.0, seed=getattr(renderer.s, "seed", 7))
+    if not rf.items:
+        print("  흐르는 물: 표시한 영역이 너무 작아 건너뜀")
+        return
+    renderer.river = rf
+    names = {"l": "왼쪽", "r": "오른쪽", "d": "앞쪽(아래)", "u": "뒤쪽(위)"}
+    print(f"  흐르는 물: {len(rf.items)}곳 — " + ", ".join(names[i['d']] for i in rf.items) + "으로 흐르게 함 (영역확인.jpg 의 초록색)")
+
+
 def _write_check_overlay(renderer, job):
     """렌더링 전 확인용 한 장: 파랑=비 내리는 바깥, 하늘색=호수 빗방울, 빨강=젖은 표면, 노랑 원=촛불·등불."""
     from PIL import ImageDraw
@@ -267,6 +286,8 @@ def _write_check_overlay(renderer, job):
         base = base * (1 - k * mm) + np.array(col, np.float32) * k * mm
     layer(getattr(renderer, "outside", None), (60, 110, 255), 0.35)
     layer(getattr(renderer, "water_area", None), (0, 255, 255), 0.5)
+    rv = getattr(renderer, "river", None)
+    layer(getattr(rv, "mask", None) if rv is not None else None, (60, 230, 90), 0.45)
     wet = getattr(renderer, "wet", None)
     layer(getattr(wet, "mask", None) if wet is not None else None, (255, 40, 40), 0.35)
     img = Image.fromarray(np.clip(base, 0, 255).astype(np.uint8))
@@ -338,7 +359,7 @@ def _attach_interior(renderer, job, rs, args):
         zone = _mark_zone([fpoly], ("fire",), Wp, Hp).astype(np.float32)
         info["fire"]["mask"] = info["fire"]["mask"] * cv2.GaussianBlur(zone, (0, 0), 3.0)           # 창밖 불빛은 촛불이 아님 / Claude 가 알려준 불·촛불 위치가 있으면 활용
     it = Interior(renderer.bg, renderer.N, renderer.fps, strength=rs.interior, fire_strength=rs.fire,
-                  seed=rs.seed, info=info, fire_speed=float(getattr(args, "fire_speed", None) or 0.65), calm=rs.flicker)
+                  seed=rs.seed, info=info, fire_speed=float(getattr(args, "fire_speed", None) or 0.65), calm=rs.flicker, tips=bool(getattr(rs, "free_fire", False)))
     pets = [p for p in marks if p.get("kind", "dog") in ("dog", "cat")]
     fans = [p for p in marks if p.get("kind") == "fan"]
     recs = [p for p in marks if p.get("kind") == "record"]
