@@ -116,6 +116,7 @@ _DRY_RULES = [
 
 
 CAMPFIRE_RAIN = {"free_fire": True, "brightness": 0.45, "wet": 0.0, "wan_hint": "the lake surface moves very slightly in the breeze, the campfire flames flicker, no rain"}
+STREAM_CAMP_HINT = "the clear stream water flows steadily downstream over the smooth stones with small ripples and white water between the rocks, the campfire flames flicker naturally, the leaves sway very slightly, no rain"
 CAMPFIRE_NEGATIVE = ("steam, vapor, steam rising from the kettle or the mug, wisps of smoke above the kettle, mist above the kettle, people, person, human, man, woman, figure, rain, raindrops, rain streaks, wet ground, puddles, snow, fog bank, "
                      "jungle, rainforest, fantasy, fairy tale, painting, illustration, 3d render, oversaturated, neon, glowing magical light, "
                      "cartoon flames, fireworks, sparks flying everywhere, huge bonfire tower, bonfire pile, house, cabin, buildings, text, logo, watermark")
@@ -881,7 +882,7 @@ SCENES = {
                 "a low angle across the campfire flames toward the table and the tent, the valley dim behind",
                 "dusk wide view, the fire and the lamp-lit table are the brightest lights, the tent glowing, the valley in deep blue haze",
             ],
-            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "fire": 1.0, "water_rain": 0.0, **CAMPFIRE_RAIN},
+            {"intensity": 0.0, "fog": 0.0, "splashes": False, "interior": 1.0, "fire": 1.0, "water_rain": 0.0, **CAMPFIRE_RAIN, "wan_hint": STREAM_CAMP_HINT},
             style=NATURAL_STYLE, negative=CAMPFIRE_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST,
         ),
         Scene(

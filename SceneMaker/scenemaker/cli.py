@@ -201,7 +201,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
     W, H = RESOLUTIONS[v["resolution"]]
     bg = fit_cover(Image.open(image).convert("RGB"), W, H)
     rs = _rain_settings(cfg, scene_name, args, meta.get("rain_override"))
-    print(f"  적용된 설정 (v11.44 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
+    print(f"  적용된 설정 (v11.45 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
           f"실내 효과 {rs.interior:g} · 수면 {rs.water_rain:g}x{rs.water_boost:g} · 바깥만 {'예' if getattr(rs, 'outside_only', False) else '아니오'}")
     if variety.warn_similar(bg, "이 배경은"):
         print("  → 다른 배경을 쓰거나, 그대로 쓰려면 무시하세요.")
@@ -209,9 +209,9 @@ def make_loop(cfg, image, scene_name, args, job=None):
     v["loop_seconds"] = renderer.N / v["fps"]
     _attach_details(cfg, renderer, job, bg, rs, args)
     _attach_interior(renderer, job, rs, args)
-    _attach_river(renderer, job, args)
     if getattr(args, "wan", False):
         _attach_wan(cfg, renderer, job, bg, meta, args)
+    _attach_river(renderer, job, args)
 
     renderer.frame_image(0).save(job / "preview.png")
     print(f"미리보기: {job / 'preview.png'}  ({W}x{H})")
@@ -255,12 +255,16 @@ def make_loop(cfg, image, scene_name, args, job=None):
 
 
 def _attach_river(renderer, job, args):
-    """v11.44: [위치 지정]에서 '흐르는 물'로 표시한 곳(방향별)이 있으면 그 안의 물이 그 방향으로 흐르게."""
+    """v11.45: [위치 지정]에서 '흐르는 물'로 표시한 곳(방향별)이 있으면 그 안의 물이 그 방향으로 흐르게."""
     marks = _load_pets(job, args)
     kinds = {"river_l": "l", "river_r": "r", "river_d": "d", "river_u": "u"}
     if not any(m.get("kind") in kinds for m in marks):
         return
     from .streamflow import RiverFlow
+    mo = getattr(renderer, "motion", None)
+    if getattr(mo, "active", False) and getattr(mo, "coverage", 0.0) >= 0.02:
+        print("  흐르는 물: Wan(AI 움직임)이 이미 물을 움직이고 있어서 표시한 물 흐름은 쓰지 않아요 (겹치면 어색해짐)")
+        return
     zones = [(d, _mark_zone(marks, (k,), renderer.W, renderer.H)) for k, d in kinds.items()]
     zones = [(d, z) for d, z in zones if z.any()]
     rf = RiverFlow(renderer.bg, zones, renderer.N, renderer.fps, strength=1.0, seed=getattr(renderer.s, "seed", 7))
