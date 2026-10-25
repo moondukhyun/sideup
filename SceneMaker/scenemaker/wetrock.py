@@ -205,6 +205,15 @@ class WetRocks:
         return self.trail_dark
 
     # ---------- 프레임 ----------
+    def _thread_buf2(self):
+        import threading
+        tls = self.__dict__.setdefault("_tls", threading.local())
+        b = getattr(tls, "b2", None)
+        if b is None:
+            b = np.zeros_like(self._buf)
+            tls.b2 = b
+        return b
+
     def _thread_buf(self):
         import threading
         tls = self.__dict__.setdefault("_tls", threading.local())
@@ -233,21 +242,23 @@ class WetRocks:
         if self.rivulets:
             buf = self._thread_buf()                          # 스레드마다 따로 (여러 프레임 동시 렌더링 안전)
             buf.fill(0)
+            soft_buf = self._thread_buf2()                    # 기와 지붕 줄기는 따로 그림 (우유빛 대신 어두운 푸른 윤기로 더함)
+            soft_buf.fill(0)
             tail = ((255, 2), (205, 2), (150, 2), (100, 2), (60, 2), (30, 2))     # (밝기, 구간 길이=경로 점 수)
             for r in self.rivulets:
                 pts = r["pts"]
                 n = len(pts)
                 if r.get("soft"):                                   # 기와 지붕: 방울이 아니라 끊김 없이 줄줄 흐르는 물 — 가는 물길 전체가 희미하게 젖어 있고, 그 위로 긴 물결(밝은 흐름)이 겹쳐 계속 내려감
                     line = pts.reshape(-1, 1, 2)
-                    cv2.polylines(buf, [line], False, 64, r["w"], cv2.LINE_AA)
+                    cv2.polylines(soft_buf, [line], False, 120, r["w"] + 1, cv2.LINE_AA)
                     seg = max(3, int(n * 0.16))
                     for j in range(3):
                         h_ = int(((f / self.N) * r["k"] + r["phase"] + j / 3.0) % 1.0 * (n + 2 * seg) - seg)
-                        for a_, off in ((150, 0), (115, 1), (80, 2)):
+                        for a_, off in ((255, 0), (200, 1), (150, 2)):
                             i1_, i0_ = h_ - off * seg, h_ - (off + 1) * seg
                             lo_, hi_ = max(i0_, 0), min(i1_, n - 1)
                             if lo_ < hi_:
-                                cv2.polylines(buf, [pts[lo_:hi_ + 1].reshape(-1, 1, 2)], False, a_, r["w"], cv2.LINE_AA)
+                                cv2.polylines(soft_buf, [pts[lo_:hi_ + 1].reshape(-1, 1, 2)], False, a_, r["w"] + 1, cv2.LINE_AA)
                     continue
                 head = int(((f / self.N) * r["k"] + r["phase"]) % 1.0 * (n + 16) - 8)   # 경로 앞뒤로 여유를 두고 지나감
                 i1 = head
@@ -263,6 +274,9 @@ class WetRocks:
                                (130 if r.get("soft") else 255), -1, cv2.LINE_AA)
             drops = buf.astype(np.float32) * (1 / 255.0) * (0.80 * min(1.4, self.wet))
             out += ((self._hilite(out, 0.96) - out) * drops[..., None])
+            sd = soft_buf.astype(np.float32) * (1 / 255.0)
+            if sd.any():                                   # 기와 지붕 물: 표면 밝기에 비례해 푸르스름하게 더함 (어두운 기와에서도 보이고 흰색으로 튀지 않음)
+                out += (sd * min(1.4, self.wet))[..., None] * (0.07 + 0.32 * out) * np.array([0.92, 1.0, 1.12], np.float32)
         return out
 
 
