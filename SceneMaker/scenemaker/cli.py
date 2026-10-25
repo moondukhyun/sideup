@@ -626,7 +626,7 @@ def _attach_wan_interior(cfg, renderer, job, bg, meta, args):
             clips.append(wanmotion.generate_clip(client, bg, Path(job) / f"wan_room_{i}", prompt, seed0 + i * 101,
                                                   negative=wanmotion.WAN_ROOM_NEG))
         room = WanRoom(renderer.bg, clips, renderer.N, renderer.fps, fire=it.fire if has_fire else None,
-                       flames=flames, pets=pets, fire_speed=_fire_speed(rs, args, 0.6))
+                       flames=flames, pets=pets, fire_speed=_fire_speed(renderer.s, args, 0.6))
     except Exception as e:                                   # 생성 실패해도 수식 움직임으로 영상은 만든다
         print(f"  ⚠ Wan 실내 움직임 실패 → 수식 움직임으로 대신함: {e}")
         return
