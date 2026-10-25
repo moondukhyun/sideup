@@ -239,7 +239,7 @@ SCENES = {
                 "green ivy on the stone wall behind the jars",
                 "close view of a few jars, shallow depth of field",
             ],
-            {"intensity": 0.9, "angle": 3.0, "fog": 0.05},
+            {"intensity": 0.9, "angle": 3.0, "fog": 0.05, "wet_streams": 0.5},
             negative=HANOK_NEGATIVE,
             lora=KOREA_LORA,
             comfy={"checkpoint": HANOK_BASE, "family": "zimage"},   # v11.22: Z-Image (한옥 장면과 동일)

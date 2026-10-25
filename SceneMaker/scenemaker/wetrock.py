@@ -142,6 +142,7 @@ class WetRocks:
         self.sheen_gain = 0.42 * wet
 
         # (2) 흘러내리는 물줄기: 젖은 표면(돌·지붕·벽) 위 + 세로 줄기(대나무·기둥)를 따라
+        self._streams = float(streams)
         self.rivulets = self._make_rivulets(mask, rng, wet) if streams > 0 else []        # streams 0: 돌·자갈 위 굵은 흰 물줄기·세로 줄기 물줄기를 그리지 않음 (젖은 질감·반짝임만)
         self.n_surface = len(self.rivulets)
         for pts in ((paths or []) if streams > 0 else []):
@@ -154,7 +155,7 @@ class WetRocks:
     # ---------- 물줄기 경로 ----------
     def _make_rivulets(self, mask, rng, wet):
         res = self.res
-        n = int(np.clip(self.coverage * 260 * wet, 6, 140)) if self.coverage > 0.01 else 0
+        n = int(np.clip(self.coverage * 260 * wet * min(1.0, self._streams), 6, 140)) if self.coverage > 0.01 else 0
         if n == 0:
             return []
         weight = (mask > 0.55).astype(np.float64)
@@ -207,16 +208,21 @@ class WetRocks:
             tls.b = b
         return b
 
+    @staticmethod
+    def _hilite(out, cap):
+        """물줄기 반짝임의 목표 밝기: 표면 밝기에 비례해 밝힘 (어두운 항아리·기와 위에서 흰 우유처럼 튀지 않게). 밝은 바위는 거의 cap 까지."""
+        return np.minimum(out * 1.8 + 0.04, cap)
+
     def apply(self, out, f):
         """out: float RGB (H,W,3) 0..1 제자리 수정 후 반환."""
         cv2 = self.cv2
         if self.rivulets:                                           # 젖은 자국: 어두운 가장자리 + 반짝이는 물 막
             out *= (1.0 - self.trail_dark)[..., None]
-            out += (0.92 - out) * self.trail_core[..., None]
+            out += (self._hilite(out, 0.92) - out) * self.trail_core[..., None]
         # 돌 표면 반짝임 일렁임 (루프 N 에서 정확히 k 바퀴)
         t = 2 * np.pi * self.k_sheen * f / self.N
         sheen = self.h0 + self.ha * np.cos(t) + self.hb * np.sin(t)
-        out += ((1.0 - out) * (sheen * self.sheen_gain)[..., None])
+        out += ((self._hilite(out, 0.97) - out) * (sheen * self.sheen_gain)[..., None])
         # 흘러내리는 물방울: 밝은 머리(방울) + 늘어진 꼬리
         if self.rivulets:
             buf = self._thread_buf()                          # 스레드마다 따로 (여러 프레임 동시 렌더링 안전)
@@ -238,7 +244,7 @@ class WetRocks:
                     cv2.circle(buf, (int(pts[head][0]), int(pts[head][1])), max(1, int(round(1.7 * self.res))),
                                255, -1, cv2.LINE_AA)
             drops = buf.astype(np.float32) * (1 / 255.0) * (0.80 * min(1.4, self.wet))
-            out += ((0.96 - out) * drops[..., None])
+            out += ((self._hilite(out, 0.96) - out) * drops[..., None])
         return out
 
 
