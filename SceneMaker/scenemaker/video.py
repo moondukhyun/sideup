@@ -73,9 +73,10 @@ def render_threads(renderer):
     return max(1, min(6, n - 1))
 
 
-def render_master(renderer, out_path, v):
+def render_master(renderer, out_path, v, limit=None):
     """빗줄기 합성 프레임을 거의 무손실 마스터로 1회 렌더 (길이별 인코딩의 원본)."""
     out_path = Path(out_path)
+    total = min(renderer.N, int(limit)) if limit else renderer.N                  # limit: 샘플용 — 루프 앞부분만
     cmd = [
         ffmpeg_bin(), "-y", "-loglevel", "error",
         "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{renderer.W}x{renderer.H}",
@@ -90,7 +91,7 @@ def render_master(renderer, out_path, v):
         print(f"  렌더링 스레드 {workers}개로 여러 프레임을 동시에 그려요 (CPU 코어 {os.cpu_count()}개)")
     try:
         if workers <= 1:
-            frames = (renderer.frame(f) for f in range(renderer.N))
+            frames = (renderer.frame(f) for f in range(total))
             pool = None
         else:
             from concurrent.futures import ThreadPoolExecutor
@@ -101,18 +102,18 @@ def render_master(renderer, out_path, v):
 
             def _gen():
                 nonlocal nxt
-                for f in range(renderer.N):
-                    while nxt < renderer.N and nxt < f + ahead:
+                for f in range(total):
+                    while nxt < total and nxt < f + ahead:
                         futs[nxt] = pool.submit(renderer.frame, nxt)
                         nxt += 1
                     yield futs.pop(f).result()
             frames = _gen()
         for f, fr in enumerate(frames):
             proc.stdin.write(fr.tobytes())
-            if f % max(1, renderer.N // 20) == 0 or f == renderer.N - 1:
-                pct = (f + 1) / renderer.N
+            if f % max(1, total // 20) == 0 or f == total - 1:
+                pct = (f + 1) / total
                 eta = (time.time() - t0) / pct * (1 - pct)
-                sys.stdout.write(f"\r  루프 구간 렌더링 {f + 1}/{renderer.N} ({pct:4.0%}, 남은 시간 ~{eta:.0f}s)")
+                sys.stdout.write(f"\r  루프 구간 렌더링 {f + 1}/{total} ({pct:4.0%}, 남은 시간 ~{eta:.0f}s)")
                 sys.stdout.flush()
         if pool is not None:
             pool.shutdown(wait=True)
