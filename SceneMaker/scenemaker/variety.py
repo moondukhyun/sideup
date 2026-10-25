@@ -29,7 +29,7 @@ AXES = {
                "looking down a path", "close view of the foreground"],
 }
 # v11.22: 실내 장면은 '한낮·여름' 같은 자연 풍경 문구가 섞이면 안 되므로 전용 축을 쓴다
-INTERIOR_SCENES = {"candle_closeup", "candle_bookshelf", "candle_bookshelf_rain_window", "candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "living_fireplace_storm",
+INTERIOR_SCENES = {"glasswall_bedroom_fireplace_storm", "candle_closeup", "candle_bookshelf", "candle_bookshelf_rain_window", "candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "living_fireplace_storm",
                    "living_fireplace_candles", "hearth_dog_cat", "candle_nook",
                    "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
                    "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window",
@@ -50,10 +50,49 @@ INTERIOR_AXES = {
 }
 
 # v11.23: 같은 장면이라도 이미지마다 창밖 풍경·방 분위기·소품이 확 달라지게 하는 추가 축
-WINDOW_INTERIOR = {"living_fireplace_storm", "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
+WINDOW_INTERIOR = {"glasswall_bedroom_fireplace_storm", "living_fireplace_storm", "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
                    "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window", "cabin_fireplace_window",
                    "living_turntable_fireplace", "turntable_window_rain", "candle_rain_window", "candle_bookshelf_rain_window", "living_coffee_fireplace_rain", "living_tea_fireplace_rain"}
-DECOR_SCENES = PET_SCENES | {"living_coffee_fireplace_rain", "living_tea_fireplace_rain", "living_fireplace_candles", "turntable_candles_windowless", "turntable_window_rain", "cozy_parlor"}
+DECOR_SCENES = PET_SCENES | {"glasswall_bedroom_fireplace_storm", "living_coffee_fireplace_rain", "living_tea_fireplace_rain", "living_fireplace_candles", "turntable_candles_windowless", "turntable_window_rain", "cozy_parlor"}
+
+# v11.50: 전면 통유리 침실 + 벽난로 + 침대 장면 — 건축·침대·벽난로 위치·창밖 폭풍 풍경·침구·소품을 이미지마다 크게 다르게
+PANO_SCENES = {"glasswall_bedroom_fireplace_storm"}
+PANO_LAYOUTS = [
+    "a modern cantilevered mountain house with a black steel frame, dark timber ceiling and smooth concrete floor",
+    "an A-frame cabin with a soaring triangular glass gable wall and exposed pine rafters",
+    "a Japanese-inspired wooden retreat with a low platform bed, tatami-style floor and warm cedar walls",
+    "a luxury Scandinavian hillside lodge with pale pine boards, white plaster and a vaulted ceiling",
+    "a rustic stone and log lodge with thick round log walls and an enormous glass wall",
+    "a Korean modern hanok-style pavilion with wooden lattice details, dark beams and a heated wooden floor",
+    "a minimalist lake house with white walls, a polished concrete floor and a long glass wall",
+    "a glass-walled cabin raised on stilts among tall trees with a warm timber interior",
+    "an old stone farmhouse bedroom with whitewashed walls, thick stone window reveals and a huge modern glass opening",
+]
+PANO_BEDS = [
+    "a large four-poster bed with sheer white drapes", "a low wooden platform bed with layered linen bedding",
+    "a wide carved dark wood bed with a thick quilted duvet", "a rustic log-frame bed with plaid wool blankets",
+    "a big daybed piled with cushions and a faux fur throw", "a king bed with a tall upholstered grey velvet headboard",
+    "a white iron-frame bed with a patchwork quilt", "a simple low futon-style bed on a wooden platform with soft cotton bedding"]
+PANO_FIRE_POS = [
+    "the fireplace is built into the wall right beside the glass wall", "a freestanding steel fireplace stands between the bed and the glass wall",
+    "a corner fireplace sits where the glass wall meets a stone wall", "a long wide linear fireplace is set into the wall opposite the glass",
+    "a round hanging steel fireplace with a chimney pipe stands near the bed", "a big stone chimney fireplace rises on the wall at the foot of the bed"]
+PANO_OUTSIDE = [
+    "outside the glass wall a dark pine forest on a steep slope lashed by heavy rain with low storm clouds",
+    "outside the glass wall a wide lake and distant mountains under black storm clouds with rain falling on the water",
+    "outside the glass wall a misty river valley with layered ridges and heavy rain pouring over the trees",
+    "outside the glass wall a dark coastline with stormy waves breaking on rocks far below in the rain",
+    "outside the glass wall green terraced fields and distant mountain ridges swallowed by rain clouds",
+    "outside the glass wall a bamboo grove and a small stone garden drenched by pouring rain",
+    "outside the glass wall tall birch and maple trees swaying in heavy rain with a wet wooden deck in front of the glass",
+    "outside the glass wall a night city skyline far below blurred by pouring rain and mist",
+    "outside the glass wall a wide meadow and a lone old tree standing in driving rain under a dark sky"]
+PANO_BEDDING = ["crisp white linen", "deep forest green wool", "warm terracotta cotton", "navy blue velvet", "soft grey flannel", "cream and camel wool", "burgundy and gold patterned fabric", "pale sage green linen"]
+PANO_EXTRAS = [
+    "a sheepskin rug and a wooden bench at the foot of the bed", "a leather reading chair with a floor lamp near the fireplace",
+    "a stack of firewood in a metal rack beside the fireplace", "a low wooden table with an unlit lantern and a few books near the bed",
+    "a tall indoor plant in the corner and a woven basket of blankets", "a pair of slippers by the bed and a knitted throw over a chair",
+    "a large round wool rug under the bed and soft cushions on the floor by the glass"]
 
 OUTSIDE_VIEWS = [
     "outside the window a lush dense pine forest with every tree trunk, branch and needle sharply detailed, layered misty hills behind",
@@ -308,6 +347,14 @@ def diversify(scene_name, seed, rain_level=None):
                 picks["curtains"] = rng.choice(CURTAINS)
             if _scene_has_fireplace(scene_name):
                 picks["fireplace"] = rng.choice(FIREPLACES)
+            if scene_name in PANO_SCENES:                                  # 통유리 침실: 건축 양식·침대·벽난로 위치·창밖 폭풍 풍경·침구·소품을 따로 고름 (일반 방 스타일·벽·천장 문구는 건축과 충돌하므로 뺌)
+                for k_ in ("style", "walls", "ceiling", "cabinet", "window", "curtains", "outside"):
+                    picks.pop(k_, None)
+                picks["layout"] = rng.choice(PANO_LAYOUTS)
+                picks["bed"] = rng.choice(PANO_BEDS) + " with " + rng.choice(PANO_BEDDING) + " bedding"
+                picks["firepos"] = rng.choice(PANO_FIRE_POS)
+                picks["view"] = rng.choice(PANO_OUTSIDE)
+                picks["extra"] = rng.choice(PANO_EXTRAS)
     if scene_name not in INTERIOR_SCENES:                                      # v11.23: 자연·한옥·텐트 장면의 추가 변화
         if scene_name not in FIXED_TIME and scene_name not in URBAN_SCENES:
             picks["light"] = rng.choice(LIGHT_VIEWS)

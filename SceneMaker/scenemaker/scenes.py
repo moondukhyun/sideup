@@ -1009,6 +1009,24 @@ SCENES = {
             style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE, comfy={"family": "zimage"}, post=NATURAL_POST, animals=True,
         ),
         Scene(
+            "glasswall_bedroom_fireplace_storm",
+            "전면 통유리 침실 + 벽난로 + 침대 · 폭우 (건축·구도 다양)",
+            "a spacious bedroom at night with an entire wall of floor-to-ceiling glass windows with clean clear glass and a dark heavy storm with pouring rain outside, "
+            "a fireplace with a bright roaring wood fire with tall lively flames filling the firebox, a large bed with soft blankets, a few candles with bright steady flames, "
+            "warm firelight on the walls and floor, no steam and no smoke, empty room without people, no animals",
+            [
+                "wide view of the whole glass wall with the bed and the fireplace both visible",
+                "view from the foot of the bed toward the glass wall and the fireplace",
+                "view from a corner of the room showing the glass wall on one side and the fireplace on the other",
+                "a low angle view across the bed toward the fireplace with the glass wall beside it",
+                "view from beside the glass wall looking back at the bed and the fireplace",
+                "a symmetrical centered view of the bed with the fireplace and the glass wall behind it",
+                "a three-quarter view with the fireplace in the foreground and the bed and glass wall beyond",
+            ],
+            {"intensity": 2.0, "brightness": 0.45, "window": True, "interior": 1.0, "fire": 1.0, "fire_sound": True, **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE + ", dog, cat, animal, people, person, steam, smoke, text, logo", comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
             "bedroom_window_candles_cat",
             "침실 큰 창 + 촛불 + 자는 고양이 · 폭우",
             "a cozy bedroom at night with a large window with clean clear glass and a dark stormy night outside, a bed with soft blankets, several candles with bright steady flames on a dresser and a nightstand, exactly one single cat with one head sleeping curled up peacefully on the bed, charming small decorations, warm golden glow, empty room without people",
