@@ -58,11 +58,14 @@ class WanRoom:
         self.sx, self.sy = w / float(self.W), h / float(self.H)
         if fire is not None:
             x0, y0, x1, y1 = [int(v) for v in fire["box"]]
-            pad = int(24 * self.H / 1080.0)
+            r_ = self.H / 1080.0
+            wide = bool(fire.get("tips_done"))                       # 야외 모닥불: 불꽃 둘레(원본의 정지된 불꽃 가장자리)까지 Wan 화면으로 덮어서 가장자리가 고정돼 보이지 않게
+            pad = int((46 if wide else 24) * r_)
             box = (max(0, x0 - pad), max(0, y0 - pad), min(self.W, x1 + pad), min(self.H, y1 + pad))
-            wgt = cv2.GaussianBlur(cv2.dilate(fire["mask"][box[1]:box[3], box[0]:box[2]], np.ones((13, 13), np.uint8)),
-                                   (0, 0), 6 * self.H / 1080.0)
-            self._add_paste(box, np.clip(wgt * 1.4, 0, 1), "fire")
+            kd = (int(31 * r_) | 1) if wide else 13
+            wgt = cv2.GaussianBlur(cv2.dilate(fire["mask"][box[1]:box[3], box[0]:box[2]], np.ones((kd, kd), np.uint8)),
+                                   (0, 0), (10 if wide else 6) * r_)
+            self._add_paste(box, np.clip(wgt * (1.8 if wide else 1.4), 0, 1), "fire")
         for i, c in enumerate(flames):
             x0, y0, x1, y1 = c["box"]
             bh, bw = y1 - y0, x1 - x0
