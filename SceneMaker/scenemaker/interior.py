@@ -347,13 +347,24 @@ class Interior:
                     warm = np.clip((reg[..., 0] - reg[..., 2] - 0.06) / 0.15, 0, 1) * np.clip((lum_ - 0.22) / 0.25, 0, 1)
                     xs_ = np.arange(fx0, fx1, dtype=np.float32)[None, :]
                     wbox = bx1 - bx0
-                    hz = _smooth((xs_ - (bx0 - 0.25 * wbox)) / (0.2 * wbox + 1.0)) * _smooth(((bx1 + 0.25 * wbox) - xs_) / (0.2 * wbox + 1.0))
+                    hz = _smooth((xs_ - (bx0 - 0.08 * wbox)) / (0.1 * wbox + 1.0)) * _smooth(((bx1 + 0.08 * wbox) - xs_) / (0.1 * wbox + 1.0))
                     up = _smooth((self.fire["base"] - fy0 - np.arange(bh, dtype=np.float32)[:, None]) / max(1.0, 0.1 * (by1 - by0)))
-                    m = np.maximum(m, cv2.GaussianBlur(warm * hz * up, (0, 0), 2.0 * res + 0.5)).astype(np.float32)
+                    cand = warm * hz * up
+                    # 불꽃에서 이어진 따뜻한 픽셀만 (옆의 텐트 불빛·랜턴처럼 떨어진 밝은 덩어리는 제외)
+                    seed_ = cv2.dilate((m > 0.2).astype(np.uint8), np.ones((int(6 * res) | 1, int(6 * res) | 1), np.uint8))
+                    n_, lab_ = cv2.connectedComponents((cand > 0.25).astype(np.uint8), connectivity=8)
+                    keep_ = np.zeros(n_, bool)
+                    keep_[np.unique(lab_[seed_ > 0])] = True
+                    keep_[0] = False
+                    cand = cand * keep_[lab_]
+                    zone_ = self.fire.get("zone")
+                    if zone_ is not None:                              # 직접 그린 불 윤곽 밖은 확장하지 않음
+                        cand = cand * zone_[fy0:fy1, fx0:fx1]
+                    m = np.maximum(m, cv2.GaussianBlur(cand, (0, 0), 2.0 * res + 0.5)).astype(np.float32)
                 yy_, xx_ = np.mgrid[0:bh, 0:bw].astype(np.float32)
                 topw = _smooth((self.fire["base"] - fy0 - yy_) / max(1.0, (self.fire["base"] - by0) * 0.9))   # 위로 갈수록 크게 일렁
                 self.fx = {"box": (fx0, fy0, fx1, fy1), "mask": m[..., None].astype(np.float32), "topw": topw.astype(np.float32),
-                           "ax": (0.028 * bw + 2.5 * res), "bh": bh, "bw": bw,
+                           "ax": (0.028 * bw + 2.5 * res) * (1.8 if self.tips else 1.0), "bh": bh, "bw": bw,
                            "X": xx_, "Y": yy_, "src": bg[fy0:fy1, fx0:fx1].copy()}
                 self.ember = self._make_embers(rng, bw, bh, fx0, fy0)
 

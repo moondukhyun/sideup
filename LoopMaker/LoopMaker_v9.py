@@ -4707,7 +4707,7 @@ class StoryNarrator:
             ndur = self.probe_duration(out_path)
             if abs(ndur - vdur) > 2.0:
                 raise RuntimeError(f"완성 영상 길이가 원본과 다릅니다 (원본 {vdur:.0f}초 / 결과 {ndur:.0f}초)")
-            bad = self._playable_problem(out_path, vdur)                 # v11.46: 실제로 재생(디코딩)되는지 앞·중간·끝을 검사
+            bad = self._playable_problem(out_path, vdur)                 # v11.47: 실제로 재생(디코딩)되는지 앞·중간·끝을 검사
             if bad and card_ok:
                 self.log(f"  ⚠️ 제목 카드가 들어간 영상이 재생 검사를 통과하지 못했어요 ({bad}) — 제목 카드 없이 다시 합칩니다")
                 card_ok = False
@@ -5150,7 +5150,7 @@ class SceneTabMixin:
         self.sm_dur_var = tk.StringVar(value=cfg.get("duration", SM_DURATIONS[0][0]))
         self.sm_res_var = tk.StringVar(value=cfg.get("resolution", SM_RES[0][0]))                  # v11.32: 해상도 (시험은 1080p 로 빠르게)
         self.sm_motion_var = tk.BooleanVar(value=cfg.get("motion", True))
-        self.sm_sample_var = tk.BooleanVar(value=False)               # v11.46: 4초 샘플만 (효과 위치·세기 확인용)
+        self.sm_sample_var = tk.BooleanVar(value=False)               # v11.47: 4초 샘플만 (효과 위치·세기 확인용)
         self.sm_details_var = tk.BooleanVar(value=cfg.get("details", True))
         self.sm_wan_var = tk.BooleanVar(value=cfg.get("wan", False))
         self.sm_wet_var = tk.BooleanVar(value=cfg.get("wet", True))      # v11.19: 젖은 바위·물줄기·수면 빗방울
@@ -5626,7 +5626,7 @@ class SceneTabMixin:
         ttk.Radiobutton(bar, text="김 올라오는 곳(컵 입구·주전자 주둥이)", variable=kind, value="steam").pack(side="left")
         ttk.Radiobutton(bar, text="텐트 천장 등불", variable=kind, value="lantern").pack(side="left", padx=6)
         ttk.Label(bar, text="상자는 동물보다 살짝 크게", foreground="#666666").pack(side="left", padx=10)
-        rbar = ttk.Frame(win); rbar.pack(fill="x", padx=8, pady=(0, 8))                  # v11.46: 계곡·개울 물이 흐르는 방향
+        rbar = ttk.Frame(win); rbar.pack(fill="x", padx=8, pady=(0, 8))                  # v11.47: 계곡·개울 물이 흐르는 방향
         ttk.Label(rbar, text="🌊 흐르는 물(계곡·개울 — 물 부분을 다각형으로 그리세요):").pack(side="left")
         for txt, val in (("← 왼쪽으로", "river_l"), ("→ 오른쪽으로", "river_r"), ("↓ 앞쪽(나 쪽)으로", "river_d"), ("↑ 뒤쪽으로", "river_u")):
             ttk.Radiobutton(rbar, text=txt, variable=kind, value=val).pack(side="left", padx=4)
@@ -6223,7 +6223,7 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.46 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.47 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
@@ -6637,7 +6637,7 @@ class App(SceneTabMixin, tk.Tk):
         self.narr_work_cb = ttk.Combobox(wr, textvariable=self.narr_work_var, width=44, state="readonly")
         self.narr_work_cb.pack(side="left", padx=4)
         ttk.Button(wr, text="이 작품부터", command=self.pick_next_work).pack(side="left", padx=4)
-        ttk.Button(wr, text="↩ 처음부터 다시", command=self.restart_work).pack(side="left", padx=4)       # v11.46: 테스트로 진행된 작품을 1부분부터 다시
+        ttk.Button(wr, text="↩ 처음부터 다시", command=self.restart_work).pack(side="left", padx=4)       # v11.47: 테스트로 진행된 작품을 1부분부터 다시
         self._work_lines = []
         self.narr_style_var.trace_add("write", lambda *_: self._refresh_works())
         self._refresh_works()
@@ -7551,7 +7551,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.46 시작\n")
+        self.log("🚀 LoopMaker v11.47 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 
