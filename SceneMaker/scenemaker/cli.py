@@ -216,6 +216,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
     renderer.frame_image(0).save(job / "preview.png")
     print(f"미리보기: {job / 'preview.png'}  ({W}x{H})")
     _write_check_overlay(renderer, job)
+    _effect_report(renderer, rs, job)
     master = render_master(renderer, job / "loop_master.mp4", v)
     if getattr(args, "sample", False):
         shutil.copy(master, job / "sample.mp4")
@@ -252,6 +253,79 @@ def make_loop(cfg, image, scene_name, args, job=None):
     n = variety.mark_used(job / "background.png", note=", ".join(f["file"] for f in finals))
     print(f"완료: {len(finals)}개 영상  (사용 기록 {n}개)")
     return finals
+
+
+def _effect_report(renderer, rs, job):
+    """v11.46: 효과 점검표 — 어떤 효과가 실제로 적용됐고, 두 시점의 화면을 비교해 실제로 움직이는지까지 확인해서
+    로그와 효과점검표.txt 로 남긴다 (조용히 빠진 효과가 없도록)."""
+    lines = []
+    try:
+        N = renderer.N
+        fa, fb = renderer.frame(0).astype(np.float32), renderer.frame(max(1, int(N * 0.37))).astype(np.float32)
+    except Exception as ex:                                              # 점검표 때문에 영상 제작이 멈추면 안 됨
+        print(f"  (효과 점검표를 만들지 못했어요: {ex})")
+        return
+    H, W = fa.shape[:2]
+
+    def moved(boxes=None, mask=None):
+        """영역 안에서 두 시점 화면이 얼마나 다른가 (0~255 평균). 영역이 없으면 None."""
+        if mask is not None:
+            m = mask > 0.2
+            return float(np.abs(fa - fb).max(-1)[m].mean()) if m.any() else None
+        vals = []
+        for (x0, y0, x1, y1) in boxes or []:
+            x0, y0, x1, y1 = max(0, int(x0)), max(0, int(y0)), min(W, int(x1)), min(H, int(y1))
+            if x1 - x0 > 2 and y1 - y0 > 2:
+                vals.append(float(np.abs(fa[y0:y1, x0:x1] - fb[y0:y1, x0:x1]).max(-1).mean()))
+        return max(vals) if vals else None
+
+    def row(name, ok, detail="", mv=None, need=2.0):
+        if not ok:
+            lines.append(f"  ⬜ {name}: 적용 안 됨{(' — ' + detail) if detail else ''}")
+        elif mv is not None and mv < need:
+            lines.append(f"  ⚠️ {name}: 적용됐지만 두 시점 화면 차이가 {mv:.1f}로 거의 안 움직여 보여요 {detail}")
+        else:
+            lines.append(f"  ✅ {name}: {detail}" + (f" (움직임 {mv:.1f})" if mv is not None else ""))
+    it = getattr(renderer, "interior", None)
+    row("빗줄기", rs.intensity > 0, f"세기 {rs.intensity:.2f}" if rs.intensity > 0 else "이 장면은 비가 없음")
+    fx = getattr(it, "fx", None) if it is not None else None
+    row("장작불·벽난로 불꽃", fx is not None, "위치 지정(🔥)으로 불을 표시하면 확실해요" if fx is None else "",
+        moved([fx["box"]]) if fx is not None else None, need=3.0)
+    fl = getattr(it, "flames", None) if it is not None else None
+    row("촛불·등불 일렁임", bool(fl), f"{len(fl)}개" if fl else "촛불을 못 찾음 — 위치 지정(촛불/등불)으로 표시",
+        moved([f["box"] for f in fl]) if fl else None, need=1.5)
+    st = getattr(renderer, "steam", None)
+    sb = [i["box"] for i in st.items] if st is not None and getattr(st, "items", None) else []
+    row("김", bool(sb), f"{len(sb)}곳" if sb else "위치 지정(김)으로 컵 입구·주전자 주둥이를 표시해야 나와요", moved(sb) if sb else None, need=2.0)
+    row("창유리 빗방울", getattr(renderer, "glass", None) is not None, "")
+    dt = getattr(renderer, "details", None)
+    if dt is not None:
+        row("잎·처마 물방울 / 바닥 튀김", True, f"물방울 {len(dt.drips)}개 · 튀김 {len(dt.splashes)}개 · 물결 {len(dt.ripples)}개")
+    else:
+        row("잎·처마 물방울 / 바닥 튀김", False, "'물 튀김·물결·물방울'이 꺼져 있거나 비가 없는 장면")
+    wt = getattr(renderer, "wet", None)
+    row("젖은 바닥·돌", wt is not None, "")
+    wa = getattr(renderer, "water", None)
+    row("수면 빗방울·물결", wa is not None, f"{wa.count}개" if wa is not None else "")
+    rv, sf, mo = getattr(renderer, "river", None), getattr(renderer, "stream", None), getattr(renderer, "motion", None)
+    wan = bool(getattr(mo, "active", False)) and not hasattr(mo, "veg_coverage")
+    if rv is not None:
+        row("계곡·개울 물 흐름(표시한 영역)", True, "수식 방식", moved(mask=rv.mask), need=2.0)
+    elif sf is not None:
+        row("폭포·물줄기 흐름", True, "")
+    elif wan:
+        row("물·불 AI 움직임(Wan)", True, f"화면의 {getattr(mo, 'coverage', 0):.0%}", moved(mask=getattr(mo, "mask", None)[..., 0]) if getattr(mo, "mask", None) is not None else None, need=2.0)
+    else:
+        row("계곡·개울 물 흐름", False, "Wan(AI 움직임)을 켜거나, 위치 지정의 '🌊 흐르는 물'로 물 부분을 그려야 해요")
+    veg = float(getattr(mo, "veg_coverage", 0.0)) if mo is not None else 0.0
+    row("잎·나뭇가지 흔들림", veg > 0.005, f"잎 영역 {veg:.0%}" if veg > 0.005 else "잎으로 인식한 영역이 거의 없음")
+    print("  ── 효과 점검표 (✅ 적용 · ⚠️ 적용됐지만 거의 안 움직임 · ⬜ 적용 안 됨; 이 장면에 필요 없는 항목은 무시) ──")
+    for ln in lines:
+        print(ln)
+    try:
+        Path(job, "효과점검표.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except OSError:
+        pass
 
 
 def _attach_river(renderer, job, args):
