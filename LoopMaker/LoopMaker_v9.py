@@ -5590,7 +5590,13 @@ class SceneTabMixin:
                         json.dump(boxes, f, ensure_ascii=False, indent=1)
                 elif os.path.exists(pj):
                     os.remove(pj)
-                self.log(f"🐾 반려동물 {len(boxes)}마리 위치 저장 — 영상 만들기에서 숨쉬게 돼요")
+                _n = {}
+                for _b in boxes:
+                    _n[_b.get("kind", "dog")] = _n.get(_b.get("kind", "dog"), 0) + 1
+                _nm = {"dog": "강아지", "cat": "고양이", "fan": "선풍기", "record": "레코드판", "fire": "불", "glass": "창 유리", "candle": "촛불",
+                       "tonearm": "톤암", "block": "창 가림", "outside": "비 내리는 바깥", "steam": "김", "lantern": "천장 등불",
+                       "river_l": "흐르는 물(←)", "river_r": "흐르는 물(→)", "river_d": "흐르는 물(↓)", "river_u": "흐르는 물(↑)"}
+                self.log("🐾 위치 저장: " + ", ".join(f"{_nm.get(k, k)} {v}곳" for k, v in _n.items()) + " — 영상 만들기에 그대로 적용돼요")
             except OSError as e:
                 messagebox.showerror("저장 실패", str(e))
                 return
