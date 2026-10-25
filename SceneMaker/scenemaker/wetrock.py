@@ -146,6 +146,10 @@ class WetRocks:
         self.rivulets = self._make_rivulets(mask, rng, wet) if streams > 0 else []        # streams 0: 돌·자갈 위 굵은 흰 물줄기·세로 줄기 물줄기를 그리지 않음 (젖은 질감·반짝임만)
         self.n_surface = len(self.rivulets)
         for pts in ((paths or []) if streams > 0 else []):
+            if isinstance(pts, dict):                                  # 기와 지붕 물줄기: 잔자국 없이 물방울 머리와 꼬리만 계속 흘러내림
+                self.rivulets.append({"pts": pts["pts"], "k": int(pts.get("k", 3)), "phase": float(rng.uniform(0, 1)),
+                                      "w": max(1, int(round(rng.uniform(0.9, 1.4) * self.res))), "soft": True})
+                continue
             self.rivulets.append({"pts": pts, "k": int(rng.integers(1, 4)), "phase": float(rng.uniform(0, 1)),
                                   "w": max(1, int(round(rng.uniform(1.0, 1.9) * self.res)))})
         self.n_edge = len(self.rivulets) - self.n_surface
@@ -190,6 +194,8 @@ class WetRocks:
         edge = np.zeros((self.H, self.W), np.uint8)
         core = np.zeros((self.H, self.W), np.uint8)
         for r in self.rivulets:
+            if r.get("soft"):
+                continue
             line = r["pts"].reshape(-1, 1, 2)
             cv2.polylines(edge, [line], False, 255, r["w"] + 2, cv2.LINE_AA)
             cv2.polylines(core, [line], False, 255, max(1, int(round(r["w"] * 0.6))), cv2.LINE_AA)

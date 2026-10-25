@@ -201,7 +201,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
     W, H = RESOLUTIONS[v["resolution"]]
     bg = fit_cover(Image.open(image).convert("RGB"), W, H)
     rs = _rain_settings(cfg, scene_name, args, meta.get("rain_override"))
-    print(f"  적용된 설정 (v11.54 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
+    print(f"  적용된 설정 (v11.55 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
           f"실내 효과 {rs.interior:g} · 수면 {rs.water_rain:g}x{rs.water_boost:g} · 바깥만 {'예' if getattr(rs, 'outside_only', False) else '아니오'}")
     if variety.warn_similar(bg, "이 배경은"):
         print("  → 다른 배경을 쓰거나, 그대로 쓰려면 무시하세요.")
@@ -256,7 +256,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
 
 
 def _effect_report(renderer, rs, job):
-    """v11.54: 효과 점검표 — 어떤 효과가 실제로 적용됐고, 두 시점의 화면을 비교해 실제로 움직이는지까지 확인해서
+    """v11.55: 효과 점검표 — 어떤 효과가 실제로 적용됐고, 두 시점의 화면을 비교해 실제로 움직이는지까지 확인해서
     로그와 효과점검표.txt 로 남긴다 (조용히 빠진 효과가 없도록)."""
     lines = []
     try:
@@ -335,7 +335,7 @@ def _fire_speed(rs, args, default):
 
 
 def _add_marked_drips(maps, job, renderer, dfull):
-    """v11.54: 직접 표시한 '처마·기와 끝'(eave)의 아랫 가장자리에서 물방울이 맺혀 떨어지고, '잎'(leaftip) 영역의 잎 끝에서 물방울이 맺혔다 떨어지게 한다."""
+    """v11.55: 직접 표시한 '처마·기와 끝'(eave)의 아랫 가장자리에서 물방울이 맺혀 떨어지고, '잎'(leaftip) 영역의 잎 끝에서 물방울이 맺혔다 떨어지게 한다."""
     import cv2
     marks = _load_pets(job, None)
     W, H, res = renderer.W, renderer.H, renderer.res
@@ -345,6 +345,28 @@ def _add_marked_drips(maps, job, renderer, dfull):
         maps["ground"] = np.maximum(maps["ground"], 0.55 * wzs).astype(np.float32)
     ez = _mark_zone(marks, ("eave",), W, H)
     n_e = n_l = 0
+    roof_paths = []
+    if ez.any():                                                            # 기와 지붕(표시한 영역) 위로 빗물이 줄줄 흘러내리는 가는 줄기들 — 기와 이랑 간격마다 한 줄기씩
+        rng_r = np.random.default_rng(907)
+        sp = max(8, int(17 * res))
+        for x in range(sp // 2, W, sp):
+            col = ez[:, x] > 0
+            if not col.any():
+                continue
+            idx = np.nonzero(col)[0]
+            runs = np.split(idx, np.nonzero(np.diff(idx) > 1)[0] + 1)
+            run = max(runs, key=len)
+            if len(run) < 14 * res:
+                continue
+            phase = rng_r.uniform(0, 6.28)
+            pts = []
+            for y in range(int(run[0]), int(run[-1]), max(2, int(3 * res))):
+                pts.append((int(round(x + 1.3 * res * np.sin(y / (40.0 * res) + phase))), y))
+            if len(pts) >= 6:
+                roof_paths.append({"pts": np.array(pts, np.int32), "k": int(rng_r.integers(2, 5))})
+        if len(roof_paths) > 110:
+            roof_paths = [roof_paths[i] for i in np.linspace(0, len(roof_paths) - 1, 110).astype(int)]
+        renderer._roof_paths = roof_paths
     if ez.any():
         step = max(10, int(26 * res))
         cols = np.nonzero(ez.any(axis=0))[0]
@@ -365,11 +387,12 @@ def _add_marked_drips(maps, job, renderer, dfull):
             maps["trickles"].append((float(x), float(y + 1), float(dfull[y, x])))
             n_l += 1
     if n_e or n_l:
-        print(f"  직접 표시한 물방울: 처마·기와 끝 {n_e}곳 · 잎 끝 {n_l}곳에서 물방울이 맺혔다 떨어져요")
+        print(f"  직접 표시한 물방울: 처마·기와 끝 {n_e}곳 · 잎 끝 {n_l}곳에서 물방울이 맺혔다 떨어져요"
+              + (f" · 기와 위로 흘러내리는 빗물 줄기 {len(roof_paths)}개" if roof_paths else ""))
 
 
 def _attach_river(renderer, job, args):
-    """v11.54: [위치 지정]에서 '흐르는 물'로 표시한 곳(방향별)이 있으면 그 안의 물이 그 방향으로 흐르게."""
+    """v11.55: [위치 지정]에서 '흐르는 물'로 표시한 곳(방향별)이 있으면 그 안의 물이 그 방향으로 흐르게."""
     marks = _load_pets(job, args)
     kinds = {"river_l": "l", "river_r": "r", "river_d": "d", "river_u": "u"}
     if not any(m.get("kind") in kinds for m in marks):
@@ -468,7 +491,7 @@ def _attach_interior(renderer, job, rs, args):
     if rs.interior <= 0:
         if not any(m.get("kind", "dog") in light_kinds for m in marks):
             return
-        rs.interior = 1.0                                                       # v11.54: 불·촛불·김 등을 표시했는데 이 장면의 '실내 효과'가 0 이라 통째로 무시되던 문제
+        rs.interior = 1.0                                                       # v11.55: 불·촛불·김 등을 표시했는데 이 장면의 '실내 효과'가 0 이라 통째로 무시되던 문제
         print("  표시한 불·촛불·김·동물 위치가 있어 실내 효과를 켭니다 (이 장면의 기본값은 꺼짐이었어요)")
     from .interior import FanSpin, Interior, PetBreath, RecordSpin, Steam, TonearmBob, extend_fire_tips, find_lights
     Wp, Hp = renderer.W, renderer.H
@@ -477,7 +500,7 @@ def _attach_interior(renderer, job, rs, args):
     cpts = [((m["x0"] + m["x1"]) / 2 * Wp, (m["y0"] + m["y1"]) / 2 * Hp) for m in marks if m.get("kind") in ("candle", "lantern")]      # 텐트 천장 등불도 은은히 일렁이는 불빛으로
     info = find_lights(renderer.bg, exclude=renderer.glass.mask if renderer.glass is not None else None,
                        fire_box=fbox, candle_pts=cpts or None, big_flame=bool(getattr(rs, "big_flame", False)))
-    if getattr(rs, "free_fire", False) and not cpts and info.get("candles"):       # v11.54+: 야외 모닥불 장면은 직접 표시하지 않은 '촛불'을 자동으로 찾지 않음 (텐트 불빛·불꽃 조각을 촛불로 잘못 잡던 문제)
+    if getattr(rs, "free_fire", False) and not cpts and info.get("candles"):       # v11.55+: 야외 모닥불 장면은 직접 표시하지 않은 '촛불'을 자동으로 찾지 않음 (텐트 불빛·불꽃 조각을 촛불로 잘못 잡던 문제)
         print(f"  촛불 자동 감지 {len(info['candles'])}개는 쓰지 않아요 (이 장면은 촛불·등불을 위치 지정으로 표시했을 때만 흔들려요)")
         info["candles"] = []
     fm_any = next((m for m in marks if m.get("kind") == "fire"), None)
@@ -941,10 +964,11 @@ def _attach_wet(renderer, job, dfull, rs, stream_mask=None, region=None):
     rng = np.random.default_rng(rs.seed + 57)
     paths = vertical_edge_paths(renderer.bg, dfull, renderer.res, rng, exclude=stream_mask,
                                 max_paths=int(70 * min(1.5, rs.wet) + 20))
+    paths = list(paths) + list(getattr(renderer, "_roof_paths", []))        # 표시한 기와 지붕의 줄줄 흐르는 빗물 줄기
     if region is not None:                                                  # 텐트 장면: 젖은 표면·줄기 물줄기도 열린 바깥에서만 (텐트 천의 주름·줄을 따라 하얗게 흐르던 문제)
         m = m * np.clip(region, 0, 1)
         Hh, Ww = region.shape[:2]
-        paths = [pt for pt in paths if float(region[np.clip(pt[:, 1], 0, Hh - 1), np.clip(pt[:, 0], 0, Ww - 1)].mean()) > 0.5]
+        paths = [pt for pt in paths if isinstance(pt, dict) or float(region[np.clip(pt[:, 1], 0, Hh - 1), np.clip(pt[:, 0], 0, Ww - 1)].mean()) > 0.5]
         cov = float((m > 0.5).mean())
     if cov < 0.02 and not paths:
         print("  젖은 표면: 돌·지붕·기둥으로 볼 만한 영역도, 세로 줄기도 거의 없어 사용하지 않음")
@@ -961,7 +985,7 @@ def _attach_wet(renderer, job, dfull, rs, stream_mask=None, region=None):
     import cv2
     arr = np.asarray(img).copy()
     for p in paths:
-        cv2.polylines(arr, [p.reshape(-1, 1, 2)], False, (255, 230, 0), max(2, int(2 * renderer.res)))
+        cv2.polylines(arr, [(p["pts"] if isinstance(p, dict) else p).reshape(-1, 1, 2)], False, (255, 230, 0), max(2, int(2 * renderer.res)))
     Image.fromarray(arr).resize((1280, 720)).save(Path(job) / "wet_mask.jpg")
     print(f"  젖은 표면(돌·지붕·기둥): 화면의 {cov:.0%} · 빗물 줄기 {w.n_surface}개 + 대나무·기둥 줄기 {w.n_edge}개"
           f"  — 적용 영역 확인: wet_mask.jpg (빨간색=젖은 표면, 노란 선=줄기 물줄기)")
