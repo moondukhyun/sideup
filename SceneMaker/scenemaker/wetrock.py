@@ -237,6 +237,18 @@ class WetRocks:
             for r in self.rivulets:
                 pts = r["pts"]
                 n = len(pts)
+                if r.get("soft"):                                   # 기와 지붕: 방울이 아니라 끊김 없이 줄줄 흐르는 물 — 가는 물길 전체가 희미하게 젖어 있고, 그 위로 긴 물결(밝은 흐름)이 겹쳐 계속 내려감
+                    line = pts.reshape(-1, 1, 2)
+                    cv2.polylines(buf, [line], False, 64, r["w"], cv2.LINE_AA)
+                    seg = max(3, int(n * 0.16))
+                    for j in range(3):
+                        h_ = int(((f / self.N) * r["k"] + r["phase"] + j / 3.0) % 1.0 * (n + 2 * seg) - seg)
+                        for a_, off in ((150, 0), (115, 1), (80, 2)):
+                            i1_, i0_ = h_ - off * seg, h_ - (off + 1) * seg
+                            lo_, hi_ = max(i0_, 0), min(i1_, n - 1)
+                            if lo_ < hi_:
+                                cv2.polylines(buf, [pts[lo_:hi_ + 1].reshape(-1, 1, 2)], False, a_, r["w"], cv2.LINE_AA)
+                    continue
                 head = int(((f / self.N) * r["k"] + r["phase"]) % 1.0 * (n + 16) - 8)   # 경로 앞뒤로 여유를 두고 지나감
                 i1 = head
                 for a, step in tail:
