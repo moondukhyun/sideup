@@ -235,6 +235,46 @@ def _smooth(x):
 
 
 # ---------------------------------------------------------------- 렌더러
+
+def extend_fire_tips(bg, fire, zone=None):
+    """야외 모닥불: 불꽃 '핵'보다 위로 뻗은 어두운 불꽃 끝(따뜻하고 밝은 픽셀 중 불꽃에서 이어진 것)을 불 마스크·상자에 포함시킨다.
+    Wan(AI 움직임)도 이 마스크를 쓰므로, 여기서 넓혀야 불꽃 윗부분이 고정돼 보이지 않는다. 텐트 불빛처럼 떨어진 덩어리는 제외."""
+    import cv2
+    H, W = bg.shape[:2]
+    res = H / 1080.0
+    bx0, by0, bx1, by1 = fire["box"]
+    wbox, hbox = bx1 - bx0, by1 - by0
+    fx0, fx1 = max(0, int(bx0 - 0.08 * wbox) - 2), min(W, int(bx1 + 0.08 * wbox) + 2)
+    fy0, fy1 = max(0, int(by0 - 1.0 * hbox)), min(H, int(by1) + 2)
+    if fx1 - fx0 < 8 or fy1 - fy0 < 8:
+        return fire
+    reg = bg[fy0:fy1, fx0:fx1]
+    m = fire["mask"][fy0:fy1, fx0:fx1]
+    lum = reg @ LUMA
+    warm = np.clip((reg[..., 0] - reg[..., 2] - 0.06) / 0.15, 0, 1) * np.clip((lum - 0.22) / 0.25, 0, 1)
+    ys_ = np.arange(fy0, fy1, dtype=np.float32)[:, None]
+    up = _smooth((fire["base"] - ys_) / max(1.0, 0.1 * hbox))
+    cand = warm * up
+    if zone is not None:
+        cand = cand * zone[fy0:fy1, fx0:fx1]
+    seed_ = cv2.dilate((m > 0.2).astype(np.uint8), np.ones((int(6 * res) | 1, int(6 * res) | 1), np.uint8))
+    n_, lab_ = cv2.connectedComponents((cand > 0.25).astype(np.uint8), connectivity=8)
+    keep = np.zeros(n_, bool)
+    keep[np.unique(lab_[seed_ > 0])] = True
+    keep[0] = False
+    cand = cand * keep[lab_]
+    cand = cv2.GaussianBlur(cand, (0, 0), 2.0 * res + 0.5)
+    new = fire["mask"].copy()
+    new[fy0:fy1, fx0:fx1] = np.maximum(m, cand)
+    ys, xs = np.nonzero(new[fy0:fy1, fx0:fx1] > 0.25)
+    out = dict(fire)
+    out["mask"] = new.astype(np.float32)
+    if len(ys):
+        out["box"] = (min(bx0, fx0 + xs.min()), min(by0, fy0 + ys.min()), max(bx1, fx0 + xs.max()), by1)
+    out["tips_done"] = True
+    return out
+
+
 class Interior:
     def __init__(self, bg, N, fps, strength=1.0, fire_strength=1.0, pets=None, seed=7, info=None, fire_speed=0.45, calm=1.0, tips=False):
         import cv2
@@ -341,7 +381,7 @@ class Interior:
                 reps = (bh + 2 * P) // P + 2
                 self.fn1, self.fn2, self.fn3 = [np.tile(a, (reps, 1)) for a in (self.fn1, self.fn2, self.fn3)]
                 m = self.fire["mask"][fy0:fy1, fx0:fx1]
-                if self.tips:                                   # 불꽃 끝: 따뜻하고 밝은 픽셀을 일렁임 영역에 추가 (핵 위쪽, 불 폭 안쪽)
+                if self.tips and not self.fire.get("tips_done"):          # 불꽃 끝: 따뜻하고 밝은 픽셀을 일렁임 영역에 추가 (핵 위쪽, 불 폭 안쪽)
                     reg = bg[fy0:fy1, fx0:fx1]
                     lum_ = reg @ LUMA
                     warm = np.clip((reg[..., 0] - reg[..., 2] - 0.06) / 0.15, 0, 1) * np.clip((lum_ - 0.22) / 0.25, 0, 1)

@@ -201,7 +201,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
     W, H = RESOLUTIONS[v["resolution"]]
     bg = fit_cover(Image.open(image).convert("RGB"), W, H)
     rs = _rain_settings(cfg, scene_name, args, meta.get("rain_override"))
-    print(f"  적용된 설정 (v11.47 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
+    print(f"  적용된 설정 (v11.48 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
           f"실내 효과 {rs.interior:g} · 수면 {rs.water_rain:g}x{rs.water_boost:g} · 바깥만 {'예' if getattr(rs, 'outside_only', False) else '아니오'}")
     if variety.warn_similar(bg, "이 배경은"):
         print("  → 다른 배경을 쓰거나, 그대로 쓰려면 무시하세요.")
@@ -256,7 +256,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
 
 
 def _effect_report(renderer, rs, job):
-    """v11.47: 효과 점검표 — 어떤 효과가 실제로 적용됐고, 두 시점의 화면을 비교해 실제로 움직이는지까지 확인해서
+    """v11.48: 효과 점검표 — 어떤 효과가 실제로 적용됐고, 두 시점의 화면을 비교해 실제로 움직이는지까지 확인해서
     로그와 효과점검표.txt 로 남긴다 (조용히 빠진 효과가 없도록)."""
     lines = []
     try:
@@ -328,8 +328,14 @@ def _effect_report(renderer, rs, job):
         pass
 
 
+def _fire_speed(rs, args, default):
+    """불꽃 일렁임 속도. 야외 모닥불은 실제 불처럼 더 빠르게(최대 1.6배) — 느리면 불꽃 윗부분이 멈춰 보임."""
+    v = float(getattr(args, "fire_speed", None) or default)
+    return min(1.3, v * 1.6) if getattr(rs, "free_fire", False) else v
+
+
 def _attach_river(renderer, job, args):
-    """v11.47: [위치 지정]에서 '흐르는 물'로 표시한 곳(방향별)이 있으면 그 안의 물이 그 방향으로 흐르게."""
+    """v11.48: [위치 지정]에서 '흐르는 물'로 표시한 곳(방향별)이 있으면 그 안의 물이 그 방향으로 흐르게."""
     marks = _load_pets(job, args)
     kinds = {"river_l": "l", "river_r": "r", "river_d": "d", "river_u": "u"}
     if not any(m.get("kind") in kinds for m in marks):
@@ -428,16 +434,16 @@ def _attach_interior(renderer, job, rs, args):
     if rs.interior <= 0:
         if not any(m.get("kind", "dog") in light_kinds for m in marks):
             return
-        rs.interior = 1.0                                                       # v11.47: 불·촛불·김 등을 표시했는데 이 장면의 '실내 효과'가 0 이라 통째로 무시되던 문제
+        rs.interior = 1.0                                                       # v11.48: 불·촛불·김 등을 표시했는데 이 장면의 '실내 효과'가 0 이라 통째로 무시되던 문제
         print("  표시한 불·촛불·김·동물 위치가 있어 실내 효과를 켭니다 (이 장면의 기본값은 꺼짐이었어요)")
-    from .interior import FanSpin, Interior, PetBreath, RecordSpin, Steam, TonearmBob, find_lights
+    from .interior import FanSpin, Interior, PetBreath, RecordSpin, Steam, TonearmBob, extend_fire_tips, find_lights
     Wp, Hp = renderer.W, renderer.H
     fbox = next(((m["x0"] * Wp, m["y0"] * Hp, m["x1"] * Wp, m["y1"] * Hp) for m in marks
                  if m.get("kind") == "fire" and not (getattr(rs, "free_fire", False) and m.get("auto") and not m.get("poly"))), None)   # 야외 모닥불은 자동 상자 대신 직접 찾음
     cpts = [((m["x0"] + m["x1"]) / 2 * Wp, (m["y0"] + m["y1"]) / 2 * Hp) for m in marks if m.get("kind") in ("candle", "lantern")]      # 텐트 천장 등불도 은은히 일렁이는 불빛으로
     info = find_lights(renderer.bg, exclude=renderer.glass.mask if renderer.glass is not None else None,
                        fire_box=fbox, candle_pts=cpts or None, big_flame=bool(getattr(rs, "big_flame", False)))
-    if getattr(rs, "free_fire", False) and not cpts and info.get("candles"):       # v11.47+: 야외 모닥불 장면은 직접 표시하지 않은 '촛불'을 자동으로 찾지 않음 (텐트 불빛·불꽃 조각을 촛불로 잘못 잡던 문제)
+    if getattr(rs, "free_fire", False) and not cpts and info.get("candles"):       # v11.48+: 야외 모닥불 장면은 직접 표시하지 않은 '촛불'을 자동으로 찾지 않음 (텐트 불빛·불꽃 조각을 촛불로 잘못 잡던 문제)
         print(f"  촛불 자동 감지 {len(info['candles'])}개는 쓰지 않아요 (이 장면은 촛불·등불을 위치 지정으로 표시했을 때만 흔들려요)")
         info["candles"] = []
     fm_any = next((m for m in marks if m.get("kind") == "fire"), None)
@@ -457,8 +463,12 @@ def _attach_interior(renderer, job, rs, args):
         zb = cv2.GaussianBlur(zone, (0, 0), 3.0)
         info["fire"]["mask"] = info["fire"]["mask"] * zb
         info["fire"]["zone"] = zb           # 창밖 불빛은 촛불이 아님 / Claude 가 알려준 불·촛불 위치가 있으면 활용
+    if getattr(rs, "free_fire", False) and info.get("fire") is not None:             # 야외 모닥불: 불꽃 끝까지 마스크를 넓힘 (Wan 도 이 마스크를 씀)
+        _before = float((info["fire"]["mask"] > 0.25).mean())
+        info["fire"] = extend_fire_tips(renderer.bg, info["fire"], zone=info["fire"].get("zone"))
+        print(f"  불꽃 끝까지 포함: 불 영역 {_before:.1%} → {float((info['fire']['mask'] > 0.25).mean()):.1%}")
     it = Interior(renderer.bg, renderer.N, renderer.fps, strength=rs.interior, fire_strength=rs.fire,
-                  seed=rs.seed, info=info, fire_speed=float(getattr(args, "fire_speed", None) or 0.65), calm=rs.flicker, tips=bool(getattr(rs, "free_fire", False)))
+                  seed=rs.seed, info=info, fire_speed=_fire_speed(rs, args, 0.65), calm=rs.flicker, tips=bool(getattr(rs, "free_fire", False)))
     pets = [p for p in marks if p.get("kind", "dog") in ("dog", "cat")]
     fans = [p for p in marks if p.get("kind") == "fan"]
     recs = [p for p in marks if p.get("kind") == "record"]
@@ -616,7 +626,7 @@ def _attach_wan_interior(cfg, renderer, job, bg, meta, args):
             clips.append(wanmotion.generate_clip(client, bg, Path(job) / f"wan_room_{i}", prompt, seed0 + i * 101,
                                                   negative=wanmotion.WAN_ROOM_NEG))
         room = WanRoom(renderer.bg, clips, renderer.N, renderer.fps, fire=it.fire if has_fire else None,
-                       flames=flames, pets=pets, fire_speed=float(getattr(args, "fire_speed", None) or 0.6))
+                       flames=flames, pets=pets, fire_speed=_fire_speed(rs, args, 0.6))
     except Exception as e:                                   # 생성 실패해도 수식 움직임으로 영상은 만든다
         print(f"  ⚠ Wan 실내 움직임 실패 → 수식 움직임으로 대신함: {e}")
         return
