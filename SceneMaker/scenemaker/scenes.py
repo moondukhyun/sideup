@@ -231,7 +231,7 @@ SCENES = {
             "jangdokdae",
             "장독대 빗소리",
             "many Korean onggi earthenware jars on a stone platform in the rain, wet glossy dark brown jars, "
-            "raindrops on the lids, stone wall topped with roof tiles behind, green garden, "
+            "smooth clean wet lids without any water droplets painted on them, stone wall topped with roof tiles behind, green garden, "
             "each jar has its own slightly different shape, size and glaze with natural scratches and uneven color, "
             "real documentary photograph with natural fine texture",
             [
