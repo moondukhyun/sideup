@@ -263,6 +263,84 @@ SCENES = {
             comfy={"family": "zimage"},   # v11.22: SDXL 은 집이 흐리고 논이 AI 같음 → Z-Image
         ),
         Scene(
+            "dreamhome_yard_rain",
+            "귀촌해서 지은 예쁜 집 · 정원과 데크 (비)",
+            "a beautifully designed new country house that a family built after moving from the city to the Korean countryside, the house and garden are tasteful, well kept and lovingly decorated with pretty handmade details, "
+            "a warm wooden deck and a flower garden in front of the house, sharp focus and crisp fine detail, real documentary photograph of a lived-in dream country home on a rainy day, "
+            "ordinary Korean countryside with green hills behind, natural uneven details, empty yard without people",
+            [
+                "wide view of the whole house with the garden and the deck in front",
+                "view from the garden path toward the front of the house and its warm glowing windows",
+                "a close view of the deck with its furniture and decorations, the house behind",
+                "view from the corner of the yard showing the house, the garden and the hills behind",
+            ],
+            {"intensity": 1.0, "angle": 4.0, "fog": 0.08},
+            negative=HANOK_NEGATIVE + ", old, worn, decayed, rusty, abandoned, shabby, dilapidated, cracked walls, peeling paint, messy clutter, junk, dirty, tin shed, people, person, text, logo, watermark",
+            comfy={"family": "zimage"},
+        ),
+        Scene(
+            "dreamhome_porch_rain",
+            "귀촌집 예쁜 툇마루·베란다에서 보는 정원 (비)",
+            "view from a beautifully decorated covered porch of a lovingly designed new Korean country house, a wooden floor with tasteful furniture and handmade decorations, "
+            "a flower garden and green hills seen beyond the porch roof edge on a rainy day, sharp focus and crisp fine detail, real documentary photograph, "
+            "natural uneven details, empty porch without people",
+            [
+                "wide view from inside the porch toward the garden with the furniture in the foreground",
+                "close view of the porch table with its decorations and the rainy garden softly visible beyond",
+                "view along the porch with hanging plants and lanterns and the garden at the side",
+            ],
+            {"intensity": 1.0, "angle": 4.0, "fog": 0.08},
+            negative=HANOK_NEGATIVE + ", old, worn, decayed, rusty, abandoned, shabby, dilapidated, cracked walls, peeling paint, messy clutter, junk, dirty, tin shed, people, person, text, logo, watermark",
+            comfy={"family": "zimage"},
+        ),
+        Scene(
+            "dreamhome_living_window",
+            "귀촌집 예쁜 거실 + 정원 보이는 큰 창 (비)",
+            "a beautifully designed living room of a new country house that a family built after moving from the city to the countryside, tastefully decorated with pretty handmade details, "
+            "a large window with clean clear glass looking out to the garden on a rainy evening, a comfortable sofa, soft warm lamps and a few candles with bright steady flames, "
+            "no steam and no smoke, empty room without people, no animals, real documentary photograph, sharp focus",
+            [
+                "wide view of the living room with the big window and the garden outside",
+                "view from the sofa toward the big window and the rainy garden",
+                "a corner view showing the window, the seating area and the shelves with decorations",
+                "a close view of a window seat with cushions and the rainy garden beyond the glass",
+            ],
+            {"intensity": 1.8, "brightness": 0.45, "window": True, "interior": 1.0, **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE + ", old, worn, decayed, rusty, abandoned, shabby, dilapidated, cracked walls, peeling paint, messy clutter, junk, dirty, tin shed, people, person, text, logo, watermark, dog, cat, animal",
+            comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
+            "remodel_hanok_yard_rain",
+            "리모델링한 기와집·옛 시골집 · 마당과 마루 (비)",
+            "an old Korean countryside house or tile-roofed hanok that has been lovingly and tastefully renovated by a family who moved from the city, the old character is kept but everything is clean, well kept and beautifully restyled, "
+            "a refreshed wooden maru and a pretty yard with handmade decorations in front of the house, sharp focus and crisp fine detail, real documentary photograph on a rainy day, "
+            "ordinary Korean countryside with green hills behind, natural uneven details, empty yard without people",
+            [
+                "wide view of the renovated house with its yard in front",
+                "view from the yard gate toward the house and the maru with warm glowing windows",
+                "a close view of the maru and its furniture and decorations with the yard beyond",
+                "view from the corner of the yard showing the tile roof, the house and the hills behind",
+            ],
+            {"intensity": 1.0, "angle": 4.0, "fog": 0.08},
+            negative=HANOK_NEGATIVE + ", dilapidated, ruined, collapsing, abandoned, rusty, moldy, cracked walls, peeling paint, junk, messy clutter, dirty, people, person, text, logo, watermark",
+            comfy={"family": "zimage"},
+        ),
+        Scene(
+            "remodel_hanok_living_window",
+            "리모델링한 기와집·옛 시골집 거실 + 창 (비)",
+            "the living room of an old Korean countryside house or tile-roofed hanok that has been lovingly and tastefully renovated by a family who moved from the city, the old character is kept but everything is clean and beautifully restyled with pretty handmade details, "
+            "a large window with clean clear glass looking out to the yard on a rainy evening, comfortable seating, soft warm lamps and a few candles with bright steady flames, "
+            "no steam and no smoke, empty room without people, no animals, real documentary photograph, sharp focus",
+            [
+                "wide view of the renovated living room with the big window and the yard outside",
+                "view from the seating toward the window and the rainy yard",
+                "a corner view showing the window, the seating area and the shelves with decorations",
+            ],
+            {"intensity": 1.8, "brightness": 0.45, "window": True, "interior": 1.0, **INTERIOR_RAIN},
+            style=INTERIOR_STYLE, negative=INTERIOR_NEGATIVE + ", dilapidated, ruined, collapsing, abandoned, rusty, moldy, cracked walls, peeling paint, junk, messy clutter, dirty, people, person, text, logo, watermark, dog, cat, animal",
+            comfy={"family": "zimage"}, post=NATURAL_POST,
+        ),
+        Scene(
             "cafe_window",
             "조용한 카페 창가에서 보는 비",
             "inside a quiet cozy small Korean cafe on a rainy day, view from a wooden table next to a large clean "
@@ -1147,7 +1225,7 @@ SCENES = {
 
 
 # 자연스러운 사진 톤을 쓰는 씬 (숲·시골·나뭇잎)
-NATURAL_SCENES = ["cafe_window", "hanok_courtyard", "hanok_eaves", "hanok_cafe", "thatched_house", "jangdokdae",
+NATURAL_SCENES = ["remodel_hanok_yard_rain", "dreamhome_yard_rain", "dreamhome_porch_rain", "cafe_window", "hanok_courtyard", "hanok_eaves", "hanok_cafe", "thatched_house", "jangdokdae",
                   "rain_leaves", "country_house", "forest_night", "forest_path", "cabin_window",
                   "tent", "forest_lake", "valley_stream", "temple_path", "thunder_forest",
                   "tent_view_mountains", "tent_view_stream", "tent_view_valley", "tent_by_stream",

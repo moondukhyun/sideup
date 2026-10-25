@@ -29,7 +29,7 @@ AXES = {
                "looking down a path", "close view of the foreground"],
 }
 # v11.22: 실내 장면은 '한낮·여름' 같은 자연 풍경 문구가 섞이면 안 되므로 전용 축을 쓴다
-INTERIOR_SCENES = {"glasswall_bedroom_fireplace_storm", "candle_closeup", "candle_bookshelf", "candle_bookshelf_rain_window", "candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "living_fireplace_storm",
+INTERIOR_SCENES = {"remodel_hanok_living_window", "dreamhome_living_window", "glasswall_bedroom_fireplace_storm", "candle_closeup", "candle_bookshelf", "candle_bookshelf_rain_window", "candle_single", "candle_many", "cozy_parlor", "candle_rain_window", "living_fireplace_storm",
                    "living_fireplace_candles", "hearth_dog_cat", "candle_nook",
                    "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
                    "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window",
@@ -50,10 +50,10 @@ INTERIOR_AXES = {
 }
 
 # v11.23: 같은 장면이라도 이미지마다 창밖 풍경·방 분위기·소품이 확 달라지게 하는 추가 축
-WINDOW_INTERIOR = {"glasswall_bedroom_fireplace_storm", "living_fireplace_storm", "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
+WINDOW_INTERIOR = {"remodel_hanok_living_window", "dreamhome_living_window", "glasswall_bedroom_fireplace_storm", "living_fireplace_storm", "living_fireplace_big_window", "living_fireplace_two_windows", "living_one_window_rain",
                    "living_fireplace_panorama", "bedroom_window_candles_cat", "study_candles_big_window", "cabin_fireplace_window",
                    "living_turntable_fireplace", "turntable_window_rain", "candle_rain_window", "candle_bookshelf_rain_window", "living_coffee_fireplace_rain", "living_tea_fireplace_rain"}
-DECOR_SCENES = PET_SCENES | {"glasswall_bedroom_fireplace_storm", "living_coffee_fireplace_rain", "living_tea_fireplace_rain", "living_fireplace_candles", "turntable_candles_windowless", "turntable_window_rain", "cozy_parlor"}
+DECOR_SCENES = PET_SCENES | {"remodel_hanok_living_window", "dreamhome_living_window", "glasswall_bedroom_fireplace_storm", "living_coffee_fireplace_rain", "living_tea_fireplace_rain", "living_fireplace_candles", "turntable_candles_windowless", "turntable_window_rain", "cozy_parlor"}
 
 # v11.50: 전면 통유리 침실 + 벽난로 + 침대 장면 — 건축·침대·벽난로 위치·창밖 폭풍 풍경·침구·소품을 이미지마다 크게 다르게
 PANO_SCENES = {"glasswall_bedroom_fireplace_storm"}
@@ -93,6 +93,67 @@ PANO_EXTRAS = [
     "a stack of firewood in a metal rack beside the fireplace", "a low wooden table with an unlit lantern and a few books near the bed",
     "a tall indoor plant in the corner and a woven basket of blankets", "a pair of slippers by the bed and a knitted throw over a chair",
     "a large round wool rug under the bed and soft cushions on the floor by the glass"]
+
+# v11.51: 귀촌해서 예쁘게 지어 소품으로 꾸미고 사는 시골집 — 집 양식·정원·소품·조명을 이미지마다 다르게 (낡은 시골집이 나오지 않도록)
+DREAM_EXT = {"dreamhome_yard_rain", "dreamhome_porch_rain"}
+DREAM_INT = {"dreamhome_living_window"}
+DREAM_HOUSES = [
+    "a newly built modern hanok-style house with a gently curved dark tile roof, warm wooden eaves, white plaster walls and large glass doors",
+    "a white painted Scandinavian farmhouse with a steep dark roof, wooden window frames and a covered front porch",
+    "a cozy cedar-clad cottage with a green metal roof, big windows and a wide wooden deck",
+    "a two-storey stucco country house with a terracotta roof, arched windows and climbing roses",
+    "a minimalist black timber barn-style house with floor-to-ceiling windows and a long covered veranda",
+    "a pastel French-country cottage with blue shutters, a slate roof and a flower-filled porch",
+    "a stone-and-wood contemporary Korean country house with a flat overhanging roof and a gravel courtyard",
+    "a small elegant A-frame house with a glass front, a wooden deck and string lights"]
+DREAM_GARDENS = [
+    "hydrangeas in full bloom lining a stone path", "raised wooden herb beds of lavender, rosemary and mint beside the steps",
+    "a cosmos and wildflower meadow garden", "neat wooden raised vegetable beds with tomato trellises and a watering can",
+    "a pergola with climbing wisteria over a seating area", "a small pond with water lilies and flat stepping stones",
+    "a rose arch gate and a gravel path", "a low stone wall with a persimmon tree and ornamental grasses",
+    "a lawn edged with lavender and ornamental pampas grass"]
+DREAM_DECOR = [
+    "a wooden outdoor dining table with a linen cloth, a ceramic teapot and cups", "rattan armchairs with plaid blankets and a small side table with a lantern",
+    "hanging woven baskets with trailing plants and brass lanterns", "a vintage bicycle with a flower basket leaning against the wall",
+    "large Korean onggi jars planted with ornamental grass beside the steps", "a wooden swing bench with cushions",
+    "string lights across the deck and glowing paper lanterns", "a sheepskin-covered stool, a basket of firewood and potted herbs",
+    "a stack of folded blankets in a basket, a ceramic vase of fresh flowers and a small bench"]
+DREAM_LIGHT = [
+    "dusk with warm lights glowing in the windows", "soft overcast rainy afternoon light", "blue hour with string lights turned on",
+    "misty rainy morning with soft pale light", "late evening with lamps glowing inside the house"]
+DREAM_ROOMS = [
+    "a bright modern hanok-style living room with a high wooden ceiling, white plaster walls and a low sofa",
+    "a Scandinavian farmhouse living room with white painted wood walls, a linen sofa and a black wood stove",
+    "a French-country living room with cream walls, a vintage rug and floral cushions",
+    "a Japandi style living room with pale oak, paper lamps and a low wooden table",
+    "a rustic modern living room with exposed beams, a leather sofa and a stone fireplace",
+    "a bohemian cottage living room with layered rugs, many plants and a rattan sofa",
+    "a warm cottage living room with built-in bookshelves, a velvet armchair and a reading lamp"]
+DREAM_SHELVES = [
+    "open shelves with handmade ceramics and dried flowers", "framed botanical prints and a stack of books", "a collection of vintage jars, baskets and small plants",
+    "a wall of framed travel photos and a hanging macrame", "a display of pottery, candles and a small framed painting"]
+DREAM_WINDOW_VIEWS = [
+    "outside the window a garden of hydrangeas and a stone path in the rain", "outside the window raised herb beds and a wooden pergola glistening in the rain",
+    "outside the window a small pond with rain ripples and ornamental grasses", "outside the window a flower meadow and green hills in soft rain",
+    "outside the window a wooden deck with rain-wet rattan chairs and string lights", "outside the window a persimmon tree, a stone wall and misty hills"]
+
+# 리모델링한 기와집·옛 시골집 (낡음은 없애고 옛 분위기만 살린 모습)
+REMODEL_EXT = {"remodel_hanok_yard_rain"}
+REMODEL_INT = {"remodel_hanok_living_window"}
+REMODEL_HOUSES = [
+    "an old tile-roofed hanok renovated with fresh white plaster walls, restored dark wooden beams and large new glass sliding doors",
+    "an old stone-walled farmhouse renovated with clean limewashed walls, a new slate roof and black-framed windows",
+    "a traditional gwajip with a curved tile roof, a newly built wide wooden maru and warm lanterns under the eaves",
+    "an old countryside house renovated in a modern Korean style with a stylish glass extension and a restored tile roof",
+    "a hanok renovated into a cozy home with whitewashed walls, hanji paper doors, a refinished maru and neat flowerbeds",
+    "an old brick farmhouse renovated with a pale wooden porch, new windows and a freshly painted green door",
+    "a hanok with a restored tile roof and a modern wooden deck joined to the maru, clean stone steps and soft garden lights"]
+REMODEL_ROOMS = [
+    "a renovated hanok living room with exposed rafters, white plaster walls, a low sofa and a large window to the yard",
+    "a renovated old farmhouse living room with whitewashed stone walls, dark beams, a woven rug and a wood stove",
+    "a renovated gwajip daecheong living room with a polished wooden floor, hanji paper lamps and modern low seating",
+    "a renovated country house living room mixing antique Korean chests and modern furniture with a big garden window",
+    "a renovated hanok study living room with built-in shelves, a low table and warm paper lanterns"]
 
 OUTSIDE_VIEWS = [
     "outside the window a lush dense pine forest with every tree trunk, branch and needle sharply detailed, layered misty hills behind",
@@ -347,6 +408,18 @@ def diversify(scene_name, seed, rain_level=None):
                 picks["curtains"] = rng.choice(CURTAINS)
             if _scene_has_fireplace(scene_name):
                 picks["fireplace"] = rng.choice(FIREPLACES)
+            if scene_name in REMODEL_INT:                                  # 리모델링한 기와집 거실
+                for k_ in ("style", "walls", "ceiling", "props", "outside"):
+                    picks.pop(k_, None)
+                picks["room"] = rng.choice(REMODEL_ROOMS)
+                picks["shelves"] = rng.choice(DREAM_SHELVES)
+                picks["view"] = rng.choice(DREAM_WINDOW_VIEWS)
+            if scene_name in DREAM_INT:                                    # 귀촌집 거실: 방 양식·선반 소품·창밖 정원을 따로 고름
+                for k_ in ("style", "walls", "ceiling", "props", "outside"):
+                    picks.pop(k_, None)
+                picks["room"] = rng.choice(DREAM_ROOMS)
+                picks["shelves"] = rng.choice(DREAM_SHELVES)
+                picks["view"] = rng.choice(DREAM_WINDOW_VIEWS)
             if scene_name in PANO_SCENES:                                  # 통유리 침실: 건축 양식·침대·벽난로 위치·창밖 폭풍 풍경·침구·소품을 따로 고름 (일반 방 스타일·벽·천장 문구는 건축과 충돌하므로 뺌)
                 for k_ in ("style", "walls", "ceiling", "cabinet", "window", "curtains", "outside"):
                     picks.pop(k_, None)
@@ -355,6 +428,16 @@ def diversify(scene_name, seed, rain_level=None):
                 picks["firepos"] = rng.choice(PANO_FIRE_POS)
                 picks["view"] = rng.choice(PANO_OUTSIDE)
                 picks["extra"] = rng.choice(PANO_EXTRAS)
+    if scene_name in REMODEL_EXT:                                              # 리모델링한 기와집·시골집
+        picks["house"] = "the house is " + rng.choice(REMODEL_HOUSES)
+        picks["garden"] = "the yard has " + rng.choice(DREAM_GARDENS)
+        picks["decor"] = "decorated with " + rng.choice(DREAM_DECOR)
+        picks["light"] = rng.choice(DREAM_LIGHT)
+    if scene_name in DREAM_EXT:                                                # 귀촌해서 지은 예쁜 집: 집 양식·정원·소품·조명을 따로 고름
+        picks["house"] = "the house is " + rng.choice(DREAM_HOUSES)
+        picks["garden"] = "the garden has " + rng.choice(DREAM_GARDENS)
+        picks["decor"] = "decorated with " + rng.choice(DREAM_DECOR)
+        picks["light"] = rng.choice(DREAM_LIGHT)
     if scene_name not in INTERIOR_SCENES:                                      # v11.23: 자연·한옥·텐트 장면의 추가 변화
         if scene_name not in FIXED_TIME and scene_name not in URBAN_SCENES:
             picks["light"] = rng.choice(LIGHT_VIEWS)
