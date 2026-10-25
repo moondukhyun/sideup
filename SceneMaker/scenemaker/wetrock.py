@@ -217,7 +217,7 @@ class WetRocks:
     @staticmethod
     def _hilite(out, cap):
         """물줄기 반짝임의 목표 밝기: 표면 밝기에 비례해 밝힘 (어두운 항아리·기와 위에서 흰 우유처럼 튀지 않게). 밝은 바위는 거의 cap 까지."""
-        return np.minimum(out * 1.8 + 0.04, cap)
+        return np.minimum(out * 1.5 + 0.03, cap)
 
     def apply(self, out, f):
         """out: float RGB (H,W,3) 0..1 제자리 수정 후 반환."""
@@ -244,11 +244,11 @@ class WetRocks:
                     lo, hi = max(i0, 0), min(i1, n - 1)
                     if lo < hi:
                         cv2.line(buf, (int(pts[lo][0]), int(pts[lo][1])), (int(pts[hi][0]), int(pts[hi][1])),
-                                 a, r["w"] + 1, cv2.LINE_AA)
+                                 int(a * (0.45 if r.get("soft") else 1.0)), (r["w"] if r.get("soft") else r["w"] + 1), cv2.LINE_AA)
                     i1 = i0
                 if 0 <= head < n:                                   # 맨 앞의 작고 동그란 물방울
-                    cv2.circle(buf, (int(pts[head][0]), int(pts[head][1])), max(1, int(round(1.7 * self.res))),
-                               255, -1, cv2.LINE_AA)
+                    cv2.circle(buf, (int(pts[head][0]), int(pts[head][1])), max(1, int(round((1.1 if r.get("soft") else 1.7) * self.res))),
+                               (130 if r.get("soft") else 255), -1, cv2.LINE_AA)
             drops = buf.astype(np.float32) * (1 / 255.0) * (0.80 * min(1.4, self.wet))
             out += ((self._hilite(out, 0.96) - out) * drops[..., None])
         return out
