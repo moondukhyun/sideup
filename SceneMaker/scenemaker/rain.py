@@ -133,6 +133,7 @@ class RainRenderer:
         self.flash = self._make_flash(rng)
         self.layer_w = None          # set_depth(): 층별 원근 가림
         self.veil = None
+        self.veil_tex = None
         self.details = None          # details.WeatherDetails (깊이 기반 물 튀김·물결·물방울)
         self.motion = None           # motion.BackgroundMotion (잎 흔들림·물 일렁임)
         self.glass = None            # glass.GlassRain (창가 씬: 유리 물방울, 빗줄기는 창밖에만)
@@ -182,12 +183,14 @@ class RainRenderer:
         rng = np.random.default_rng(self.s.seed + 57)
         h, w_ = self.H, max(8, self.W // 3)
         tex = rng.random((h // 6, w_)).astype(np.float32)
-        img = Image.fromarray((tex * 255).astype(np.uint8)).resize((self.W, h), Image.BILINEAR)
+        tex3 = np.tile(tex, (3, 1))                                       # 위아래로 이어지는(타일) 무늬: 3번 이어 붙여 흐린 뒤 가운데만 씀 → 굴러 내려가도 이음선이 없음
+        img = Image.fromarray((tex3 * 255).astype(np.uint8)).resize((self.W, 3 * h), Image.BILINEAR)
         img = img.filter(ImageFilter.GaussianBlur((0.6, 18)))
-        tex = np.asarray(img, dtype=np.float32) / 255.0
+        tex = np.asarray(img, dtype=np.float32)[h:2 * h] / 255.0
         tex = np.clip((tex - tex.mean()) * 4 + 0.5, 0, 1)
         far = np.clip((0.4 - d) / 0.3, 0, 1)
-        self.veil = tex * far * 0.14 * self.s.intensity * self.s.veil     # veil 0 = 끔 (촛불 창 장면: 큰 어두운 창에서 띠가 번갈아 훑고 지나가 보임)
+        self.veil_tex = tex.astype(np.float32)                            # 굴러 내려가는 것은 무늬뿐, 먼 곳 가중치(far)는 고정 → 회색 띠의 가장자리가 따라 내려가던 현상 없음
+        self.veil = far * 0.14 * self.s.intensity * self.s.veil     # veil 0 = 끔 (촛불 창 장면: 큰 어두운 창에서 띠가 번갈아 훑고 지나가 보임)
         self.veil_cycles = max(1, int(round(self.N / self.fps * 0.8)))   # 초당 약 0.8화면 높이
         if self.depth_style:
             self.veil = self.veil * 0.8
@@ -337,7 +340,7 @@ class RainRenderer:
             np.add(mask, a, out=mask)
         if self.veil is not None:
             shift = int(round(self.H * self.veil_cycles * f / self.N)) % self.H
-            np.add(mask, np.roll(self.veil, shift, axis=0), out=mask)
+            np.add(mask, np.roll(self.veil_tex, shift, axis=0) * self.veil, out=mask)
         return np.minimum(mask, 1.0, out=mask)
 
     def _draw_splashes(self, draw, f, lw, lh):

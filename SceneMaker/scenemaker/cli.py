@@ -187,8 +187,8 @@ def make_loop(cfg, image, scene_name, args, job=None):
     for key in ("loop_seconds", "encoder", "resolution", "max_size_gb"):
         if getattr(args, key, None):
             v[key] = getattr(args, key)
-    if getattr(args, "sample", False):                                       # 샘플: 1080p · 실제 루프와 같은 속도로 앞 6초만 렌더 (효과 위치·속도 확인용)
-        v["resolution"] = "1080p"
+    if getattr(args, "sample", False):                                       # 샘플: 720p · 실제 루프와 같은 속도로 앞 4초만 렌더 (효과 위치·속도 확인용 — 렌더링 시간이 1080p 6초의 약 1/3)
+        v["resolution"] = "720p"
     durations = parse_durations(getattr(args, "duration", None) or v["duration"], parse_duration)
 
     if job is None:
@@ -201,7 +201,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
     W, H = RESOLUTIONS[v["resolution"]]
     bg = fit_cover(Image.open(image).convert("RGB"), W, H)
     rs = _rain_settings(cfg, scene_name, args, meta.get("rain_override"))
-    print(f"  적용된 설정 (v11.55 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
+    print(f"  적용된 설정 (v11.56 점검용): 장면={scene_name} · 비 세기 {rs.intensity:.2f} · 속도 {rs.speed:.2f} · 장막 {rs.veil:g} · 물튀김 배율 {rs.splash_gain:g} · "
           f"실내 효과 {rs.interior:g} · 수면 {rs.water_rain:g}x{rs.water_boost:g} · 바깥만 {'예' if getattr(rs, 'outside_only', False) else '아니오'}")
     if variety.warn_similar(bg, "이 배경은"):
         print("  → 다른 배경을 쓰거나, 그대로 쓰려면 무시하세요.")
@@ -217,7 +217,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
     print(f"미리보기: {job / 'preview.png'}  ({W}x{H})")
     _write_check_overlay(renderer, job)
     _effect_report(renderer, rs, job)
-    master = render_master(renderer, job / "loop_master.mp4", v, limit=int(6 * v["fps"]) if getattr(args, "sample", False) else None)
+    master = render_master(renderer, job / "loop_master.mp4", v, limit=int(4 * v["fps"]) if getattr(args, "sample", False) else None)
     if getattr(args, "sample", False):
         shutil.copy(master, job / "sample.mp4")
         print(f"샘플 영상: {job / 'sample.mp4'}  (짧은 샘플 — 마음에 들면 같은 이미지로 긴 영상을 만드세요)")
@@ -256,7 +256,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
 
 
 def _effect_report(renderer, rs, job):
-    """v11.55: 효과 점검표 — 어떤 효과가 실제로 적용됐고, 두 시점의 화면을 비교해 실제로 움직이는지까지 확인해서
+    """v11.56: 효과 점검표 — 어떤 효과가 실제로 적용됐고, 두 시점의 화면을 비교해 실제로 움직이는지까지 확인해서
     로그와 효과점검표.txt 로 남긴다 (조용히 빠진 효과가 없도록)."""
     lines = []
     try:
@@ -335,14 +335,14 @@ def _fire_speed(rs, args, default):
 
 
 def _add_marked_drips(maps, job, renderer, dfull):
-    """v11.55: 직접 표시한 '처마·기와 끝'(eave)의 아랫 가장자리에서 물방울이 맺혀 떨어지고, '잎'(leaftip) 영역의 잎 끝에서 물방울이 맺혔다 떨어지게 한다."""
+    """v11.56: 직접 표시한 '처마·기와 끝'(eave)의 아랫 가장자리에서 물방울이 맺혀 떨어지고, '잎'(leaftip) 영역의 잎 끝에서 물방울이 맺혔다 떨어지게 한다."""
     import cv2
     marks = _load_pets(job, None)
     W, H, res = renderer.W, renderer.H, renderer.res
     wz = _mark_zone(marks, ("wetsurf",), W, H)
     if wz.any():                                                            # 직접 표시한 젖은 면(항아리 뚜껑·어깨 등)에도 빗방울이 불규칙하게 튀게
         wzs = cv2.GaussianBlur(wz.astype(np.float32), (0, 0), max(1.5, 0.002 * W))
-        maps["ground"] = np.maximum(maps["ground"], 0.55 * wzs).astype(np.float32)
+        maps["splash_extra"] = wzs.astype(np.float32)
     ez = _mark_zone(marks, ("eave",), W, H)
     n_e = n_l = 0
     roof_paths = []
@@ -392,7 +392,7 @@ def _add_marked_drips(maps, job, renderer, dfull):
 
 
 def _attach_river(renderer, job, args):
-    """v11.55: [위치 지정]에서 '흐르는 물'로 표시한 곳(방향별)이 있으면 그 안의 물이 그 방향으로 흐르게."""
+    """v11.56: [위치 지정]에서 '흐르는 물'로 표시한 곳(방향별)이 있으면 그 안의 물이 그 방향으로 흐르게."""
     marks = _load_pets(job, args)
     kinds = {"river_l": "l", "river_r": "r", "river_d": "d", "river_u": "u"}
     if not any(m.get("kind") in kinds for m in marks):
@@ -491,7 +491,7 @@ def _attach_interior(renderer, job, rs, args):
     if rs.interior <= 0:
         if not any(m.get("kind", "dog") in light_kinds for m in marks):
             return
-        rs.interior = 1.0                                                       # v11.55: 불·촛불·김 등을 표시했는데 이 장면의 '실내 효과'가 0 이라 통째로 무시되던 문제
+        rs.interior = 1.0                                                       # v11.56: 불·촛불·김 등을 표시했는데 이 장면의 '실내 효과'가 0 이라 통째로 무시되던 문제
         print("  표시한 불·촛불·김·동물 위치가 있어 실내 효과를 켭니다 (이 장면의 기본값은 꺼짐이었어요)")
     from .interior import FanSpin, Interior, PetBreath, RecordSpin, Steam, TonearmBob, extend_fire_tips, find_lights
     Wp, Hp = renderer.W, renderer.H
@@ -500,7 +500,7 @@ def _attach_interior(renderer, job, rs, args):
     cpts = [((m["x0"] + m["x1"]) / 2 * Wp, (m["y0"] + m["y1"]) / 2 * Hp) for m in marks if m.get("kind") in ("candle", "lantern")]      # 텐트 천장 등불도 은은히 일렁이는 불빛으로
     info = find_lights(renderer.bg, exclude=renderer.glass.mask if renderer.glass is not None else None,
                        fire_box=fbox, candle_pts=cpts or None, big_flame=bool(getattr(rs, "big_flame", False)))
-    if getattr(rs, "free_fire", False) and not cpts and info.get("candles"):       # v11.55+: 야외 모닥불 장면은 직접 표시하지 않은 '촛불'을 자동으로 찾지 않음 (텐트 불빛·불꽃 조각을 촛불로 잘못 잡던 문제)
+    if getattr(rs, "free_fire", False) and not cpts and info.get("candles"):       # v11.56+: 야외 모닥불 장면은 직접 표시하지 않은 '촛불'을 자동으로 찾지 않음 (텐트 불빛·불꽃 조각을 촛불로 잘못 잡던 문제)
         print(f"  촛불 자동 감지 {len(info['candles'])}개는 쓰지 않아요 (이 장면은 촛불·등불을 위치 지정으로 표시했을 때만 흔들려요)")
         info["candles"] = []
     fm_any = next((m for m in marks if m.get("kind") == "fire"), None)

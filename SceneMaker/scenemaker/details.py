@@ -214,6 +214,11 @@ class WeatherDetails:
         self.depth = maps["depth"]
         secs = N / fps
         self.splashes = self._sample(maps["ground"], int(170 * intensity * secs * W * H / (1920 * 1080)), rng)
+        ex_ = maps.get("splash_extra")                                         # 직접 표시한 젖은 면(항아리 뚜껑·어깨)에 따로 튀는 빗방울
+        if ex_ is not None and float(ex_.max()) > 0.05:
+            frac_ = float((ex_ > 0.5).mean())
+            n_ex = int(170 * intensity * secs * W * H / (1920 * 1080) * min(0.9, 0.25 + frac_))
+            self.splashes = self.splashes + self._sample(ex_, n_ex, rng)
         self.ripples = self._sample(maps["puddle"], int(14 * intensity * secs * W * H / (1920 * 1080)), rng)
         # 물방울: 주기 = N/k (정수 k) → 루프 안에서 정확히 반복
         self.drips = []
