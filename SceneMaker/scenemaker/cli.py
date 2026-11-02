@@ -784,6 +784,11 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
     if real or depth_rain:
         renderer.set_depth(dfull)
     om = None
+    nrs = None                                                                  # v11.62: 직접 표시한 '비 안 내리는 곳'(지붕 아래·데크·실내) — 어떤 장면에서도 빗줄기·튀김·젖은 효과를 뺌
+    _nr = _mark_zone(_load_pets(job, args), ("norain",), renderer.W, renderer.H)
+    if _nr.any():
+        import cv2 as _cvn
+        nrs = np.clip(_cvn.GaussianBlur(_nr.astype(np.float32), (0, 0), max(2.0, 0.004 * renderer.W)), 0, 1)
     if getattr(rs, "outside_only", False) and (real or depth_rain):          # 텐트 안쪽(천·바닥)에는 비가 안 오고 열린 바깥에만 내림
         omarks = [m for m in _load_pets(job, args) if m.get("kind") in ("outside", "glass")]        # 텐트 장면에서는 '창 유리'로 그린 것도 '비 내리는 바깥'으로 읽음 (유리가 아니라 열린 바깥이므로)
         manual = [m for m in omarks if m.get("manual") or not m.get("auto")]
@@ -817,6 +822,8 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
                 inter = om * bx
                 om = inter if float(inter.sum()) >= 0.25 * float(bx.sum()) else bx
                 how += " + 자동 찾은 상자"
+        if nrs is not None:
+            om = (om * (1.0 - nrs)).astype(np.float32)
         renderer.set_outside(om)
         base = np.asarray(bg, np.float32) / 255.0
         prev = base * (0.45 + 0.55 * om[..., None])
@@ -824,6 +831,17 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         Image.fromarray((np.clip(prev, 0, 1) * 255).astype(np.uint8)).resize(
             (1280, int(1280 * renderer.H / renderer.W))).save(Path(job) / "outside_mask.jpg")
         print(f"  텐트 바깥 영역: 화면의 {float((om > 0.5).mean()):.0%}에만 비를 내림 ({how}) — 확인: outside_mask.jpg (파란 부분)")
+    if nrs is not None and om is None:                                          # 바깥만(outside_only)이 아닌 장면: 표시한 곳만 빼고 나머지는 평소대로
+        om = (1.0 - nrs).astype(np.float32)
+        renderer.set_outside(om)
+        base_ = np.asarray(bg, np.float32) / 255.0
+        prev_ = base_ * (0.45 + 0.55 * om[..., None])
+        prev_[..., 2] += 0.25 * om
+        Image.fromarray((np.clip(prev_, 0, 1) * 255).astype(np.uint8)).resize(
+            (1280, int(1280 * renderer.H / renderer.W))).save(Path(job) / "outside_mask.jpg")
+        print(f"  비 안 내리는 곳: 직접 표시한 곳(화면의 {float((nrs > 0.5).mean()):.0%})을 뺀 나머지에만 비를 내림 — 확인: outside_mask.jpg (파란 부분)")
+    elif nrs is not None:
+        print(f"  비 안 내리는 곳: 직접 표시한 곳(화면의 {float((nrs > 0.5).mean()):.0%})은 비·튀김·젖은 효과에서 제외")
     if want_window:
         from .glass import GlassRain, window_mask, window_mask_cool
         wmask = window_mask_cool(renderer.bg, dfull if real else None) if rs.interior > 0 else None     # 실내: 색으로 창 유리만 찾음
@@ -909,8 +927,14 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         print("  깊이 지도 없음 → 추정 깊이로 잎 흔들림·젖은 바위만 적용 (물 튀김·물웅덩이는 생략)")
     maps = (details_mod.build_maps(bg, Image.open(depth).resize(bg.size, Image.BILINEAR), seed=rs.seed)
             if real else None)
-    if om is not None and maps is not None:
+    if om is not None and maps is not None and getattr(rs, "outside_only", False):
         maps = details_mod.outside_maps(maps, om, dfull)                    # 물 튀김·물방울도 바깥에서만, 바깥 땅에도 빗방울이 튀게
+    if nrs is not None and maps is not None:                                  # 표시한 곳엔 바닥 튀김·물결·물방울도 없음
+        maps["ground"] = (maps["ground"] * (1.0 - nrs)).astype(np.float32)
+        maps["puddle"] = (maps["puddle"] * (1.0 - nrs)).astype(np.float32)
+        Hn, Wn = nrs.shape[:2]
+        maps["drips"] = [d_ for d_ in maps["drips"] if nrs[min(Hn - 1, int(d_[1])), min(Wn - 1, int(d_[0]))] < 0.5]
+        maps["trickles"] = [t_ for t_ in maps["trickles"] if nrs[min(Hn - 1, int(t_[1])), min(Wn - 1, int(t_[0]))] < 0.5]
     if want_details and real and maps is not None:
         _add_marked_drips(maps, job, renderer, dfull)
     if want_details and real:
