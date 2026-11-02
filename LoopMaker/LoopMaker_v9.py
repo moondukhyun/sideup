@@ -3821,6 +3821,31 @@ def classic_restart(line):
     return title
 
 
+def classic_start_at(line, n):
+    """v11.60: 고른 작품을 n부분부터 시작하게 한다. 진행 중인 작품이면 다음 부분 번호만 n 으로 바꾸고,
+    진행 기록이 없으면(지워졌거나 새 작품) 줄거리 설계만 새로 만든 뒤 n부분부터 쓰도록 표시한다. → 작품 제목"""
+    n = int(n)
+    if n < 1:
+        raise RuntimeError("부분 번호는 1 이상이어야 해요")
+    title = classic_set_next(line, abandon_current=True)
+    st = load_classic_state()
+    cur = st.get("current")
+    st.pop("start_at", None)
+    if n == 1:
+        st["current"] = None
+    elif cur and cur.get("line") == line and cur.get("bible"):
+        if n > int(cur.get("total_parts", n)):
+            raise RuntimeError(f"「{title}」는 전체 {cur.get('total_parts')}부분이라 {n}부분부터는 시작할 수 없어요")
+        cur["next_part"] = n
+        cur["tail"] = ""
+        st["current"] = cur
+    else:
+        st["current"] = None
+        st["start_at"] = n
+    save_classic_state(st)
+    return title
+
+
 def run_claude_text(prompt, timeout=300, allow_read=False, retries=3, log=None):
     """v11.13: 일시적인 실패(시간 초과·네트워크·잠깐의 사용량 제한)에 대비해 최대 3번 재시도.
     v11.19: 로그인 만료·사용량 한도는 기다려도 풀리지 않으므로 재시도 없이 바로 멈춘다."""
@@ -4340,6 +4365,7 @@ class StoryNarrator:
                     text = _narr_block(out, "STORY").replace("<<<END>>>", "").strip()
                     if len(text) < 80:
                         raise RuntimeError("Claude 응답에서 대본을 찾지 못했습니다:\n" + out[:300])
+                    start_at = int(st.pop("start_at", 1) or 1)
                     cur = {"line": line, "author": author, "title": title, "memo": memo,
                            "bible": _narr_block(out, "BIBLE"), "total_parts": parts_n, "next_part": 2,
                            "summary": fit_summary(_narr_block(out, "SUMMARY").replace("\n", " ")),
@@ -4348,6 +4374,11 @@ class StoryNarrator:
                     # ★ v11.14: 한 영상 안에서 완결되는 작품도 요약을 잃지 않도록 시작할 때 바로 기록
                     st["history"] = [h for h in st.get("history", []) if h.get("line") != line] + \
                                     [{"line": line, "summary": cur["summary"]}]
+                    if start_at > 1:                                  # 'N부분부터' 지정: 이번에 쓴 1부분은 버리고, 같은 줄거리 설계로 N부분부터 이어 씀
+                        cur["next_part"] = min(start_at, parts_n)
+                        cur["tail"] = ""
+                        self.log(f"     「{title}」 전체 {parts_n}부분 줄거리 설계 완료 → 지정한 {cur['next_part']}부분부터 이어서 써요")
+                        continue
                     segs.append((line, title, 1, parts_n, text, True))
                     self.log(f"     「{title}」 전체 {parts_n}부분으로 연재 · 1/{parts_n} 완료 ({len(text):,}자)")
                 else:
@@ -4707,7 +4738,7 @@ class StoryNarrator:
             ndur = self.probe_duration(out_path)
             if abs(ndur - vdur) > 2.0:
                 raise RuntimeError(f"완성 영상 길이가 원본과 다릅니다 (원본 {vdur:.0f}초 / 결과 {ndur:.0f}초)")
-            bad = self._playable_problem(out_path, vdur)                 # v11.59: 실제로 재생(디코딩)되는지 앞·중간·끝을 검사
+            bad = self._playable_problem(out_path, vdur)                 # v11.60: 실제로 재생(디코딩)되는지 앞·중간·끝을 검사
             if bad and card_ok:
                 self.log(f"  ⚠️ 제목 카드가 들어간 영상이 재생 검사를 통과하지 못했어요 ({bad}) — 제목 카드 없이 다시 합칩니다")
                 card_ok = False
@@ -5150,7 +5181,7 @@ class SceneTabMixin:
         self.sm_dur_var = tk.StringVar(value=cfg.get("duration", SM_DURATIONS[0][0]))
         self.sm_res_var = tk.StringVar(value=cfg.get("resolution", SM_RES[0][0]))                  # v11.32: 해상도 (시험은 1080p 로 빠르게)
         self.sm_motion_var = tk.BooleanVar(value=cfg.get("motion", True))
-        self.sm_sample_var = tk.BooleanVar(value=False)               # v11.59: 4초 샘플만 (효과 위치·세기 확인용)
+        self.sm_sample_var = tk.BooleanVar(value=False)               # v11.60: 4초 샘플만 (효과 위치·세기 확인용)
         self.sm_details_var = tk.BooleanVar(value=cfg.get("details", True))
         self.sm_wan_var = tk.BooleanVar(value=cfg.get("wan", False))
         self.sm_wet_var = tk.BooleanVar(value=cfg.get("wet", True))      # v11.19: 젖은 바위·물줄기·수면 빗방울
@@ -5626,7 +5657,7 @@ class SceneTabMixin:
         ttk.Radiobutton(bar, text="김 올라오는 곳(컵 입구·주전자 주둥이)", variable=kind, value="steam").pack(side="left")
         ttk.Radiobutton(bar, text="텐트 천장 등불", variable=kind, value="lantern").pack(side="left", padx=6)
         ttk.Label(bar, text="상자는 동물보다 살짝 크게", foreground="#666666").pack(side="left", padx=10)
-        rbar = ttk.Frame(win); rbar.pack(fill="x", padx=8, pady=(0, 8))                  # v11.59: 계곡·개울 물이 흐르는 방향
+        rbar = ttk.Frame(win); rbar.pack(fill="x", padx=8, pady=(0, 8))                  # v11.60: 계곡·개울 물이 흐르는 방향
         ttk.Radiobutton(rbar, text="💧 빗물 맺히고 흘러내리는 면(항아리·기와·돌담 — 다각형)", variable=kind, value="wetsurf").pack(side="left", padx=(0, 12))
         ttk.Radiobutton(rbar, text="🏠 기와 지붕 면(빗물이 줄줄 흘러 처마 끝에서 방울로 떨어짐 — 다각형)", variable=kind, value="eave").pack(side="left", padx=(0, 12))
         ttk.Radiobutton(rbar, text="🍃 잎(끝에서 물방울이 맺혔다 떨어짐)", variable=kind, value="leaftip").pack(side="left", padx=(0, 12))
@@ -6226,7 +6257,7 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.59 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.60 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
@@ -6640,7 +6671,10 @@ class App(SceneTabMixin, tk.Tk):
         self.narr_work_cb = ttk.Combobox(wr, textvariable=self.narr_work_var, width=44, state="readonly")
         self.narr_work_cb.pack(side="left", padx=4)
         ttk.Button(wr, text="이 작품부터", command=self.pick_next_work).pack(side="left", padx=4)
-        ttk.Button(wr, text="↩ 처음부터 다시", command=self.restart_work).pack(side="left", padx=4)       # v11.59: 테스트로 진행된 작품을 1부분부터 다시
+        ttk.Button(wr, text="↩ 처음부터 다시", command=self.restart_work).pack(side="left", padx=4)
+        self.narr_start_part_var = tk.StringVar(value="2")                                                    # v11.60: N부분부터 시작
+        ttk.Entry(wr, textvariable=self.narr_start_part_var, width=4).pack(side="left", padx=(8, 0))
+        ttk.Button(wr, text="부분부터 시작", command=self.start_at_part).pack(side="left", padx=2)       # v11.60: 테스트로 진행된 작품을 1부분부터 다시
         self._work_lines = []
         self.narr_style_var.trace_add("write", lambda *_: self._refresh_works())
         self._refresh_works()
@@ -6872,6 +6906,41 @@ class App(SceneTabMixin, tk.Tk):
             self.log(f"❌ 처음부터 다시 시작하지 못했어요: {ex}")
             return
         self.log(f"↩ 「{title}」을(를) 1부분부터 다시 시작해요  ·  {classic_status_text()}")
+        self._refresh_works()
+
+    def start_at_part(self):
+        style = NARR_STYLES.get(self.narr_style_var.get(), "classic")
+        idx = self.narr_work_cb.current()
+        if not is_lib_style(style) or idx < 0 or idx >= len(self._work_lines):
+            messagebox.showinfo("확인", "시작할 작품을 먼저 골라주세요")
+            return
+        try:
+            n = int(self.narr_start_part_var.get().strip())
+        except ValueError:
+            messagebox.showinfo("확인", "시작할 부분 번호를 숫자로 적어주세요 (예: 6)")
+            return
+        if n < 1 or n > 60:
+            messagebox.showinfo("확인", "부분 번호는 1~60 사이로 적어주세요")
+            return
+        set_active_lib(style)
+        line = self._work_lines[idx]
+        st = load_classic_state()
+        cur = st.get("current")
+        msg = f"고른 작품을 {n}부분부터 시작할까요?"
+        if cur and cur.get("line") != line:
+            msg += f"\n(지금 진행 중인 「{cur.get('title')}」 기록은 중단돼요)"
+        if cur and cur.get("line") == line:
+            msg += f"\n(지금은 {cur.get('next_part', 2) - 1}/{cur.get('total_parts')}부분까지 들려준 상태예요)"
+        else:
+            msg += "\n(진행 기록이 없으면 줄거리 설계를 새로 만든 뒤 그 부분부터 써요 — 앞 내용은 줄거리 설계로 이어져요)"
+        if not messagebox.askyesno("N부분부터 시작", msg):
+            return
+        try:
+            title = classic_start_at(line, n)
+        except Exception as ex:
+            self.log(f"❌ 시작 부분을 정하지 못했어요: {ex}")
+            return
+        self.log(f"▶ 「{title}」은 {n}부분부터 들려줘요  ·  {classic_status_text()}")
         self._refresh_works()
 
     def pick_next_work(self):
@@ -7554,7 +7623,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.59 시작\n")
+        self.log("🚀 LoopMaker v11.60 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 
