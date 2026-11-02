@@ -205,6 +205,7 @@ def make_loop(cfg, image, scene_name, args, job=None):
           f"실내 효과 {rs.interior:g} · 수면 {rs.water_rain:g}x{rs.water_boost:g} · 바깥만 {'예' if getattr(rs, 'outside_only', False) else '아니오'}")
     if variety.warn_similar(bg, "이 배경은"):
         print("  → 다른 배경을 쓰거나, 그대로 쓰려면 무시하세요.")
+    _clear_old_tests(job, args, durations)
     renderer = RainRenderer(bg, rs, v["fps"], v["loop_seconds"])
     v["loop_seconds"] = renderer.N / v["fps"]
     _attach_details(cfg, renderer, job, bg, rs, args)
@@ -253,6 +254,46 @@ def make_loop(cfg, image, scene_name, args, job=None):
     n = variety.mark_used(job / "background.png", note=", ".join(f["file"] for f in finals))
     print(f"완료: {len(finals)}개 영상  (사용 기록 {n}개)")
     return finals
+
+
+def _clear_old_tests(job, args, durations):
+    """v11.64: 4초 샘플·짧은 테스트(5분 이하)를 다시 만들 때, 같은 작업의 이전 테스트 결과만 지워서 헷갈리지 않게 한다.
+    긴 영상(5분 초과)과 다른 작업의 파일은 건드리지 않는다."""
+    job = Path(job)
+    sample = getattr(args, "sample", False)
+    if not sample and not (durations and max(durations) <= 300):
+        return
+    cands = [job / "sample.mp4"]
+    dirs = [job]
+    out = getattr(args, "out_dir", None)
+    if out:
+        dirs.append(Path(out))
+    for d in dirs:
+        if not d.is_dir():
+            continue
+        pre = "final_" if d == job else f"{job.name}_"
+        for f in d.glob(pre + "*.mp4"):
+            label = f.stem[len(pre):].rsplit("_", 1)[0]
+            import re
+            mm = re.fullmatch(r"(\d+(?:\.\d+)?)\s*(s|sec|m|min|h|hr|초|분|시간)", label)
+            try:
+                if mm:
+                    secs = float(mm.group(1)) * {"s": 1, "sec": 1, "초": 1, "m": 60, "min": 60, "분": 60}.get(mm.group(2), 3600)
+                else:
+                    secs = float(parse_duration(label))
+                if secs <= 300:
+                    cands.append(f)
+            except Exception:
+                pass                                                          # 길이를 알 수 없는 이름은 건드리지 않음
+    n = 0
+    for f in cands:
+        try:
+            if f.exists():
+                f.unlink(); n += 1
+        except OSError:
+            pass
+    if n:
+        print(f"  이전 샘플·테스트 영상 {n}개를 지우고 새로 만듭니다 (이 작업 폴더의 것만)")
 
 
 def _effect_report(renderer, rs, job):
