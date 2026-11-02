@@ -5480,10 +5480,10 @@ class SceneTabMixin:
         state = {"start": None, "cur": None, "pts": [], "drag": None}
         COLORS = {"cat": "#ffcc00", "fan": "#ff66ff", "record": "#ff9900", "fire": "#ff3300", "glass": "#33aaff",
                   "candle": "#ffee00", "tonearm": "#99ff00", "block": "#ffffff", "outside": "#00ccff", "steam": "#ccccff", "lantern": "#ffc850",
-                  "river_l": "#33dd66", "river_r": "#33dd66", "river_d": "#33dd66", "river_u": "#33dd66", "wetsurf": "#55ddff", "eave": "#88aaff", "leaftip": "#66ee88", "norain": "#3388ff"}
+                  "river_l": "#33dd66", "river_r": "#33dd66", "river_d": "#33dd66", "river_u": "#33dd66", "wetsurf": "#55ddff", "eave": "#88aaff", "leaftip": "#66ee88", "norain": "#3388ff", "still": "#ddcc33"}
         NAMES = {"cat": "고양이", "fan": "선풍기", "record": "레코드판", "fire": "장작불·모닥불", "glass": "창 유리",
                  "candle": "촛불", "tonearm": "톤암", "block": "창 가림", "outside": "비 내리는 바깥", "steam": "김 올라오는 곳", "lantern": "천장 등불",
-                 "river_l": "물 ← 왼쪽으로", "river_r": "물 → 오른쪽으로", "river_d": "물 ↓ 앞쪽으로", "river_u": "물 ↑ 뒤쪽으로", "wetsurf": "빗물 맺히는 면", "eave": "처마·기와 끝", "leaftip": "잎 끝 물방울", "norain": "비 안 내리는 곳"}
+                 "river_l": "물 ← 왼쪽으로", "river_r": "물 → 오른쪽으로", "river_d": "물 ↓ 앞쪽으로", "river_u": "물 ↑ 뒤쪽으로", "wetsurf": "빗물 맺히는 면", "eave": "처마·기와 끝", "leaftip": "잎 끝 물방울", "norain": "비 안 내리는 곳", "still": "흔들리지 않는 곳"}
         ONE_ONLY = ("record", "tonearm", "fire")            # 하나만 있어야 하는 종류: 새로 그리면 이전 것을 대체
 
         def redraw():
@@ -5626,7 +5626,7 @@ class SceneTabMixin:
                     _n[_b.get("kind", "dog")] = _n.get(_b.get("kind", "dog"), 0) + 1
                 _nm = {"dog": "강아지", "cat": "고양이", "fan": "선풍기", "record": "레코드판", "fire": "불", "glass": "창 유리", "candle": "촛불",
                        "tonearm": "톤암", "block": "창 가림", "outside": "비 내리는 바깥", "steam": "김", "lantern": "천장 등불",
-                       "river_l": "흐르는 물(←)", "river_r": "흐르는 물(→)", "river_d": "흐르는 물(↓)", "river_u": "흐르는 물(↑)", "wetsurf": "빗물 맺히는 면", "eave": "처마·기와 끝", "leaftip": "잎 끝 물방울", "norain": "비 안 내리는 곳"}
+                       "river_l": "흐르는 물(←)", "river_r": "흐르는 물(→)", "river_d": "흐르는 물(↓)", "river_u": "흐르는 물(↑)", "wetsurf": "빗물 맺히는 면", "eave": "처마·기와 끝", "leaftip": "잎 끝 물방울", "norain": "비 안 내리는 곳", "still": "흔들리지 않는 곳"}
                 self.log("🐾 위치 저장: " + ", ".join(f"{_nm.get(k, k)} {v}곳" for k, v in _n.items()) + " — 영상 만들기에 그대로 적용돼요")
             except OSError as e:
                 messagebox.showerror("저장 실패", str(e))
@@ -5662,6 +5662,7 @@ class SceneTabMixin:
         ttk.Radiobutton(rbar, text="🏠 기와 지붕 면(빗물이 줄줄 흘러 처마 끝에서 방울로 떨어짐 — 다각형)", variable=kind, value="eave").pack(side="left", padx=(0, 12))
         ttk.Radiobutton(rbar, text="🍃 잎(끝에서 물방울이 맺혔다 떨어짐)", variable=kind, value="leaftip").pack(side="left", padx=(0, 12))
         ttk.Radiobutton(rbar, text="☂ 비 안 내리는 곳(지붕 아래·데크·실내 — 다각형)", variable=kind, value="norain").pack(side="left", padx=(0, 12))
+        ttk.Radiobutton(rbar, text="🌿 흔들리지 않는 곳(잔디·풀밭 — 다각형)", variable=kind, value="still").pack(side="left", padx=(0, 12))
         ttk.Label(rbar, text="🌊 흐르는 물(계곡·개울 — 물 부분을 다각형으로 그리세요):").pack(side="left")
         for txt, val in (("← 왼쪽으로", "river_l"), ("→ 오른쪽으로", "river_r"), ("↓ 앞쪽(나 쪽)으로", "river_d"), ("↑ 뒤쪽으로", "river_u")):
             ttk.Radiobutton(rbar, text=txt, variable=kind, value=val).pack(side="left", padx=4)
@@ -6258,7 +6259,7 @@ class SceneTabMixin:
 class App(SceneTabMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("LoopMaker v11.62 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
+        self.title("LoopMaker v11.63 — 루프 + 🌧 AI 배경 + 🌙 스토리 내레이션 + 유튜브 패키지 + 숏폼 + 오디오 정제 (Somnia Forest)")
         # v9.7: 유튜브 패키지 탭에 인트로 자막 UI가 추가되면서 탭 내용이 커졌는데
         # 창 크기가 고정(resizable False)이라 진행 로그 칸이 밀려서 작아 보이던
         # 문제 수정 — 창을 더 크게 잡고, 필요하면 사용자가 직접 늘릴 수 있게 함.
@@ -7624,7 +7625,7 @@ class App(SceneTabMixin, tk.Tk):
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
-        self.log("🚀 LoopMaker v11.62 시작\n")
+        self.log("🚀 LoopMaker v11.63 시작\n")
 
         self.pipeline = Pipeline(self.log, self.stop_flag)
 

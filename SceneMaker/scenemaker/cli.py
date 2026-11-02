@@ -959,8 +959,15 @@ def _attach_details(cfg, renderer, job, bg, rs, args):
         if maps is None:
             zero = np.zeros_like(dfull)
             maps = {"depth": dfull, "puddle": zero, "ground": zero}
+        _still = _mark_zone(_load_pets(job, args), ("still",), renderer.W, renderer.H)     # v11.63: 직접 표시한 '흔들리지 않는 곳'(잔디·풀밭)
+        _excl = maps["ground"]
+        if _still.any():
+            import cv2 as _cvs
+            _sb = np.clip(_cvs.GaussianBlur(_still.astype(np.float32), (0, 0), max(2.0, 0.004 * renderer.W)), 0, 1)
+            _excl = np.maximum(_excl, _sb).astype(np.float32)
+            print(f"  흔들리지 않는 곳: 직접 표시한 곳(화면의 {float((_sb > 0.5).mean()):.0%})은 풀·잎 흔들림에서 제외")
         renderer.motion = BackgroundMotion(renderer.bg, maps["depth"], maps["puddle"], renderer.N, seed=rs.seed,
-                                           fps=renderer.fps, foliage=rs.foliage, exclude=maps["ground"],
+                                           fps=renderer.fps, foliage=rs.foliage, exclude=_excl,
                                            kicks=rs.leaf_kicks)
         cov = getattr(renderer.motion, "veg_coverage", 0.0)
         print(f"  배경 움직임: {'잎 흔들림·물 일렁임' if renderer.motion.active else '해당 영역 없음 (초록 잎을 거의 못 찾음)'}"
